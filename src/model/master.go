@@ -1,0 +1,11 @@
+package model
+
+// m_site
+type Site struct {
+	SiteID   int    `json:"site_id" gorm:"primaryKey;check:site_id >= 1 AND site_id <= 10"`
+	SiteName string `json:"site_name" gorm:"type:varchar(50)"`
+}
+
+func (m Site) TableName() string {
+	return "m_site"
+}
