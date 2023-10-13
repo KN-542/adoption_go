@@ -7,10 +7,12 @@ import (
 )
 
 func NewRouter(
+	login controller.ILoginController,
 	interviewer controller.IInterviewerController,
 	applicant controller.IApplicantController,
 ) *echo.Echo {
 	e := echo.New()
+	e.POST("login", login.Login)
 	e.POST("interviewer/create", interviewer.RegisterInterviewer)
 	e.POST("interviewer/list", interviewer.Interviewers)
 	e.POST("applicant/get_url", applicant.GetOauthURL)

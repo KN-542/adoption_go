@@ -21,6 +21,8 @@ func main() {
 
 	masterRepository := repository.NewMasterRepository(db)
 
+	loginController := controller.NewLoginController()
+
 	interviewerValidator := validator.NewInterviewerValidator()
 	interviewerRepository := repository.NewInterviewerRepository(db)
 	interviewerService := service.NewInterviewerService(interviewerRepository, interviewerValidator)
@@ -30,11 +32,11 @@ func main() {
 	applicantService := service.NewApplicantService(applicantRepository, masterRepository)
 	applicantController := controller.NewApplicantController(applicantService)
 
-	e := router.NewRouter(interviewerController, applicantController)
+	e := router.NewRouter(loginController, interviewerController, applicantController)
 
 	// CORSミドルウェアの設定
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
-		AllowOrigins: []string{os.Getenv("FE_CORS_URL")}, // ReactフロントエンドのURLに置き換える
+		AllowOrigins: []string{os.Getenv("FE_CSR_URL"), os.Getenv("FE_SSR_URL")},
 		AllowMethods: []string{echo.GET, echo.PUT, echo.POST, echo.DELETE},
 	}))
 
