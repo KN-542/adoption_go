@@ -18,5 +18,6 @@ func NewRouter(
 	e.POST("applicant/get_url", applicant.GetOauthURL)
 	e.POST("applicant/get_sheets", applicant.GetSheets)
 	e.POST("applicant/download", applicant.Download)
+	e.POST("applicant/search", applicant.Search)
 	return e
 }

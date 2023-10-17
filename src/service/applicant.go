@@ -23,6 +23,8 @@ type IApplicantService interface {
 	*/
 	// 応募者ダウンロード
 	Download(d *model.ApplicantsDownload) (*model.ApplicantsDownloadResponse, error)
+	// 検索
+	Search() (*model.ApplicantsDownloadResponse, error)
 }
 
 type applicantService struct {
@@ -114,6 +116,20 @@ func (s *applicantService) Download(d *model.ApplicantsDownload) (*model.Applica
 	}
 
 	// STEP3 検索
+	applicants, err := s.r.Search()
+	if err != nil {
+		log.Fatal(err)
+		return nil, err
+	}
+
+	res := model.ApplicantsDownloadResponse{
+		Applicants: applicants,
+	}
+	return &res, nil
+}
+
+// 検索
+func (s *applicantService) Search() (*model.ApplicantsDownloadResponse, error) {
 	applicants, err := s.r.Search()
 	if err != nil {
 		log.Fatal(err)
