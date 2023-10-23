@@ -7,7 +7,6 @@ import (
 	"api/src/repository"
 	"api/src/router"
 	"api/src/service"
-	"api/src/validator"
 	"os"
 
 	"github.com/labstack/echo/v4"
@@ -23,16 +22,21 @@ func main() {
 
 	loginController := controller.NewLoginController()
 
-	interviewerValidator := validator.NewInterviewerValidator()
-	interviewerRepository := repository.NewInterviewerRepository(db)
-	interviewerService := service.NewInterviewerService(interviewerRepository, interviewerValidator)
-	interviewerController := controller.NewInterviewerController(interviewerService)
+	userRepository := repository.NewUserRepository(db)
+	userService := service.NewUserService(userRepository)
+	userController := controller.NewUserController(userService)
+
+	// interviewerValidator := validator.NewInterviewerValidator()
 
 	applicantRepository := repository.NewApplicantRepository(db, redis)
 	applicantService := service.NewApplicantService(applicantRepository, masterRepository)
 	applicantController := controller.NewApplicantController(applicantService)
 
-	e := router.NewRouter(loginController, interviewerController, applicantController)
+	e := router.NewRouter(
+		loginController,
+		userController,
+		applicantController,
+	)
 
 	// CORSミドルウェアの設定
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
