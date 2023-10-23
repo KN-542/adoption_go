@@ -14,8 +14,9 @@ func main() {
 	dbConn := db.NewDB()
 
 	dbConn.AutoMigrate(
+		&model.Role{},
 		&model.Site{},
-		&model.Interviewer{},
+		&model.User{},
 		&model.Applicant{},
 	)
 
@@ -28,9 +29,8 @@ func main() {
 
 func CreateData(db *gorm.DB) {
 	r := repository.NewMasterRepository(db)
-	/*
-		m_site
-	*/
+
+	// m_site
 	r.InsertSite(
 		&model.Site{
 			SiteID:   int(enum.RECRUIT),
@@ -47,6 +47,20 @@ func CreateData(db *gorm.DB) {
 		&model.Site{
 			SiteID:   int(enum.DODA),
 			SiteName: "DODA",
+		},
+	)
+
+	// m_role
+	r.InsertRole(
+		&model.Role{
+			ID:   1,
+			Name: "Admin",
+		},
+	)
+	r.InsertRole(
+		&model.Role{
+			ID:   2,
+			Name: "Interviewer",
 		},
 	)
 }

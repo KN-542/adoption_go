@@ -130,12 +130,12 @@ func (a *applicantRepository) GetAccessToken(refreshToken *string, code *string)
 		tok := &oauth2.Token{
 			RefreshToken: *refreshToken,
 		}
-		resp, err := config.TokenSource(ctx, tok).Token()
+		res, err := config.TokenSource(ctx, tok).Token()
 		if err != nil {
 			log.Fatal(err)
 			return nil, err
 		}
-		return resp, nil
+		return res, nil
 	}
 
 	return nil, nil
@@ -164,14 +164,14 @@ func (a *applicantRepository) GetSheets(search model.ApplicantSearch, token *oau
 		strconv.Itoa(search.StartCellRow),
 		search.EndCellColumn,
 		strconv.Itoa(search.EndCellRow))
-	resp, err := sheetsService.Spreadsheets.Values.Get(os.Getenv("SPREADSHEET_ID"), readRange).Do()
+	res, err := sheetsService.Spreadsheets.Values.Get(os.Getenv("SPREADSHEET_ID"), readRange).Do()
 	if err != nil {
 		log.Fatal(err)
 		return nil, err
 	}
 
 	respList := []model.ApplicantResponse{}
-	for _, row := range resp.Values {
+	for _, row := range res.Values {
 		respList = append(
 			respList,
 			model.ApplicantResponse{

@@ -1,21 +1,21 @@
 package validator
 
-import (
-	"api/src/model"
+// import (
+// 	"api/src/model"
 
-	validation "github.com/go-ozzo/ozzo-validation/v4"
-)
+// 	validation "github.com/go-ozzo/ozzo-validation/v4"
+// )
 
-type IInterviewerValidator interface {
-	InterviewerValidate(i model.Interviewer) error
-}
+// type IInterviewerValidator interface {
+// 	InterviewerValidate(i model.Interviewer) error
+// }
 
-type interviewerValidator struct {}
+// type interviewerValidator struct {}
 
-func NewInterviewerValidator() IInterviewerValidator {
-	return &interviewerValidator{}
-}
+// func NewInterviewerValidator() IInterviewerValidator {
+// 	return &interviewerValidator{}
+// }
 
-func (v *interviewerValidator) InterviewerValidate(i model.Interviewer) error {
-	return validation.ValidateStruct(&i, validation.Field(&i.Name, validation.Required.Error("name is required")))
-}
+// func (v *interviewerValidator) InterviewerValidate(i model.Interviewer) error {
+// 	return validation.ValidateStruct(&i, validation.Field(&i.Name, validation.Required.Error("name is required")))
+// }
