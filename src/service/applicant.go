@@ -23,6 +23,8 @@ type IApplicantService interface {
 	*/
 	// 応募者ダウンロード
 	Download(d *model.ApplicantsDownload) (*model.ApplicantsDownloadResponse, error)
+	// 検索
+	Search() (*model.ApplicantsDownloadResponse, error)
 }
 
 type applicantService struct {
@@ -36,12 +38,12 @@ func NewApplicantService(r repository.IApplicantRepository, m repository.IMaster
 
 // 認証URL作成
 func (s *applicantService) GetOauthURL() (*model.GetOauthURLResponse, error) {
-	resp, err := s.r.GetOauthURL()
+	res, err := s.r.GetOauthURL()
 	if err != nil {
 		log.Fatal(err)
 		return nil, err
 	}
-	return resp, nil
+	return res, nil
 }
 
 // シート取得
@@ -54,13 +56,13 @@ func (s *applicantService) GetSheets(search model.ApplicantSearch) (*[]model.App
 		return nil, err
 	}
 
-	resp, err := s.r.GetSheets(search, accessToken)
+	res, err := s.r.GetSheets(search, accessToken)
 	if err != nil {
 		log.Fatal(err)
 		return nil, err
 	}
 
-	return resp, nil
+	return res, nil
 }
 
 /*
@@ -69,7 +71,7 @@ func (s *applicantService) GetSheets(search model.ApplicantSearch) (*[]model.App
 // 応募者ダウンロード
 func (s *applicantService) Download(d *model.ApplicantsDownload) (*model.ApplicantsDownloadResponse, error) {
 	// STEP1 サイトIDチェック
-	_, err := s.m.SelectByPrimaryKey(d.Site)
+	_, err := s.m.SelectSiteByPrimaryKey(d.Site)
 	if err != nil {
 		log.Fatal(err)
 		return nil, err
@@ -114,6 +116,20 @@ func (s *applicantService) Download(d *model.ApplicantsDownload) (*model.Applica
 	}
 
 	// STEP3 検索
+	applicants, err := s.r.Search()
+	if err != nil {
+		log.Fatal(err)
+		return nil, err
+	}
+
+	res := model.ApplicantsDownloadResponse{
+		Applicants: applicants,
+	}
+	return &res, nil
+}
+
+// 検索
+func (s *applicantService) Search() (*model.ApplicantsDownloadResponse, error) {
 	applicants, err := s.r.Search()
 	if err != nil {
 		log.Fatal(err)

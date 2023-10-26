@@ -21,6 +21,8 @@ type IApplicantController interface {
 	*/
 	// 応募者ダウンロード
 	Download(e echo.Context) error
+	// 検索
+	Search(e echo.Context) error
 }
 
 type applicantController struct {
@@ -62,7 +64,7 @@ func (c *applicantController) GetSheets(e echo.Context) error {
 /*
 	txt、csvダウンロード用
 */
-// シート取得
+// 応募者ダウンロード
 func (c *applicantController) Download(e echo.Context) error {
 	request := model.ApplicantsDownload{}
 	if err := e.Bind(&request); err != nil {
@@ -70,6 +72,16 @@ func (c *applicantController) Download(e echo.Context) error {
 	}
 
 	res, err := c.s.Download(&request)
+	if err != nil {
+		return e.JSON(http.StatusInternalServerError, err.Error())
+	}
+
+	return e.JSON(http.StatusOK, res)
+}
+
+// 検索
+func (c *applicantController) Search(e echo.Context) error {
+	res, err := c.s.Search()
 	if err != nil {
 		return e.JSON(http.StatusInternalServerError, err.Error())
 	}

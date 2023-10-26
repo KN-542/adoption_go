@@ -7,7 +7,6 @@ import (
 	"api/src/repository"
 	"api/src/router"
 	"api/src/service"
-	"api/src/validator"
 	"os"
 
 	"github.com/labstack/echo/v4"
@@ -21,20 +20,27 @@ func main() {
 
 	masterRepository := repository.NewMasterRepository(db)
 
-	interviewerValidator := validator.NewInterviewerValidator()
-	interviewerRepository := repository.NewInterviewerRepository(db)
-	interviewerService := service.NewInterviewerService(interviewerRepository, interviewerValidator)
-	interviewerController := controller.NewInterviewerController(interviewerService)
+	loginController := controller.NewLoginController()
+
+	userRepository := repository.NewUserRepository(db)
+	userService := service.NewUserService(userRepository)
+	userController := controller.NewUserController(userService)
+
+	// interviewerValidator := validator.NewInterviewerValidator()
 
 	applicantRepository := repository.NewApplicantRepository(db, redis)
 	applicantService := service.NewApplicantService(applicantRepository, masterRepository)
 	applicantController := controller.NewApplicantController(applicantService)
 
-	e := router.NewRouter(interviewerController, applicantController)
+	e := router.NewRouter(
+		loginController,
+		userController,
+		applicantController,
+	)
 
 	// CORSミドルウェアの設定
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
-		AllowOrigins: []string{os.Getenv("FE_CORS_URL")}, // ReactフロントエンドのURLに置き換える
+		AllowOrigins: []string{os.Getenv("FE_CSR_URL"), os.Getenv("FE_SSR_URL")},
 		AllowMethods: []string{echo.GET, echo.PUT, echo.POST, echo.DELETE},
 	}))
 
