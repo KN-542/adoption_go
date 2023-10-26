@@ -8,7 +8,7 @@ import (
 
 type IUserService interface {
 	// 一覧
-	List() (*[]model.UserResponse, error)
+	List() (*model.UsersResponse, error)
 }
 
 type userService struct {
@@ -20,12 +20,14 @@ func NewUserService(r repository.IUserRepository) IUserService {
 }
 
 // 一覧
-func (u *userService) List() (*[]model.UserResponse, error) {
+func (u *userService) List() (*model.UsersResponse, error) {
 	user, err := u.r.List()
 	if err != nil {
 		log.Fatal(err)
 		return nil, err
 	}
 
-	return model.ConvertUser(user), nil
+	return &model.UsersResponse{
+		Users: *model.ConvertUser(user),
+	}, nil
 }
