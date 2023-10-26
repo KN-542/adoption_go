@@ -4,7 +4,7 @@ import (
 	"time"
 )
 
-// ユーザー(管理)
+// ユーザ(管理)
 type User struct {
 	// ID
 	ID uint `json:"id" gorm:"primaryKey;AUTO_INCREMENT"`
@@ -30,7 +30,7 @@ func (t User) TableName() string {
 	return "t_user"
 }
 
-// ユーザー(管理) response
+// ユーザ(管理) response
 type UserResponse struct {
 	// ID
 	ID uint `json:"id"`
@@ -40,6 +40,9 @@ type UserResponse struct {
 	Email string `json:"email"`
 	// ロールID
 	RoleID uint `json:"role_id"`
+}
+type UsersResponse struct {
+	Users []UserResponse `json:"users"`
 }
 
 func ConvertUser(u *[]User) *[]UserResponse {
