@@ -11,13 +11,13 @@ type ILoginController interface {
 	Login(e echo.Context) error
 }
 
-type loginController struct{}
+type LoginController struct{}
 
 func NewLoginController() ILoginController {
-	return &loginController{}
+	return &LoginController{}
 }
 
 // ログイン
-func (c *loginController) Login(e echo.Context) error {
+func (c *LoginController) Login(e echo.Context) error {
 	return e.JSON(http.StatusOK, "OK")
 }

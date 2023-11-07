@@ -23,19 +23,19 @@ type IMasterRepository interface {
 	SelectRole() (*[]model.Role, error)
 }
 
-type masterRepository struct {
+type MasterRepository struct {
 	db *gorm.DB
 }
 
 func NewMasterRepository(db *gorm.DB) IMasterRepository {
-	return &masterRepository{db}
+	return &MasterRepository{db}
 }
 
 /*
 	m_site
 */
 // insert
-func (r *masterRepository) InsertSite(m *model.Site) error {
+func (r *MasterRepository) InsertSite(m *model.Site) error {
 	if err := r.db.Create(m).Error; err != nil {
 		return err
 	}
@@ -43,7 +43,7 @@ func (r *masterRepository) InsertSite(m *model.Site) error {
 }
 
 // select by primary key
-func (r *masterRepository) SelectSiteByPrimaryKey(key int) (*model.Site, error) {
+func (r *MasterRepository) SelectSiteByPrimaryKey(key int) (*model.Site, error) {
 	var res model.Site
 	if err := r.db.First(&res, key).Error; err != nil {
 		return nil, err
@@ -55,7 +55,7 @@ func (r *masterRepository) SelectSiteByPrimaryKey(key int) (*model.Site, error) 
 	m_role
 */
 // insert
-func (r *masterRepository) InsertRole(m *model.Role) error {
+func (r *MasterRepository) InsertRole(m *model.Role) error {
 	if err := r.db.Create(m).Error; err != nil {
 		return err
 	}
@@ -63,7 +63,7 @@ func (r *masterRepository) InsertRole(m *model.Role) error {
 }
 
 // select
-func (r *masterRepository) SelectRole() (*[]model.Role, error) {
+func (r *MasterRepository) SelectRole() (*[]model.Role, error) {
 	var res []model.Role
 	if err := r.db.Find(&res).Error; err != nil {
 		return nil, err
