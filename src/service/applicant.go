@@ -40,7 +40,7 @@ func NewApplicantService(r repository.IApplicantRepository, m repository.IMaster
 func (s *ApplicantService) GetOauthURL() (*model.GetOauthURLResponse, error) {
 	res, err := s.r.GetOauthURL()
 	if err != nil {
-		log.Fatal(err)
+		log.Printf("%v", err)
 		return nil, err
 	}
 	return res, nil
@@ -52,13 +52,13 @@ func (s *ApplicantService) GetSheets(search model.ApplicantSearch) (*[]model.App
 
 	accessToken, err := s.r.GetAccessToken(refreshToken, &search.Code)
 	if err != nil {
-		log.Fatal(err)
+		log.Printf("%v", err)
 		return nil, err
 	}
 
 	res, err := s.r.GetSheets(search, accessToken)
 	if err != nil {
-		log.Fatal(err)
+		log.Printf("%v", err)
 		return nil, err
 	}
 
@@ -73,7 +73,7 @@ func (s *ApplicantService) Download(d *model.ApplicantsDownload) (*model.Applica
 	// STEP1 サイトIDチェック
 	_, err := s.m.SelectSiteByPrimaryKey(d.Site)
 	if err != nil {
-		log.Fatal(err)
+		log.Printf("%v", err)
 		return nil, err
 	}
 
@@ -101,14 +101,14 @@ func (s *ApplicantService) Download(d *model.ApplicantsDownload) (*model.Applica
 			// STEP2-1 重複チェック
 			count, err := s.r.CountByPrimaryKey(&m.ID)
 			if err != nil {
-				log.Fatal(err)
+				log.Printf("%v", err)
 				return nil, err
 			}
 			fmt.Println(m.Name)
 			if *count == int64(0) {
 				// STEP2-2 登録
 				if err := s.r.Insert(&m); err != nil {
-					log.Fatal(err)
+					log.Printf("%v", err)
 					return nil, err
 				}
 			}
@@ -118,7 +118,7 @@ func (s *ApplicantService) Download(d *model.ApplicantsDownload) (*model.Applica
 	// STEP3 検索
 	applicants, err := s.r.Search()
 	if err != nil {
-		log.Fatal(err)
+		log.Printf("%v", err)
 		return nil, err
 	}
 
@@ -132,7 +132,7 @@ func (s *ApplicantService) Download(d *model.ApplicantsDownload) (*model.Applica
 func (s *ApplicantService) Search() (*model.ApplicantsDownloadResponse, error) {
 	applicants, err := s.r.Search()
 	if err != nil {
-		log.Fatal(err)
+		log.Printf("%v", err)
 		return nil, err
 	}
 
