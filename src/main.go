@@ -7,6 +7,7 @@ import (
 	"api/src/repository"
 	"api/src/router"
 	"api/src/service"
+	"api/src/validator"
 	"os"
 
 	"github.com/labstack/echo/v4"
@@ -23,10 +24,9 @@ func main() {
 	loginController := controller.NewLoginController()
 
 	userRepository := repository.NewUserRepository(db)
-	userService := service.NewUserService(userRepository)
+	userValidate := validator.NewUserValidator()
+	userService := service.NewUserService(userRepository, userValidate)
 	userController := controller.NewUserController(userService)
-
-	// interviewerValidator := validator.NewInterviewerValidator()
 
 	applicantRepository := repository.NewApplicantRepository(db, redis)
 	applicantService := service.NewApplicantService(applicantRepository, masterRepository)

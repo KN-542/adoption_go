@@ -71,7 +71,7 @@ func (a *ApplicantRepository) GetRefreshToken() (*string, error) {
 // 認証クライアント作成
 func (a *ApplicantRepository) GetOauthClient() (*oauth2.Config, error) {
 	if err := godotenv.Load(); err != nil {
-		log.Fatal(err)
+		log.Printf("%v", err)
 		return nil, err
 	}
 
@@ -95,7 +95,7 @@ func (a *ApplicantRepository) GetOauthURL() (*model.GetOauthURLResponse, error) 
 
 	config, err := a.GetOauthClient()
 	if err != nil {
-		log.Fatal(err)
+		log.Printf("%v", err)
 		return nil, err
 	}
 
@@ -107,7 +107,7 @@ func (a *ApplicantRepository) GetOauthURL() (*model.GetOauthURLResponse, error) 
 func (a *ApplicantRepository) GetAccessToken(refreshToken *string, code *string) (*oauth2.Token, error) {
 	config, err := a.GetOauthClient()
 	if err != nil {
-		log.Fatal(err)
+		log.Printf("%v", err)
 		return nil, err
 	}
 
@@ -116,7 +116,7 @@ func (a *ApplicantRepository) GetAccessToken(refreshToken *string, code *string)
 		var ctx = context.Background()
 		tok, err := config.Exchange(ctx, *code)
 		if err != nil {
-			log.Fatal(err)
+			log.Printf("%v", err)
 			return nil, err
 		}
 
@@ -132,7 +132,7 @@ func (a *ApplicantRepository) GetAccessToken(refreshToken *string, code *string)
 		}
 		res, err := config.TokenSource(ctx, tok).Token()
 		if err != nil {
-			log.Fatal(err)
+			log.Printf("%v", err)
 			return nil, err
 		}
 		return res, nil
@@ -147,14 +147,14 @@ func (a *ApplicantRepository) GetSheets(search model.ApplicantSearch, token *oau
 
 	config, err := a.GetOauthClient()
 	if err != nil {
-		log.Fatal(err)
+		log.Printf("%v", err)
 		return nil, err
 	}
 	client := config.Client(ctx, token)
 
 	sheetsService, err := sheets.NewService(ctx, option.WithHTTPClient(client))
 	if err != nil {
-		log.Fatal(err)
+		log.Printf("%v", err)
 		return nil, err
 	}
 
@@ -166,7 +166,7 @@ func (a *ApplicantRepository) GetSheets(search model.ApplicantSearch, token *oau
 		strconv.Itoa(search.EndCellRow))
 	res, err := sheetsService.Spreadsheets.Values.Get(os.Getenv("SPREADSHEET_ID"), readRange).Do()
 	if err != nil {
-		log.Fatal(err)
+		log.Printf("%v", err)
 		return nil, err
 	}
 

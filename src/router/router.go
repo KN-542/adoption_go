@@ -13,7 +13,8 @@ func NewRouter(
 ) *echo.Echo {
 	e := echo.New()
 	e.POST("login", login.Login)
-	e.POST("applicant/users", user.List)
+	e.POST("user/list", user.List)
+	e.POST("user/create", user.Create)
 	e.POST("applicant/get_url", applicant.GetOauthURL)
 	e.POST("applicant/get_sheets", applicant.GetSheets)
 	e.POST("applicant/download", applicant.Download)

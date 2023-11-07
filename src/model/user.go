@@ -40,6 +40,8 @@ type UserResponse struct {
 	Email string `json:"email"`
 	// ロールID
 	RoleID uint `json:"role_id"`
+	// 初回パスワード
+	InitPassword string `json:"init_password"`
 }
 type UsersResponse struct {
 	Users []UserResponse `json:"users"`
