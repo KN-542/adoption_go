@@ -44,20 +44,20 @@ type IApplicantRepository interface {
 	CountByPrimaryKey(key *string) (*int64, error)
 }
 
-type applicantRepository struct {
+type ApplicantRepository struct {
 	db    *gorm.DB
 	redis *redis.Client
 }
 
 func NewApplicantRepository(db *gorm.DB, redis *redis.Client) IApplicantRepository {
-	return &applicantRepository{db, redis}
+	return &ApplicantRepository{db, redis}
 }
 
 /*
 	OAuth2.0用(削除予定)
 */
 // refresh_token取得
-func (a *applicantRepository) GetRefreshToken() (*string, error) {
+func (a *ApplicantRepository) GetRefreshToken() (*string, error) {
 	var ctx = context.Background()
 
 	value, err := a.redis.Get(ctx, static.REDIS_OAUTH_REFRESH_TOKEN).Result()
@@ -69,7 +69,7 @@ func (a *applicantRepository) GetRefreshToken() (*string, error) {
 }
 
 // 認証クライアント作成
-func (a *applicantRepository) GetOauthClient() (*oauth2.Config, error) {
+func (a *ApplicantRepository) GetOauthClient() (*oauth2.Config, error) {
 	if err := godotenv.Load(); err != nil {
 		log.Fatal(err)
 		return nil, err
@@ -87,7 +87,7 @@ func (a *applicantRepository) GetOauthClient() (*oauth2.Config, error) {
 }
 
 // 認証URL作成
-func (a *applicantRepository) GetOauthURL() (*model.GetOauthURLResponse, error) {
+func (a *ApplicantRepository) GetOauthURL() (*model.GetOauthURLResponse, error) {
 	_, err := a.GetRefreshToken()
 	if err == nil {
 		return nil, nil
@@ -104,7 +104,7 @@ func (a *applicantRepository) GetOauthURL() (*model.GetOauthURLResponse, error) 
 }
 
 // access_token取得
-func (a *applicantRepository) GetAccessToken(refreshToken *string, code *string) (*oauth2.Token, error) {
+func (a *ApplicantRepository) GetAccessToken(refreshToken *string, code *string) (*oauth2.Token, error) {
 	config, err := a.GetOauthClient()
 	if err != nil {
 		log.Fatal(err)
@@ -142,7 +142,7 @@ func (a *applicantRepository) GetAccessToken(refreshToken *string, code *string)
 }
 
 // シート取得
-func (a *applicantRepository) GetSheets(search model.ApplicantSearch, token *oauth2.Token) (*[]model.ApplicantResponse, error) {
+func (a *ApplicantRepository) GetSheets(search model.ApplicantSearch, token *oauth2.Token) (*[]model.ApplicantResponse, error) {
 	ctx := context.Background()
 
 	config, err := a.GetOauthClient()
@@ -183,7 +183,7 @@ func (a *applicantRepository) GetSheets(search model.ApplicantSearch, token *oau
 }
 
 // 登録
-func (a *applicantRepository) Insert(applicant *model.Applicant) error {
+func (a *ApplicantRepository) Insert(applicant *model.Applicant) error {
 	if err := a.db.Create(applicant).Error; err != nil {
 		return err
 	}
@@ -191,7 +191,7 @@ func (a *applicantRepository) Insert(applicant *model.Applicant) error {
 }
 
 // 検索 TODO 検索仕様追加
-func (a *applicantRepository) Search() ([]model.Applicant, error) {
+func (a *ApplicantRepository) Search() ([]model.Applicant, error) {
 	var l []model.Applicant
 	if err := a.db.Find(&l).Error; err != nil {
 		return nil, err
@@ -200,7 +200,7 @@ func (a *applicantRepository) Search() ([]model.Applicant, error) {
 }
 
 // PK検索(カウント)
-func (a *applicantRepository) CountByPrimaryKey(key *string) (*int64, error) {
+func (a *ApplicantRepository) CountByPrimaryKey(key *string) (*int64, error) {
 	var count int64
 	if err := a.db.Model(&model.Applicant{}).Where("id = ?", key).Count(&count).Error; err != nil {
 		return nil, err

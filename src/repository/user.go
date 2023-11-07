@@ -13,16 +13,16 @@ type IUserRepository interface {
 	List() (*[]model.User, error)
 }
 
-type userRepository struct {
+type UserRepository struct {
 	db *gorm.DB
 }
 
 func NewUserRepository(db *gorm.DB) IUserRepository {
-	return &userRepository{db}
+	return &UserRepository{db}
 }
 
 // 登録
-func (u *userRepository) Insert(model *model.User) error {
+func (u *UserRepository) Insert(model *model.User) error {
 	if err := u.db.Create(model).Error; err != nil {
 		return err
 	}
@@ -30,7 +30,7 @@ func (u *userRepository) Insert(model *model.User) error {
 }
 
 // 全件取得
-func (u *userRepository) List() (*[]model.User, error) {
+func (u *UserRepository) List() (*[]model.User, error) {
 	var l []model.User
 	if err := u.db.Find(&l).Error; err != nil {
 		return nil, err

@@ -27,17 +27,17 @@ type IApplicantService interface {
 	Search() (*model.ApplicantsDownloadResponse, error)
 }
 
-type applicantService struct {
+type ApplicantService struct {
 	r repository.IApplicantRepository
 	m repository.IMasterRepository
 }
 
 func NewApplicantService(r repository.IApplicantRepository, m repository.IMasterRepository) IApplicantService {
-	return &applicantService{r, m}
+	return &ApplicantService{r, m}
 }
 
 // 認証URL作成
-func (s *applicantService) GetOauthURL() (*model.GetOauthURLResponse, error) {
+func (s *ApplicantService) GetOauthURL() (*model.GetOauthURLResponse, error) {
 	res, err := s.r.GetOauthURL()
 	if err != nil {
 		log.Fatal(err)
@@ -47,7 +47,7 @@ func (s *applicantService) GetOauthURL() (*model.GetOauthURLResponse, error) {
 }
 
 // シート取得
-func (s *applicantService) GetSheets(search model.ApplicantSearch) (*[]model.ApplicantResponse, error) {
+func (s *ApplicantService) GetSheets(search model.ApplicantSearch) (*[]model.ApplicantResponse, error) {
 	refreshToken, _ := s.r.GetRefreshToken()
 
 	accessToken, err := s.r.GetAccessToken(refreshToken, &search.Code)
@@ -69,7 +69,7 @@ func (s *applicantService) GetSheets(search model.ApplicantSearch) (*[]model.App
 	txt、csvダウンロード用
 */
 // 応募者ダウンロード
-func (s *applicantService) Download(d *model.ApplicantsDownload) (*model.ApplicantsDownloadResponse, error) {
+func (s *ApplicantService) Download(d *model.ApplicantsDownload) (*model.ApplicantsDownloadResponse, error) {
 	// STEP1 サイトIDチェック
 	_, err := s.m.SelectSiteByPrimaryKey(d.Site)
 	if err != nil {
@@ -129,7 +129,7 @@ func (s *applicantService) Download(d *model.ApplicantsDownload) (*model.Applica
 }
 
 // 検索
-func (s *applicantService) Search() (*model.ApplicantsDownloadResponse, error) {
+func (s *ApplicantService) Search() (*model.ApplicantsDownloadResponse, error) {
 	applicants, err := s.r.Search()
 	if err != nil {
 		log.Fatal(err)

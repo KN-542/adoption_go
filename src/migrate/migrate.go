@@ -33,34 +33,34 @@ func CreateData(db *gorm.DB) {
 	// m_site
 	r.InsertSite(
 		&model.Site{
-			SiteID:   int(enum.RECRUIT),
-			SiteName: "リクナビNEXT",
+			SiteID:     int(enum.RECRUIT),
+			SiteNameJa: "リクナビNEXT",
 		},
 	)
 	r.InsertSite(
 		&model.Site{
-			SiteID:   int(enum.MYNAVI),
-			SiteName: "マイナビ",
+			SiteID:     int(enum.MYNAVI),
+			SiteNameJa: "マイナビ",
 		},
 	)
 	r.InsertSite(
 		&model.Site{
-			SiteID:   int(enum.DODA),
-			SiteName: "DODA",
+			SiteID:     int(enum.DODA),
+			SiteNameJa: "DODA",
 		},
 	)
 
 	// m_role
 	r.InsertRole(
 		&model.Role{
-			ID:   1,
-			Name: "Admin",
+			ID:     1,
+			NameJa: "最高責任者",
 		},
 	)
 	r.InsertRole(
 		&model.Role{
-			ID:   2,
-			Name: "Interviewer",
+			ID:     2,
+			NameJa: "面接官",
 		},
 	)
 }

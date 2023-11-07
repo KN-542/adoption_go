@@ -12,16 +12,16 @@ type IUserController interface {
 	List(e echo.Context) error
 }
 
-type userController struct {
+type UserController struct {
 	s service.IUserService
 }
 
 func NewUserController(s service.IUserService) IUserController {
-	return &userController{s}
+	return &UserController{s}
 }
 
 // 一覧
-func (c *userController) List(e echo.Context) error {
+func (c *UserController) List(e echo.Context) error {
 	res, err := c.s.List()
 	if err != nil {
 		return e.JSON(http.StatusInternalServerError, err.Error())

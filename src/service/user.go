@@ -11,16 +11,16 @@ type IUserService interface {
 	List() (*model.UsersResponse, error)
 }
 
-type userService struct {
+type UserService struct {
 	r repository.IUserRepository
 }
 
 func NewUserService(r repository.IUserRepository) IUserService {
-	return &userService{r}
+	return &UserService{r}
 }
 
 // 一覧
-func (u *userService) List() (*model.UsersResponse, error) {
+func (u *UserService) List() (*model.UsersResponse, error) {
 	user, err := u.r.List()
 	if err != nil {
 		log.Fatal(err)

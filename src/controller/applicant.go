@@ -25,19 +25,19 @@ type IApplicantController interface {
 	Search(e echo.Context) error
 }
 
-type applicantController struct {
+type ApplicantController struct {
 	s service.IApplicantService
 }
 
 func NewApplicantController(s service.IApplicantService) IApplicantController {
-	return &applicantController{s}
+	return &ApplicantController{s}
 }
 
 /*
 	OAuth2.0用(削除予定)
 */
 // 認証URL作成
-func (c *applicantController) GetOauthURL(e echo.Context) error {
+func (c *ApplicantController) GetOauthURL(e echo.Context) error {
 	res, err := c.s.GetOauthURL()
 	if err != nil {
 		return e.JSON(http.StatusInternalServerError, err.Error())
@@ -47,7 +47,7 @@ func (c *applicantController) GetOauthURL(e echo.Context) error {
 }
 
 // シート取得
-func (c *applicantController) GetSheets(e echo.Context) error {
+func (c *ApplicantController) GetSheets(e echo.Context) error {
 	request := model.ApplicantSearch{}
 	if err := e.Bind(&request); err != nil {
 		return e.JSON(http.StatusBadRequest, err.Error())
@@ -65,7 +65,7 @@ func (c *applicantController) GetSheets(e echo.Context) error {
 	txt、csvダウンロード用
 */
 // 応募者ダウンロード
-func (c *applicantController) Download(e echo.Context) error {
+func (c *ApplicantController) Download(e echo.Context) error {
 	request := model.ApplicantsDownload{}
 	if err := e.Bind(&request); err != nil {
 		return e.JSON(http.StatusBadRequest, err.Error())
@@ -80,7 +80,7 @@ func (c *applicantController) Download(e echo.Context) error {
 }
 
 // 検索
-func (c *applicantController) Search(e echo.Context) error {
+func (c *ApplicantController) Search(e echo.Context) error {
 	res, err := c.s.Search()
 	if err != nil {
 		return e.JSON(http.StatusInternalServerError, err.Error())
