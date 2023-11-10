@@ -13,6 +13,8 @@ type IUserController interface {
 	List(e echo.Context) error
 	// 登録
 	Create(e echo.Context) error
+	// ロール一覧
+	RoleList(e echo.Context) error
 }
 
 type UserController struct {
@@ -40,6 +42,15 @@ func (c *UserController) Create(e echo.Context) error {
 	}
 
 	res, err := c.s.Create(&req)
+	if err != nil {
+		return e.JSON(http.StatusInternalServerError, err.Error())
+	}
+	return e.JSON(http.StatusOK, res)
+}
+
+// ロール一覧
+func (c *UserController) RoleList(e echo.Context) error {
+	res, err := c.s.RoleList()
 	if err != nil {
 		return e.JSON(http.StatusInternalServerError, err.Error())
 	}

@@ -8,10 +8,7 @@ import (
 	"api/src/router"
 	"api/src/service"
 	"api/src/validator"
-	"os"
-
-	"github.com/labstack/echo/v4"
-	"github.com/labstack/echo/v4/middleware"
+	"log"
 )
 
 func main() {
@@ -21,28 +18,24 @@ func main() {
 
 	masterRepository := repository.NewMasterRepository(db)
 
-	loginController := controller.NewLoginController()
+	loginService := service.NewLoginService()
+	loginController := controller.NewLoginController(loginService)
 
 	userRepository := repository.NewUserRepository(db)
 	userValidate := validator.NewUserValidator()
-	userService := service.NewUserService(userRepository, userValidate)
+	userService := service.NewUserService(userRepository, masterRepository, userValidate)
 	userController := controller.NewUserController(userService)
 
 	applicantRepository := repository.NewApplicantRepository(db, redis)
 	applicantService := service.NewApplicantService(applicantRepository, masterRepository)
 	applicantController := controller.NewApplicantController(applicantService)
 
+	log.Print(222)
 	e := router.NewRouter(
 		loginController,
 		userController,
 		applicantController,
 	)
-
-	// CORSミドルウェアの設定
-	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
-		AllowOrigins: []string{os.Getenv("FE_CSR_URL"), os.Getenv("FE_SSR_URL")},
-		AllowMethods: []string{echo.GET, echo.PUT, echo.POST, echo.DELETE},
-	}))
-
+	log.Print(333)
 	e.Logger.Fatal(e.Start(":8080"))
 }

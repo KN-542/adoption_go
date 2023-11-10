@@ -17,15 +17,22 @@ type IUserService interface {
 	List() (*model.UsersResponse, error)
 	// 登録
 	Create(req *model.User) (*model.UserResponse, error)
+	// ロール一覧
+	RoleList() (*model.UserRoles, error)
 }
 
 type UserService struct {
 	r repository.IUserRepository
+	m repository.IMasterRepository
 	v validator.IUserValidator
 }
 
-func NewUserService(r repository.IUserRepository, v validator.IUserValidator) IUserService {
-	return &UserService{r, v}
+func NewUserService(
+	r repository.IUserRepository,
+	m repository.IMasterRepository,
+	v validator.IUserValidator,
+) IUserService {
+	return &UserService{r, m, v}
 }
 
 // 一覧
@@ -100,4 +107,15 @@ func (u *UserService) Create(req *model.User) (*model.UserResponse, error) {
 		InitPassword: password,
 	}
 	return &res, nil
+}
+
+// ロール一覧
+func (u *UserService) RoleList() (*model.UserRoles, error) {
+	roles, err := u.m.SelectRole()
+	if err != nil {
+		log.Printf("%v", err)
+		return nil, err
+	}
+
+	return &model.UserRoles{Roles: *roles}, nil
 }

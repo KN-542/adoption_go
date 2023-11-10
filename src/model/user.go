@@ -47,6 +47,11 @@ type UsersResponse struct {
 	Users []UserResponse `json:"users"`
 }
 
+// ユーザーロール一覧
+type UserRoles struct {
+	Roles []Role `json:"roles"`
+}
+
 func ConvertUser(u *[]User) *[]UserResponse {
 	var respList []UserResponse
 	for _, row := range *u {
