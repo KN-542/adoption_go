@@ -106,7 +106,7 @@ func (u *UserRepository) ConfirmInitPassword(m *model.User) (*int8, error) {
 // メールアドレス重複チェック
 func (u *UserRepository) EmailDuplCheck(m *model.User) error {
 	var count int64
-	if err := u.db.Where(
+	if err := u.db.Model(&model.User{}).Where(
 		&model.User{
 			Email: m.Email,
 		},
@@ -125,7 +125,7 @@ func (u *UserRepository) EmailDuplCheck(m *model.User) error {
 // ユーザー存在確認
 func (u *UserRepository) UserCheck(m *model.User) error {
 	var count int64
-	if err := u.db.Where(
+	if err := u.db.Model(&model.User{}).Where(
 		&model.User{
 			ID: m.ID,
 		},
