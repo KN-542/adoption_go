@@ -40,7 +40,7 @@ func NewApplicantController(s service.IApplicantService) IApplicantController {
 func (c *ApplicantController) GetOauthURL(e echo.Context) error {
 	res, err := c.s.GetOauthURL()
 	if err != nil {
-		return e.JSON(http.StatusInternalServerError, err.Error())
+		return e.JSON(err.Status, err.Error.Error())
 	}
 
 	return e.JSON(http.StatusOK, res)
@@ -55,7 +55,7 @@ func (c *ApplicantController) GetSheets(e echo.Context) error {
 
 	res, err := c.s.GetSheets(request)
 	if err != nil {
-		return e.JSON(http.StatusInternalServerError, err.Error())
+		return e.JSON(err.Status, err.Error.Error())
 	}
 
 	return e.JSON(http.StatusOK, res)
@@ -73,7 +73,7 @@ func (c *ApplicantController) Download(e echo.Context) error {
 
 	res, err := c.s.Download(&request)
 	if err != nil {
-		return e.JSON(http.StatusInternalServerError, err.Error())
+		return e.JSON(err.Status, err.Error.Error())
 	}
 
 	return e.JSON(http.StatusOK, res)
@@ -83,7 +83,7 @@ func (c *ApplicantController) Download(e echo.Context) error {
 func (c *ApplicantController) Search(e echo.Context) error {
 	res, err := c.s.Search()
 	if err != nil {
-		return e.JSON(http.StatusInternalServerError, err.Error())
+		return e.JSON(err.Status, err.Error.Error())
 	}
 
 	return e.JSON(http.StatusOK, res)

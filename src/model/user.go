@@ -7,7 +7,7 @@ import (
 // ユーザ(管理)
 type User struct {
 	// ID
-	ID uint `json:"id" gorm:"primaryKey;AUTO_INCREMENT"`
+	ID uint64 `json:"id" gorm:"primaryKey;AUTO_INCREMENT"`
 	// 氏名
 	Name string `json:"name" gorm:"unique;type:varchar(30)"`
 	// メールアドレス
@@ -33,7 +33,7 @@ func (t User) TableName() string {
 // ユーザ(管理) response
 type UserResponse struct {
 	// ID
-	ID uint `json:"id"`
+	ID uint64 `json:"id"`
 	// 氏名
 	Name string `json:"name"`
 	// メールアドレス
@@ -45,6 +45,22 @@ type UserResponse struct {
 }
 type UsersResponse struct {
 	Users []UserResponse `json:"users"`
+}
+
+// ユーザー MFA
+type UserMFA struct {
+	// メールアドレス
+	Email string `json:"email"`
+	// 認証コード
+	Code string `json:"code"`
+}
+
+// パスワード変更
+type PasswordChanging struct {
+	// 旧パスワード(ハッシュ化)
+	OldPassword string `json:"old_password"`
+	// 新パスワード(ハッシュ化)
+	Password string `json:"password"`
 }
 
 // ユーザーロール一覧

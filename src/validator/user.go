@@ -2,13 +2,19 @@ package validator
 
 import (
 	"api/src/model"
-	"regexp"
+	"errors"
+
+	// "regexp"
 
 	validation "github.com/go-ozzo/ozzo-validation/v4"
+	"github.com/go-ozzo/ozzo-validation/v4/is"
 )
 
 type IUserValidator interface {
 	CreateValidate(u *model.User) error
+	LoginValidate(u *model.User) error
+	MFAValidate(u *model.UserMFA) error
+	PasswordChangeValidate(u *model.User) error
 }
 
 type userValidator struct{}
@@ -29,13 +35,58 @@ func (v *userValidator) CreateValidate(u *model.User) error {
 			&u.Email,
 			validation.Required,
 			validation.Length(1, 50),
-			validation.Match(regexp.MustCompile(
-				`^[a-zA-Z0-9_+-]+(.[a-zA-Z0-9_+-]+)*@([a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]*.)+[a-zA-Z]{2,}$`,
-			)),
+			is.Email,
 		),
 		validation.Field(
 			&u.RoleID,
 			validation.Required,
+		),
+	)
+}
+func (v *userValidator) LoginValidate(u *model.User) error {
+	return validation.ValidateStruct(
+		u,
+		validation.Field(
+			&u.Email,
+			validation.Required,
+			validation.Length(1, 50),
+			is.Email,
+		),
+		validation.Field(
+			&u.Password,
+			validation.Required,
+		),
+	)
+}
+func (v *userValidator) MFAValidate(u *model.UserMFA) error {
+	return validation.ValidateStruct(
+		u,
+		validation.Field(
+			&u.Code,
+			validation.Required,
+			validation.Length(6, 6),
+			is.UTFNumeric,
+		),
+	)
+}
+
+func (v *userValidator) PasswordChangeValidate(u *model.User) error {
+	return validation.ValidateStruct(
+		u,
+		validation.Field(
+			&u.Password,
+			validation.Required,
+		),
+		validation.Field(
+			&u.InitPassword,
+			validation.Required,
+			validation.By(func(value interface{}) error {
+				initPassword, _ := value.(string)
+				if initPassword == u.Password {
+					return errors.New("password cannot be the same as the initial password")
+				}
+				return nil
+			}),
 		),
 	)
 }
