@@ -2,27 +2,27 @@ package main
 
 import (
 	"api/src/controller"
-	"api/src/infra/db"
-	"api/src/infra/redis"
+	"api/src/infra"
 	"api/src/repository"
 	"api/src/router"
 	"api/src/service"
 	"api/src/validator"
-	"log"
 )
 
 func main() {
-	db := db.NewDB()
+	db := infra.NewDB()
 
-	redis := redis.NewRedis()
+	redis := infra.NewRedis()
+	redisRepository := repository.NewRedisRepository(redis)
 
 	masterRepository := repository.NewMasterRepository(db)
 
-	loginService := service.NewLoginService()
-	loginController := controller.NewLoginController(loginService)
-
 	userRepository := repository.NewUserRepository(db)
 	userValidate := validator.NewUserValidator()
+
+	loginService := service.NewLoginService(userRepository, redisRepository, userValidate)
+	loginController := controller.NewLoginController(loginService)
+
 	userService := service.NewUserService(userRepository, masterRepository, userValidate)
 	userController := controller.NewUserController(userService)
 
@@ -30,12 +30,10 @@ func main() {
 	applicantService := service.NewApplicantService(applicantRepository, masterRepository)
 	applicantController := controller.NewApplicantController(applicantService)
 
-	log.Print(222)
 	e := router.NewRouter(
 		loginController,
 		userController,
 		applicantController,
 	)
-	log.Print(333)
 	e.Logger.Fatal(e.Start(":8080"))
 }

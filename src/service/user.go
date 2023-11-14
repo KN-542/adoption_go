@@ -7,6 +7,7 @@ import (
 	"crypto/rand"
 	"log"
 	"math/big"
+	"net/http"
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
@@ -14,11 +15,11 @@ import (
 
 type IUserService interface {
 	// 一覧
-	List() (*model.UsersResponse, error)
+	List() (*model.UsersResponse, *model.ErrorResponse)
 	// 登録
-	Create(req *model.User) (*model.UserResponse, error)
+	Create(req *model.User) (*model.UserResponse, *model.ErrorResponse)
 	// ロール一覧
-	RoleList() (*model.UserRoles, error)
+	RoleList() (*model.UserRoles, *model.ErrorResponse)
 }
 
 type UserService struct {
@@ -36,11 +37,14 @@ func NewUserService(
 }
 
 // 一覧
-func (u *UserService) List() (*model.UsersResponse, error) {
+func (u *UserService) List() (*model.UsersResponse, *model.ErrorResponse) {
 	user, err := u.r.List()
 	if err != nil {
 		log.Printf("%v", err)
-		return nil, err
+		return nil, &model.ErrorResponse{
+			Status: http.StatusInternalServerError,
+			Error:  err,
+		}
 	}
 
 	return &model.UsersResponse{
@@ -49,11 +53,23 @@ func (u *UserService) List() (*model.UsersResponse, error) {
 }
 
 // 登録
-func (u *UserService) Create(req *model.User) (*model.UserResponse, error) {
+func (u *UserService) Create(req *model.User) (*model.UserResponse, *model.ErrorResponse) {
 	// バリデーション
 	if err := u.v.CreateValidate(req); err != nil {
 		log.Printf("%v", err)
-		return nil, err
+		return nil, &model.ErrorResponse{
+			Status: http.StatusBadRequest,
+			Error:  err,
+		}
+	}
+
+	// メールアドレス重複チェック
+	if err := u.r.EmailDuplCheck(req); err != nil {
+		log.Printf("%v", err)
+		return nil, &model.ErrorResponse{
+			Status: http.StatusConflict,
+			Error:  err,
+		}
 	}
 
 	// 初回パスワード発行
@@ -64,7 +80,10 @@ func (u *UserService) Create(req *model.User) (*model.UserResponse, error) {
 	length, err := rand.Int(rand.Reader, big.NewInt(int64(maxLength-minLength+1)))
 	if err != nil {
 		log.Printf("%v", err)
-		return nil, err
+		return nil, &model.ErrorResponse{
+			Status: http.StatusInternalServerError,
+			Error:  err,
+		}
 	}
 	passLength := minLength + int(length.Int64())
 
@@ -72,7 +91,10 @@ func (u *UserService) Create(req *model.User) (*model.UserResponse, error) {
 	_, err = rand.Read(buffer)
 	if err != nil {
 		log.Printf("%v", err)
-		return nil, err
+		return nil, &model.ErrorResponse{
+			Status: http.StatusInternalServerError,
+			Error:  err,
+		}
 	}
 	for i := 0; i < passLength; i++ {
 		buffer[i] = passwordChars[int(buffer[i])%len(passwordChars)]
@@ -82,7 +104,10 @@ func (u *UserService) Create(req *model.User) (*model.UserResponse, error) {
 	buffer2, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
 		log.Printf("%v", err)
-		return nil, err
+		return nil, &model.ErrorResponse{
+			Status: http.StatusInternalServerError,
+			Error:  err,
+		}
 	}
 	hashPassword := string(buffer2)
 
@@ -99,7 +124,10 @@ func (u *UserService) Create(req *model.User) (*model.UserResponse, error) {
 
 	if err := u.r.Insert(&user); err != nil {
 		log.Printf("%v", err)
-		return nil, err
+		return nil, &model.ErrorResponse{
+			Status: http.StatusInternalServerError,
+			Error:  err,
+		}
 	}
 
 	res := model.UserResponse{
@@ -110,11 +138,14 @@ func (u *UserService) Create(req *model.User) (*model.UserResponse, error) {
 }
 
 // ロール一覧
-func (u *UserService) RoleList() (*model.UserRoles, error) {
+func (u *UserService) RoleList() (*model.UserRoles, *model.ErrorResponse) {
 	roles, err := u.m.SelectRole()
 	if err != nil {
 		log.Printf("%v", err)
-		return nil, err
+		return nil, &model.ErrorResponse{
+			Status: http.StatusInternalServerError,
+			Error:  err,
+		}
 	}
 
 	return &model.UserRoles{Roles: *roles}, nil

@@ -6,6 +6,7 @@ import (
 	"api/src/repository"
 	"fmt"
 	"log"
+	"net/http"
 	"strconv"
 	"unicode/utf8"
 )
@@ -15,16 +16,16 @@ type IApplicantService interface {
 		OAuth2.0用(削除予定)
 	*/
 	// 認証URL作成
-	GetOauthURL() (*model.GetOauthURLResponse, error)
+	GetOauthURL() (*model.GetOauthURLResponse, *model.ErrorResponse)
 	// シート取得
-	GetSheets(search model.ApplicantSearch) (*[]model.ApplicantResponse, error)
+	GetSheets(search model.ApplicantSearch) (*[]model.ApplicantResponse, *model.ErrorResponse)
 	/*
 		txt、csvダウンロード用
 	*/
 	// 応募者ダウンロード
-	Download(d *model.ApplicantsDownload) (*model.ApplicantsDownloadResponse, error)
+	Download(d *model.ApplicantsDownload) (*model.ApplicantsDownloadResponse, *model.ErrorResponse)
 	// 検索
-	Search() (*model.ApplicantsDownloadResponse, error)
+	Search() (*model.ApplicantsDownloadResponse, *model.ErrorResponse)
 }
 
 type ApplicantService struct {
@@ -37,29 +38,38 @@ func NewApplicantService(r repository.IApplicantRepository, m repository.IMaster
 }
 
 // 認証URL作成
-func (s *ApplicantService) GetOauthURL() (*model.GetOauthURLResponse, error) {
+func (s *ApplicantService) GetOauthURL() (*model.GetOauthURLResponse, *model.ErrorResponse) {
 	res, err := s.r.GetOauthURL()
 	if err != nil {
 		log.Printf("%v", err)
-		return nil, err
+		return nil, &model.ErrorResponse{
+			Status: http.StatusInternalServerError,
+			Error:  err,
+		}
 	}
 	return res, nil
 }
 
 // シート取得
-func (s *ApplicantService) GetSheets(search model.ApplicantSearch) (*[]model.ApplicantResponse, error) {
+func (s *ApplicantService) GetSheets(search model.ApplicantSearch) (*[]model.ApplicantResponse, *model.ErrorResponse) {
 	refreshToken, _ := s.r.GetRefreshToken()
 
 	accessToken, err := s.r.GetAccessToken(refreshToken, &search.Code)
 	if err != nil {
 		log.Printf("%v", err)
-		return nil, err
+		return nil, &model.ErrorResponse{
+			Status: http.StatusInternalServerError,
+			Error:  err,
+		}
 	}
 
 	res, err := s.r.GetSheets(search, accessToken)
 	if err != nil {
 		log.Printf("%v", err)
-		return nil, err
+		return nil, &model.ErrorResponse{
+			Status: http.StatusInternalServerError,
+			Error:  err,
+		}
 	}
 
 	return res, nil
@@ -69,12 +79,15 @@ func (s *ApplicantService) GetSheets(search model.ApplicantSearch) (*[]model.App
 	txt、csvダウンロード用
 */
 // 応募者ダウンロード
-func (s *ApplicantService) Download(d *model.ApplicantsDownload) (*model.ApplicantsDownloadResponse, error) {
+func (s *ApplicantService) Download(d *model.ApplicantsDownload) (*model.ApplicantsDownloadResponse, *model.ErrorResponse) {
 	// STEP1 サイトIDチェック
 	_, err := s.m.SelectSiteByPrimaryKey(d.Site)
 	if err != nil {
 		log.Printf("%v", err)
-		return nil, err
+		return nil, &model.ErrorResponse{
+			Status: http.StatusInternalServerError,
+			Error:  err,
+		}
 	}
 
 	// STEP2 登録
@@ -102,14 +115,20 @@ func (s *ApplicantService) Download(d *model.ApplicantsDownload) (*model.Applica
 			count, err := s.r.CountByPrimaryKey(&m.ID)
 			if err != nil {
 				log.Printf("%v", err)
-				return nil, err
+				return nil, &model.ErrorResponse{
+					Status: http.StatusInternalServerError,
+					Error:  err,
+				}
 			}
 			fmt.Println(m.Name)
 			if *count == int64(0) {
 				// STEP2-2 登録
 				if err := s.r.Insert(&m); err != nil {
 					log.Printf("%v", err)
-					return nil, err
+					return nil, &model.ErrorResponse{
+						Status: http.StatusInternalServerError,
+						Error:  err,
+					}
 				}
 			}
 		}
@@ -119,7 +138,10 @@ func (s *ApplicantService) Download(d *model.ApplicantsDownload) (*model.Applica
 	applicants, err := s.r.Search()
 	if err != nil {
 		log.Printf("%v", err)
-		return nil, err
+		return nil, &model.ErrorResponse{
+			Status: http.StatusInternalServerError,
+			Error:  err,
+		}
 	}
 
 	res := model.ApplicantsDownloadResponse{
@@ -129,11 +151,14 @@ func (s *ApplicantService) Download(d *model.ApplicantsDownload) (*model.Applica
 }
 
 // 検索
-func (s *ApplicantService) Search() (*model.ApplicantsDownloadResponse, error) {
+func (s *ApplicantService) Search() (*model.ApplicantsDownloadResponse, *model.ErrorResponse) {
 	applicants, err := s.r.Search()
 	if err != nil {
 		log.Printf("%v", err)
-		return nil, err
+		return nil, &model.ErrorResponse{
+			Status: http.StatusInternalServerError,
+			Error:  err,
+		}
 	}
 
 	res := model.ApplicantsDownloadResponse{

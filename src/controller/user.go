@@ -29,7 +29,7 @@ func NewUserController(s service.IUserService) IUserController {
 func (c *UserController) List(e echo.Context) error {
 	res, err := c.s.List()
 	if err != nil {
-		return e.JSON(http.StatusInternalServerError, err.Error())
+		return e.JSON(err.Status, err.Error.Error())
 	}
 	return e.JSON(http.StatusOK, res)
 }
@@ -43,7 +43,7 @@ func (c *UserController) Create(e echo.Context) error {
 
 	res, err := c.s.Create(&req)
 	if err != nil {
-		return e.JSON(http.StatusInternalServerError, err.Error())
+		return e.JSON(err.Status, err.Error.Error())
 	}
 	return e.JSON(http.StatusOK, res)
 }
@@ -52,7 +52,7 @@ func (c *UserController) Create(e echo.Context) error {
 func (c *UserController) RoleList(e echo.Context) error {
 	res, err := c.s.RoleList()
 	if err != nil {
-		return e.JSON(http.StatusInternalServerError, err.Error())
+		return e.JSON(err.Status, err.Error.Error())
 	}
 	return e.JSON(http.StatusOK, res)
 }

@@ -1,7 +1,7 @@
 package main
 
 import (
-	"api/src/infra/db"
+	"api/src/infra"
 	"api/src/model"
 	"api/src/model/enum"
 	"api/src/repository"
@@ -11,7 +11,7 @@ import (
 )
 
 func main() {
-	dbConn := db.NewDB()
+	dbConn := infra.NewDB()
 
 	dbConn.AutoMigrate(
 		&model.Role{},
@@ -24,7 +24,7 @@ func main() {
 	CreateData(dbConn)
 
 	defer fmt.Println("Successfully Migrated")
-	defer db.CloseDB(dbConn)
+	defer infra.CloseDB(dbConn)
 }
 
 func CreateData(db *gorm.DB) {
