@@ -23,7 +23,7 @@ type ILoginService interface {
 	// ログイン認証
 	Login(req *model.User) (*model.UserResponse, *model.ErrorResponse)
 	// JWTトークン作成
-	JWT(email *string, exp float64, name string) (*http.Cookie, *model.ErrorResponse)
+	JWT(hashKey *string, exp time.Duration, name string, secret string) (*http.Cookie, *model.ErrorResponse)
 	// MFA 認証コード生成
 	CodeGenerate(req *model.User) *model.ErrorResponse
 	// MFA
@@ -36,6 +36,8 @@ type ILoginService interface {
 	PasswordChange(req *model.User) *model.ErrorResponse
 	// セッション存在確認
 	SessionConfirm(req *model.User) *model.ErrorResponse
+	// ログアウト
+	Logout(req *model.User) (*http.Cookie, *model.ErrorResponse)
 }
 
 type LoginService struct {
@@ -121,19 +123,20 @@ func (l *LoginService) Login(req *model.User) (*model.UserResponse, *model.Error
 		HashKey: user.HashKey,
 		Name:    user.Name,
 		Email:   user.Email,
+		RoleID:  user.RoleID,
 	}, nil
 }
 
 // JWTトークン作成
-func (l *LoginService) JWT(email *string, exp float64, name string) (*http.Cookie, *model.ErrorResponse) {
+func (l *LoginService) JWT(hashKey *string, exp time.Duration, name string, secret string) (*http.Cookie, *model.ErrorResponse) {
 	// Token作成
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"user_id": email,
-		"exp":     time.Now().Add(time.Duration(exp) * time.Hour).Unix(),
+		"user_id": hashKey,
+		"exp":     time.Now().Add(exp * time.Hour).Unix(),
 	})
 
 	// 署名
-	tokenString, err := token.SignedString([]byte(os.Getenv("JWT_SECRET"))) // 複数のトークンがあるため別のキーを使用するかも
+	tokenString, err := token.SignedString([]byte(os.Getenv(secret)))
 	if err != nil {
 		return nil, &model.ErrorResponse{
 			Status: http.StatusInternalServerError,
@@ -184,7 +187,7 @@ func (l *LoginService) CodeGenerate(req *model.User) *model.ErrorResponse {
 		req.HashKey,
 		static.REDIS_CODE,
 		&code,
-		20*time.Second,
+		5*time.Minute,
 	); err != nil {
 		log.Printf("%v", err)
 		return &model.ErrorResponse{
@@ -328,7 +331,6 @@ func (l *LoginService) PasswordChange(req *model.User) *model.ErrorResponse {
 		log.Printf("%v", err)
 		return &model.ErrorResponse{
 			Status: http.StatusInternalServerError,
-			Error:  err,
 		}
 	}
 
@@ -343,7 +345,18 @@ func (l *LoginService) PasswordChange(req *model.User) *model.ErrorResponse {
 		}
 	}
 
+	// パスワードハッシュ化
+	buffer, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	if err != nil {
+		log.Printf("%v", err)
+		return &model.ErrorResponse{
+			Status: http.StatusInternalServerError,
+		}
+	}
+	req.Password = string(buffer)
+
 	// パスワード変更
+	req.UpdatedAt = time.Now()
 	if err := l.login.PasswordChange(req); err != nil {
 		log.Printf("%v", err)
 		return &model.ErrorResponse{
@@ -390,4 +403,38 @@ func (l *LoginService) SessionConfirm(req *model.User) *model.ErrorResponse {
 	}
 
 	return nil
+}
+
+// ログアウト
+func (l *LoginService) Logout(req *model.User) (*http.Cookie, *model.ErrorResponse) {
+	// バリデーション
+	if err := l.v.HashKeyValidate(req); err != nil {
+		log.Printf("%v", err)
+		return nil, &model.ErrorResponse{
+			Status: http.StatusBadRequest,
+			Code:   static.CODE_BAD_REQUEST,
+		}
+	}
+
+	// Redis破棄
+	ctx := context.Background()
+	if err := l.redis.Delete(ctx, req.HashKey); err != nil {
+		log.Printf("%v", err)
+		return nil, &model.ErrorResponse{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// Cookie破棄(使えないcookieに更新)
+	cookie := http.Cookie{
+		Name:     "jwt_token",
+		Value:    "",
+		Expires:  time.Unix(0, 0),
+		HttpOnly: true,
+		Secure:   false,
+		SameSite: http.SameSiteDefaultMode,
+		Path:     "/",
+	}
+
+	return &cookie, nil
 }

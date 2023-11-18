@@ -17,12 +17,13 @@ func NewRouter(
 
 	// CORSミドルウェアの設定。認証情報を含むリクエストを許可
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
-		AllowOrigins:     []string{os.Getenv("FE_CSR_URL"), os.Getenv("FE_SSR_URL")},
+		AllowOrigins:     []string{os.Getenv("FE_CSR_URL"), os.Getenv("FE_SSG_URL")},
 		AllowMethods:     []string{echo.GET, echo.PUT, echo.POST, echo.DELETE},
 		AllowCredentials: true, // 認証情報を含むリクエストを許可
 	}))
 
 	e.POST("/login", login.Login)
+	e.POST("/logout", login.Logout)
 	e.POST("/code_gen", login.CodeGenerate)
 	e.POST("/mfa", login.MFA)
 	e.POST("/decode", login.JWTDecode)
