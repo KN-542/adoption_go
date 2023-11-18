@@ -1,8 +1,11 @@
 package controller
 
 import (
+	"api/resources/static"
 	"api/src/model"
 	"api/src/service"
+	"fmt"
+	"log"
 	"net/http"
 
 	"github.com/labstack/echo/v4"
@@ -40,7 +43,7 @@ func NewApplicantController(s service.IApplicantService) IApplicantController {
 func (c *ApplicantController) GetOauthURL(e echo.Context) error {
 	res, err := c.s.GetOauthURL()
 	if err != nil {
-		return e.JSON(err.Status, err.Error.Error())
+		return e.JSON(err.Status, model.ErrorConvert(*err))
 	}
 
 	return e.JSON(http.StatusOK, res)
@@ -50,12 +53,13 @@ func (c *ApplicantController) GetOauthURL(e echo.Context) error {
 func (c *ApplicantController) GetSheets(e echo.Context) error {
 	request := model.ApplicantSearch{}
 	if err := e.Bind(&request); err != nil {
-		return e.JSON(http.StatusBadRequest, err.Error())
+		log.Printf("%v", err)
+		return e.JSON(http.StatusBadRequest, fmt.Errorf(static.MESSAGE_BAD_REQUEST))
 	}
 
 	res, err := c.s.GetSheets(request)
 	if err != nil {
-		return e.JSON(err.Status, err.Error.Error())
+		return e.JSON(err.Status, model.ErrorConvert(*err))
 	}
 
 	return e.JSON(http.StatusOK, res)
@@ -68,12 +72,13 @@ func (c *ApplicantController) GetSheets(e echo.Context) error {
 func (c *ApplicantController) Download(e echo.Context) error {
 	request := model.ApplicantsDownload{}
 	if err := e.Bind(&request); err != nil {
-		return e.JSON(http.StatusBadRequest, err.Error())
+		log.Printf("%v", err)
+		return e.JSON(http.StatusBadRequest, fmt.Errorf(static.MESSAGE_BAD_REQUEST))
 	}
 
 	res, err := c.s.Download(&request)
 	if err != nil {
-		return e.JSON(err.Status, err.Error.Error())
+		return e.JSON(err.Status, model.ErrorConvert(*err))
 	}
 
 	return e.JSON(http.StatusOK, res)
@@ -83,7 +88,7 @@ func (c *ApplicantController) Download(e echo.Context) error {
 func (c *ApplicantController) Search(e echo.Context) error {
 	res, err := c.s.Search()
 	if err != nil {
-		return e.JSON(err.Status, err.Error.Error())
+		return e.JSON(err.Status, model.ErrorConvert(*err))
 	}
 
 	return e.JSON(http.StatusOK, res)

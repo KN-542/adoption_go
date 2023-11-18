@@ -4,8 +4,8 @@ type LoginStatus int8
 type PasswordChangeFlg int8
 
 const (
-	MFA_AUTHENTICATED   LoginStatus = 0
-	MFA_UNAUTHENTICATED LoginStatus = 1
+	MFA_UNAUTHENTICATED LoginStatus = 0
+	MFA_AUTHENTICATED   LoginStatus = 1
 	PASSWORD_CHANGE     LoginStatus = 2
 )
 const (

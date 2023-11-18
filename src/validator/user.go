@@ -15,6 +15,7 @@ type IUserValidator interface {
 	LoginValidate(u *model.User) error
 	MFAValidate(u *model.UserMFA) error
 	PasswordChangeValidate(u *model.User) error
+	HashKeyValidate(u *model.User) error
 }
 
 type userValidator struct{}
@@ -55,12 +56,24 @@ func (v *userValidator) LoginValidate(u *model.User) error {
 		validation.Field(
 			&u.Password,
 			validation.Required,
+			validation.Length(8, 16),
+			is.Alphanumeric,
 		),
 	)
 }
 func (v *userValidator) MFAValidate(u *model.UserMFA) error {
 	return validation.ValidateStruct(
 		u,
+		validation.Field(
+			&u.HashKey,
+			validation.Required,
+		),
+		validation.Field(
+			&u.Email,
+			validation.Required,
+			validation.Length(1, 50),
+			is.Email,
+		),
 		validation.Field(
 			&u.Code,
 			validation.Required,
@@ -74,12 +87,20 @@ func (v *userValidator) PasswordChangeValidate(u *model.User) error {
 	return validation.ValidateStruct(
 		u,
 		validation.Field(
+			&u.HashKey,
+			validation.Required,
+		),
+		validation.Field(
 			&u.Password,
 			validation.Required,
+			validation.Length(8, 16),
+			is.Alphanumeric,
 		),
 		validation.Field(
 			&u.InitPassword,
 			validation.Required,
+			validation.Length(8, 16),
+			is.Alphanumeric,
 			validation.By(func(value interface{}) error {
 				initPassword, _ := value.(string)
 				if initPassword == u.Password {
@@ -87,6 +108,16 @@ func (v *userValidator) PasswordChangeValidate(u *model.User) error {
 				}
 				return nil
 			}),
+		),
+	)
+}
+
+func (v *userValidator) HashKeyValidate(u *model.User) error {
+	return validation.ValidateStruct(
+		u,
+		validation.Field(
+			&u.HashKey,
+			validation.Required,
 		),
 	)
 }

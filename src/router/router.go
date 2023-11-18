@@ -27,6 +27,7 @@ func NewRouter(
 	e.POST("/mfa", login.MFA)
 	e.POST("/decode", login.JWTDecode)
 	e.POST("/password_change", login.PasswordChange)
+	e.POST("/session_confirm", login.SessionConfirm)
 
 	e.POST("/user/list", user.List)
 	e.POST("/user/create", user.Create)
