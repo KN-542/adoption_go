@@ -8,6 +8,8 @@ import (
 type User struct {
 	// ID
 	ID uint64 `json:"id" gorm:"primaryKey;AUTO_INCREMENT"`
+	// ハッシュキー
+	HashKey string `json:"hash_key" gorm:"unique;type:text"`
 	// 氏名
 	Name string `json:"name" gorm:"unique;type:varchar(30)"`
 	// メールアドレス
@@ -32,8 +34,8 @@ func (t User) TableName() string {
 
 // ユーザ(管理) response
 type UserResponse struct {
-	// ID
-	ID uint64 `json:"id"`
+	// ハッシュキー
+	HashKey string `json:"hash_key"`
 	// 氏名
 	Name string `json:"name"`
 	// メールアドレス
@@ -42,6 +44,10 @@ type UserResponse struct {
 	RoleID uint `json:"role_id"`
 	// 初回パスワード
 	InitPassword string `json:"init_password"`
+	// MFA認証フラグ
+	MFA int8 `json:"mfa"`
+	// パスワード変更 必要性
+	PasswordChange int8 `json:"password_change"`
 }
 type UsersResponse struct {
 	Users []UserResponse `json:"users"`
@@ -49,6 +55,8 @@ type UsersResponse struct {
 
 // ユーザー MFA
 type UserMFA struct {
+	// ハッシュキー
+	HashKey string `json:"hash_key"`
 	// メールアドレス
 	Email string `json:"email"`
 	// 認証コード
@@ -74,10 +82,10 @@ func ConvertUser(u *[]User) *[]UserResponse {
 		respList = append(
 			respList,
 			UserResponse{
-				ID:     row.ID,
-				Name:   row.Name,
-				Email:  row.Email,
-				RoleID: row.RoleID,
+				HashKey: row.HashKey,
+				Name:    row.Name,
+				Email:   row.Email,
+				RoleID:  row.RoleID,
 			},
 		)
 	}

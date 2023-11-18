@@ -73,11 +73,7 @@ func (u *UserService) Create(req *model.User) (*model.UserResponse, *model.Error
 	}
 
 	// 初回パスワード発行
-	const passwordChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-	minLength := 8
-	maxLength := 16
-
-	length, err := rand.Int(rand.Reader, big.NewInt(int64(maxLength-minLength+1)))
+	password, hashPassword, err := generateRandomStr(8, 16)
 	if err != nil {
 		log.Printf("%v", err)
 		return nil, &model.ErrorResponse{
@@ -85,10 +81,9 @@ func (u *UserService) Create(req *model.User) (*model.UserResponse, *model.Error
 			Error:  err,
 		}
 	}
-	passLength := minLength + int(length.Int64())
 
-	buffer := make([]byte, passLength)
-	_, err = rand.Read(buffer)
+	// ハッシュキー生成
+	_, hashKey, err := generateRandomStr(1, 25)
 	if err != nil {
 		log.Printf("%v", err)
 		return nil, &model.ErrorResponse{
@@ -96,27 +91,14 @@ func (u *UserService) Create(req *model.User) (*model.UserResponse, *model.Error
 			Error:  err,
 		}
 	}
-	for i := 0; i < passLength; i++ {
-		buffer[i] = passwordChars[int(buffer[i])%len(passwordChars)]
-	}
-	password := string(buffer)
-
-	buffer2, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
-	if err != nil {
-		log.Printf("%v", err)
-		return nil, &model.ErrorResponse{
-			Status: http.StatusInternalServerError,
-			Error:  err,
-		}
-	}
-	hashPassword := string(buffer2)
 
 	// 登録
 	user := model.User{
+		HashKey:      *hashKey,
 		Name:         req.Name,
 		Email:        req.Email,
-		Password:     hashPassword,
-		InitPassword: hashPassword,
+		Password:     *hashPassword,
+		InitPassword: *hashPassword,
 		RoleID:       req.RoleID,
 		CreatedAt:    time.Now(),
 		UpdatedAt:    time.Now(),
@@ -132,7 +114,7 @@ func (u *UserService) Create(req *model.User) (*model.UserResponse, *model.Error
 
 	res := model.UserResponse{
 		Email:        user.Email,
-		InitPassword: password,
+		InitPassword: *password,
 	}
 	return &res, nil
 }
@@ -149,4 +131,33 @@ func (u *UserService) RoleList() (*model.UserRoles, *model.ErrorResponse) {
 	}
 
 	return &model.UserRoles{Roles: *roles}, nil
+}
+
+func generateRandomStr(minLength, maxLength int) (*string, *string, error) {
+	chars := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+
+	length, err := rand.Int(rand.Reader, big.NewInt(int64(maxLength-minLength+1)))
+	if err != nil {
+		return nil, nil, err
+	}
+	strLength := minLength + int(length.Int64())
+
+	buffer := make([]byte, strLength)
+	_, err = rand.Read(buffer)
+	if err != nil {
+		return nil, nil, err
+	}
+	for i := 0; i < strLength; i++ {
+		buffer[i] = chars[int(buffer[i])%len(chars)]
+	}
+	str := string(buffer)
+
+	buffer2, err := bcrypt.GenerateFromPassword([]byte(str), bcrypt.DefaultCost)
+	if err != nil {
+		log.Printf("%v", err)
+		return nil, nil, err
+	}
+	hash := string(buffer2)
+
+	return &str, &hash, nil
 }

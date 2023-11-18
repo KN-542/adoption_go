@@ -1,8 +1,11 @@
 package controller
 
 import (
+	"api/resources/static"
 	"api/src/model"
 	"api/src/service"
+	"fmt"
+	"log"
 	"net/http"
 
 	"github.com/labstack/echo/v4"
@@ -29,7 +32,7 @@ func NewUserController(s service.IUserService) IUserController {
 func (c *UserController) List(e echo.Context) error {
 	res, err := c.s.List()
 	if err != nil {
-		return e.JSON(err.Status, err.Error.Error())
+		return e.JSON(err.Status, model.ErrorConvert(*err))
 	}
 	return e.JSON(http.StatusOK, res)
 }
@@ -38,12 +41,13 @@ func (c *UserController) List(e echo.Context) error {
 func (c *UserController) Create(e echo.Context) error {
 	req := model.User{}
 	if err := e.Bind(&req); err != nil {
-		return e.JSON(http.StatusBadRequest, err.Error())
+		log.Printf("%v", err)
+		return e.JSON(http.StatusBadRequest, fmt.Errorf(static.MESSAGE_BAD_REQUEST))
 	}
 
 	res, err := c.s.Create(&req)
 	if err != nil {
-		return e.JSON(err.Status, err.Error.Error())
+		return e.JSON(err.Status, model.ErrorConvert(*err))
 	}
 	return e.JSON(http.StatusOK, res)
 }
@@ -52,7 +56,7 @@ func (c *UserController) Create(e echo.Context) error {
 func (c *UserController) RoleList(e echo.Context) error {
 	res, err := c.s.RoleList()
 	if err != nil {
-		return e.JSON(err.Status, err.Error.Error())
+		return e.JSON(err.Status, model.ErrorConvert(*err))
 	}
 	return e.JSON(http.StatusOK, res)
 }
