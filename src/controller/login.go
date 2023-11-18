@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/labstack/echo/v4"
 )
@@ -26,6 +27,8 @@ type ILoginController interface {
 	SessionConfirm(e echo.Context) error
 	// パスワード変更
 	PasswordChange(e echo.Context) error
+	// ログアウト
+	Logout(e echo.Context) error
 }
 
 type LoginController struct {
@@ -52,7 +55,6 @@ func (c *LoginController) Login(e echo.Context) error {
 
 	// MFA JWT
 	if err := infra.JWTMFAToken(e); err != nil {
-		user.MFA = int8(enum.MFA_UNAUTHENTICATED)
 		return e.JSON(http.StatusOK, user)
 	}
 
@@ -64,16 +66,25 @@ func (c *LoginController) Login(e echo.Context) error {
 
 	if *passChangeFlg == int8(enum.PASSWORD_CHANGE_UNREQUIRED) {
 		// JWT＆Cookie
-		cookie, err := c.s.JWT(&req.Email, 0.1, "jwt_token")
+		cookie, err := c.s.JWT(&user.HashKey, 1*time.Hour, "jwt_token", "JWT_SECRET")
 		if err != nil {
 			return e.JSON(err.Status, model.ErrorConvert(*err))
 		}
 		e.SetCookie(cookie)
 
-		user.PasswordChange = int8(enum.PASSWORD_CHANGE_UNREQUIRED)
+		// JWT(MFA)＆Cookie
+		cookie2, err := c.s.JWT(&user.HashKey, 24*time.Hour, "jwt_token2", "JWT_SECRET2")
+		if err != nil {
+			return e.JSON(err.Status, model.ErrorConvert(*err))
+		}
+		e.SetCookie(cookie2)
+
+		user.MFA = int8(enum.MFA_AUTHENTICATED)
 		return e.JSON(http.StatusOK, user)
 	}
 
+	user.MFA = int8(enum.MFA_AUTHENTICATED)
+	user.PasswordChange = int8(enum.PASSWORD_CHANGE_REQUIRED)
 	return e.JSON(http.StatusOK, user)
 }
 
@@ -112,18 +123,23 @@ func (c *LoginController) MFA(e echo.Context) error {
 
 	if *passChangeFlg == int8(enum.PASSWORD_CHANGE_UNREQUIRED) {
 		// JWT＆Cookie
-		cookie, err := c.s.JWT(&req.Email, 0.1, "jwt_token")
+		cookie, err := c.s.JWT(&req.HashKey, 1*time.Hour, "jwt_token", "JWT_SECRET")
 		if err != nil {
 			return e.JSON(err.Status, model.ErrorConvert(*err))
 		}
 		e.SetCookie(cookie)
 
 		// JWT(MFA)＆Cookie
-		cookie2, err := c.s.JWT(&req.Email, 24, "jwt_token2")
+		cookie2, err := c.s.JWT(&req.HashKey, 24*time.Hour, "jwt_token2", "JWT_SECRET2")
 		if err != nil {
 			return e.JSON(err.Status, model.ErrorConvert(*err))
 		}
 		e.SetCookie(cookie2)
+
+		return e.JSON(
+			http.StatusOK,
+			model.LoginStatusResponse{},
+		)
 	}
 
 	return e.JSON(
@@ -143,17 +159,17 @@ func (c *LoginController) JWTDecode(e echo.Context) error {
 	}
 
 	// ログインJWT
-	if err := infra.JWTLoginToken(e); err != nil {
-		return err
+	status, err := infra.JWTLoginToken(e)
+	if err != nil {
+		log.Printf("%v", err)
+		return e.JSON(status, model.ErrorCodeResponse{Code: static.CODE_LOGIN_REQUIRED})
 	}
 
 	// MFA JWT
 	if err := infra.JWTMFAToken(e); err != nil {
 		return e.JSON(
 			http.StatusOK,
-			model.LoginStatusResponse{
-				MFA: int8(enum.MFA_UNAUTHENTICATED),
-			},
+			model.LoginStatusResponse{},
 		)
 	}
 
@@ -165,7 +181,7 @@ func (c *LoginController) JWTDecode(e echo.Context) error {
 	return e.JSON(
 		http.StatusOK,
 		model.LoginStatusResponse{
-			MFA: int8(enum.MFA_UNAUTHENTICATED),
+			MFA: int8(enum.MFA_AUTHENTICATED),
 		},
 	)
 }
@@ -183,6 +199,20 @@ func (c *LoginController) PasswordChange(e echo.Context) error {
 		return e.JSON(err.Status, model.ErrorConvert(*err))
 	}
 
+	// JWT＆Cookie
+	cookie, err := c.s.JWT(&req.HashKey, 1*time.Hour, "jwt_token", "JWT_SECRET")
+	if err != nil {
+		return e.JSON(err.Status, model.ErrorConvert(*err))
+	}
+	e.SetCookie(cookie)
+
+	// JWT(MFA)＆Cookie
+	cookie2, err := c.s.JWT(&req.HashKey, 24*time.Hour, "jwt_token2", "JWT_SECRET2")
+	if err != nil {
+		return e.JSON(err.Status, model.ErrorConvert(*err))
+	}
+	e.SetCookie(cookie2)
+
 	return e.JSON(http.StatusOK, "OK")
 }
 
@@ -197,6 +227,23 @@ func (c *LoginController) SessionConfirm(e echo.Context) error {
 	if err := c.s.SessionConfirm(&req); err != nil {
 		return e.JSON(err.Status, model.ErrorConvert(*err))
 	}
+
+	return e.JSON(http.StatusOK, "OK")
+}
+
+// ログアウト
+func (c *LoginController) Logout(e echo.Context) error {
+	req := model.User{}
+	if err := e.Bind(&req); err != nil {
+		log.Printf("%v", err)
+		return e.JSON(http.StatusBadRequest, fmt.Errorf(static.MESSAGE_BAD_REQUEST))
+	}
+
+	cookie, err := c.s.Logout(&req)
+	if err != nil {
+		return e.JSON(err.Status, model.ErrorConvert(*err))
+	}
+	e.SetCookie(cookie)
 
 	return e.JSON(http.StatusOK, "OK")
 }

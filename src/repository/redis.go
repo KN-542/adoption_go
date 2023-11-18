@@ -17,6 +17,7 @@ type IRedisRepository interface {
 		ttl time.Duration,
 	) error
 	Get(ctx context.Context, hashKey string, key string) (*string, error)
+	Delete(ctx context.Context, hashKey string) error
 }
 
 type RedisRepository struct {
@@ -59,4 +60,13 @@ func (r *RedisRepository) Get(ctx context.Context, hashKey string, key string) (
 	}
 	return &value, nil
 
+}
+
+func (r *RedisRepository) Delete(ctx context.Context, hashKey string) error {
+	_, err := r.redis.Del(ctx, hashKey).Result()
+	if err != nil {
+		log.Printf("%v", err)
+		return err
+	}
+	return nil
 }
