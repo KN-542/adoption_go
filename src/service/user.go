@@ -1,6 +1,7 @@
 package service
 
 import (
+	"api/resources/static"
 	"api/src/model"
 	"api/src/repository"
 	"api/src/validator"
@@ -18,6 +19,8 @@ type IUserService interface {
 	List() (*model.UsersResponse, *model.ErrorResponse)
 	// 登録
 	Create(req *model.User) (*model.UserResponse, *model.ErrorResponse)
+	// 取得
+	Get(req *model.User) (*model.UserResponse, *model.ErrorResponse)
 	// ロール一覧
 	RoleList() (*model.UserRoles, *model.ErrorResponse)
 }
@@ -48,7 +51,7 @@ func (u *UserService) List() (*model.UsersResponse, *model.ErrorResponse) {
 	}
 
 	return &model.UsersResponse{
-		Users: *model.ConvertUser(user),
+		Users: *model.ConvertUsers(user),
 	}, nil
 }
 
@@ -117,6 +120,27 @@ func (u *UserService) Create(req *model.User) (*model.UserResponse, *model.Error
 		InitPassword: *password,
 	}
 	return &res, nil
+}
+
+// 取得
+func (u *UserService) Get(req *model.User) (*model.UserResponse, *model.ErrorResponse) {
+	if err := u.v.HashKeyValidate(req); err != nil {
+		log.Printf("%v", err)
+		return nil, &model.ErrorResponse{
+			Status: http.StatusBadRequest,
+			Code:   static.CODE_BAD_REQUEST,
+		}
+	}
+
+	res, err := u.r.Get(req)
+	if err != nil {
+		log.Printf("%v", err)
+		return nil, &model.ErrorResponse{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	return &*model.ConvertUser(res), nil
 }
 
 // ロール一覧

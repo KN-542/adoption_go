@@ -29,7 +29,7 @@ type ILoginService interface {
 	// MFA
 	MFA(req *model.UserMFA) *model.ErrorResponse
 	// ユーザー存在確認
-	UserCheck(req *model.User) *model.ErrorResponse
+	UserCheck(req *model.User) (*model.UserResponse, *model.ErrorResponse)
 	// パスワード変更 必要性
 	PasswordChangeCheck(req *model.User) (*int8, *model.ErrorResponse)
 	// パスワード変更
@@ -99,19 +99,7 @@ func (l *LoginService) Login(req *model.User) (*model.UserResponse, *model.Error
 		user.HashKey,
 		static.REDIS_USER_HASH_KEY,
 		&user.HashKey,
-		24*time.Hour,
-	); err != nil {
-		log.Printf("%v", err)
-		return nil, &model.ErrorResponse{
-			Status: http.StatusInternalServerError,
-		}
-	}
-	if err := l.redis.Set(
-		ctx,
-		user.HashKey,
-		static.REDIS_EMAIL,
-		&user.Email,
-		24*time.Hour,
+		1*time.Hour,
 	); err != nil {
 		log.Printf("%v", err)
 		return nil, &model.ErrorResponse{
@@ -132,7 +120,7 @@ func (l *LoginService) JWT(hashKey *string, exp time.Duration, name string, secr
 	// Token作成
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"user_id": hashKey,
-		"exp":     time.Now().Add(exp * time.Hour).Unix(),
+		"exp":     time.Now().Add(exp).Unix(),
 	})
 
 	// 署名
@@ -225,19 +213,7 @@ func (l *LoginService) MFA(req *model.UserMFA) *model.ErrorResponse {
 			req.HashKey,
 			static.REDIS_USER_HASH_KEY,
 			&req.HashKey,
-			24*time.Hour,
-		); err != nil {
-			log.Printf("%v", err)
-			return &model.ErrorResponse{
-				Status: http.StatusInternalServerError,
-			}
-		}
-		if err := l.redis.Set(
-			ctx,
-			req.HashKey,
-			static.REDIS_EMAIL,
-			&req.Email,
-			24*time.Hour,
+			1*time.Hour,
 		); err != nil {
 			log.Printf("%v", err)
 			return &model.ErrorResponse{
@@ -263,7 +239,7 @@ func (l *LoginService) MFA(req *model.UserMFA) *model.ErrorResponse {
 			req.HashKey,
 			static.REDIS_USER_HASH_KEY,
 			&req.HashKey,
-			24*time.Hour,
+			1*time.Hour,
 		); err != nil {
 			log.Printf("%v", err)
 			return &model.ErrorResponse{
@@ -294,24 +270,25 @@ func (l *LoginService) PasswordChangeCheck(req *model.User) (*int8, *model.Error
 }
 
 // ユーザー存在確認
-func (l *LoginService) UserCheck(req *model.User) *model.ErrorResponse {
+func (l *LoginService) UserCheck(req *model.User) (*model.UserResponse, *model.ErrorResponse) {
 	// バリデーション
 	if err := l.v.HashKeyValidate(req); err != nil {
 		log.Printf("%v", err)
-		return &model.ErrorResponse{
+		return nil, &model.ErrorResponse{
 			Status: http.StatusBadRequest,
 			Code:   static.CODE_BAD_REQUEST,
 		}
 	}
 
-	if err := l.login.UserCheck(&model.User{HashKey: req.HashKey}); err != nil {
+	res, err := l.login.Get(&model.User{HashKey: req.HashKey})
+	if err != nil {
 		log.Printf("%v", err)
-		return &model.ErrorResponse{
+		return nil, &model.ErrorResponse{
 			Status: http.StatusInternalServerError,
 		}
 	}
 
-	return nil
+	return model.ConvertUser(res), nil
 }
 
 // パスワード変更
@@ -394,7 +371,7 @@ func (l *LoginService) SessionConfirm(req *model.User) *model.ErrorResponse {
 		req.HashKey,
 		static.REDIS_USER_HASH_KEY,
 		&req.HashKey,
-		24*time.Hour,
+		1*time.Hour,
 	); err != nil {
 		log.Printf("%v", err)
 		return &model.ErrorResponse{
