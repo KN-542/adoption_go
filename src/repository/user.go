@@ -14,6 +14,8 @@ type IUserRepository interface {
 	Insert(m *model.User) error
 	// 全件取得
 	List() (*[]model.User, error)
+	// ユーザー取得
+	Get(m *model.User) (*model.User, error)
 	// ログイン認証
 	Login(m *model.User) ([]model.User, error)
 	// パスワード変更
@@ -24,8 +26,6 @@ type IUserRepository interface {
 	ConfirmInitPassword2(m *model.User) (*string, error)
 	// メールアドレス重複チェック
 	EmailDuplCheck(m *model.User) error
-	// ユーザー存在確認
-	UserCheck(m *model.User) error
 }
 
 type UserRepository struct {
@@ -53,6 +53,21 @@ func (u *UserRepository) List() (*[]model.User, error) {
 		return nil, err
 	}
 	return &l, nil
+}
+
+// ユーザー取得
+func (u *UserRepository) Get(m *model.User) (*model.User, error) {
+	var res model.User
+	if err := u.db.Where(
+		&model.User{
+			HashKey: m.HashKey,
+		},
+	).First(&res).Error; err != nil {
+		log.Printf("%v", err)
+		return nil, err
+	}
+
+	return &res, nil
 }
 
 // ログイン認証
@@ -133,27 +148,6 @@ func (u *UserRepository) EmailDuplCheck(m *model.User) error {
 
 	if count > 0 {
 		return fmt.Errorf("Duplicate Email Address")
-	}
-
-	return nil
-}
-
-// ユーザー存在確認
-func (u *UserRepository) UserCheck(m *model.User) error {
-	var count int64
-	if err := u.db.Model(&model.User{}).Where(
-		&model.User{
-			HashKey: m.HashKey,
-		},
-	).Count(&count).Error; err != nil {
-		log.Printf("%v", err)
-		return err
-	}
-
-	if count == 0 {
-		return fmt.Errorf("User Not Exist")
-	} else if count > 1 {
-		return fmt.Errorf("User Duplicate Exist")
 	}
 
 	return nil

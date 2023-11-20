@@ -76,7 +76,7 @@ type UserRoles struct {
 	Roles []Role `json:"roles"`
 }
 
-func ConvertUser(u *[]User) *[]UserResponse {
+func ConvertUsers(u *[]User) *[]UserResponse {
 	var respList []UserResponse
 	for _, row := range *u {
 		respList = append(
@@ -90,4 +90,13 @@ func ConvertUser(u *[]User) *[]UserResponse {
 		)
 	}
 	return &respList
+}
+
+func ConvertUser(u *User) *UserResponse {
+	return &UserResponse{
+		HashKey: u.HashKey,
+		Name:    u.Name,
+		Email:   u.Email,
+		RoleID:  u.RoleID,
+	}
 }

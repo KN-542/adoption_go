@@ -73,7 +73,7 @@ func (c *LoginController) Login(e echo.Context) error {
 		e.SetCookie(cookie)
 
 		// JWT(MFA)＆Cookie
-		cookie2, err := c.s.JWT(&user.HashKey, 24*time.Hour, "jwt_token2", "JWT_SECRET2")
+		cookie2, err := c.s.JWT(&user.HashKey, 2*time.Hour, "jwt_token2", "JWT_SECRET2")
 		if err != nil {
 			return e.JSON(err.Status, model.ErrorConvert(*err))
 		}
@@ -130,7 +130,7 @@ func (c *LoginController) MFA(e echo.Context) error {
 		e.SetCookie(cookie)
 
 		// JWT(MFA)＆Cookie
-		cookie2, err := c.s.JWT(&req.HashKey, 24*time.Hour, "jwt_token2", "JWT_SECRET2")
+		cookie2, err := c.s.JWT(&req.HashKey, 2*time.Hour, "jwt_token2", "JWT_SECRET2")
 		if err != nil {
 			return e.JSON(err.Status, model.ErrorConvert(*err))
 		}
@@ -174,16 +174,13 @@ func (c *LoginController) JWTDecode(e echo.Context) error {
 	}
 
 	// ユーザーが削除されていないかの確認
-	if err := c.s.UserCheck(&req); err != nil {
-		return e.JSON(err.Status, model.ErrorConvert(*err))
+	user, err2 := c.s.UserCheck(&req)
+	if err2 != nil {
+		return e.JSON(err2.Status, model.ErrorConvert(*err2))
 	}
 
-	return e.JSON(
-		http.StatusOK,
-		model.LoginStatusResponse{
-			MFA: int8(enum.MFA_AUTHENTICATED),
-		},
-	)
+	user.MFA = int8(enum.MFA_AUTHENTICATED)
+	return e.JSON(http.StatusOK, user)
 }
 
 // パスワード変更
@@ -207,7 +204,7 @@ func (c *LoginController) PasswordChange(e echo.Context) error {
 	e.SetCookie(cookie)
 
 	// JWT(MFA)＆Cookie
-	cookie2, err := c.s.JWT(&req.HashKey, 24*time.Hour, "jwt_token2", "JWT_SECRET2")
+	cookie2, err := c.s.JWT(&req.HashKey, 2*time.Hour, "jwt_token2", "JWT_SECRET2")
 	if err != nil {
 		return e.JSON(err.Status, model.ErrorConvert(*err))
 	}
