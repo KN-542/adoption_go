@@ -41,17 +41,16 @@ func NewUserService(
 
 // 一覧
 func (u *UserService) List() (*model.UsersResponse, *model.ErrorResponse) {
-	user, err := u.r.List()
+	users, err := u.r.List()
 	if err != nil {
 		log.Printf("%v", err)
 		return nil, &model.ErrorResponse{
 			Status: http.StatusInternalServerError,
-			Error:  err,
 		}
 	}
 
 	return &model.UsersResponse{
-		Users: *model.ConvertUsers(user),
+		Users: *model.ConvertUsers(users),
 	}, nil
 }
 
@@ -62,7 +61,7 @@ func (u *UserService) Create(req *model.User) (*model.UserResponse, *model.Error
 		log.Printf("%v", err)
 		return nil, &model.ErrorResponse{
 			Status: http.StatusBadRequest,
-			Error:  err,
+			Code:   static.CODE_BAD_REQUEST,
 		}
 	}
 
@@ -71,7 +70,7 @@ func (u *UserService) Create(req *model.User) (*model.UserResponse, *model.Error
 		log.Printf("%v", err)
 		return nil, &model.ErrorResponse{
 			Status: http.StatusConflict,
-			Error:  err,
+			Code:   static.CODE_USER_EMAIL_DUPL,
 		}
 	}
 
@@ -81,7 +80,6 @@ func (u *UserService) Create(req *model.User) (*model.UserResponse, *model.Error
 		log.Printf("%v", err)
 		return nil, &model.ErrorResponse{
 			Status: http.StatusInternalServerError,
-			Error:  err,
 		}
 	}
 
@@ -91,7 +89,6 @@ func (u *UserService) Create(req *model.User) (*model.UserResponse, *model.Error
 		log.Printf("%v", err)
 		return nil, &model.ErrorResponse{
 			Status: http.StatusInternalServerError,
-			Error:  err,
 		}
 	}
 
@@ -111,7 +108,6 @@ func (u *UserService) Create(req *model.User) (*model.UserResponse, *model.Error
 		log.Printf("%v", err)
 		return nil, &model.ErrorResponse{
 			Status: http.StatusInternalServerError,
-			Error:  err,
 		}
 	}
 
@@ -150,7 +146,6 @@ func (u *UserService) RoleList() (*model.UserRoles, *model.ErrorResponse) {
 		log.Printf("%v", err)
 		return nil, &model.ErrorResponse{
 			Status: http.StatusInternalServerError,
-			Error:  err,
 		}
 	}
 

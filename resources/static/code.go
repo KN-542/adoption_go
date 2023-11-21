@@ -6,6 +6,7 @@ const (
 		common
 	*/
 	CODE_BAD_REQUEST int8 = 101
+
 	/*
 		login
 	*/
@@ -18,6 +19,12 @@ const (
 	CODE_EXPIRED      int8 = 2
 	// PasswordChange
 	CODE_INIT_PASSWORD_INCORRECT int8 = 1
+
+	/*
+		user
+	*/
+	// create
+	CODE_USER_EMAIL_DUPL int8 = 1
 )
 
 // message
