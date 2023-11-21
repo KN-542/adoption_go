@@ -62,6 +62,7 @@ func (a *ApplicantRepository) GetRefreshToken() (*string, error) {
 
 	value, err := a.redis.Get(ctx, static.REDIS_OAUTH_REFRESH_TOKEN).Result()
 	if err != nil {
+		log.Printf("%v", err)
 		return nil, err
 	}
 
@@ -90,6 +91,7 @@ func (a *ApplicantRepository) GetOauthClient() (*oauth2.Config, error) {
 func (a *ApplicantRepository) GetOauthURL() (*model.GetOauthURLResponse, error) {
 	_, err := a.GetRefreshToken()
 	if err == nil {
+		log.Printf("%v", err)
 		return nil, nil
 	}
 
@@ -185,6 +187,7 @@ func (a *ApplicantRepository) GetSheets(search model.ApplicantSearch, token *oau
 // 登録
 func (a *ApplicantRepository) Insert(applicant *model.Applicant) error {
 	if err := a.db.Create(applicant).Error; err != nil {
+		log.Printf("%v", err)
 		return err
 	}
 	return nil
@@ -194,6 +197,7 @@ func (a *ApplicantRepository) Insert(applicant *model.Applicant) error {
 func (a *ApplicantRepository) Search() ([]model.Applicant, error) {
 	var l []model.Applicant
 	if err := a.db.Find(&l).Error; err != nil {
+		log.Printf("%v", err)
 		return nil, err
 	}
 	return l, nil
@@ -203,6 +207,7 @@ func (a *ApplicantRepository) Search() ([]model.Applicant, error) {
 func (a *ApplicantRepository) CountByPrimaryKey(key *string) (*int64, error) {
 	var count int64
 	if err := a.db.Model(&model.Applicant{}).Where("id = ?", key).Count(&count).Error; err != nil {
+		log.Printf("%v", err)
 		return nil, err
 	}
 	return &count, nil

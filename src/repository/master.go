@@ -2,6 +2,7 @@ package repository
 
 import (
 	"api/src/model"
+	"log"
 
 	"gorm.io/gorm"
 )
@@ -37,6 +38,7 @@ func NewMasterRepository(db *gorm.DB) IMasterRepository {
 // insert
 func (r *MasterRepository) InsertSite(m *model.Site) error {
 	if err := r.db.Create(m).Error; err != nil {
+		log.Printf("%v", err)
 		return err
 	}
 	return nil
@@ -46,6 +48,7 @@ func (r *MasterRepository) InsertSite(m *model.Site) error {
 func (r *MasterRepository) SelectSiteByPrimaryKey(key int) (*model.Site, error) {
 	var res model.Site
 	if err := r.db.First(&res, key).Error; err != nil {
+		log.Printf("%v", err)
 		return nil, err
 	}
 	return &res, nil
@@ -57,6 +60,7 @@ func (r *MasterRepository) SelectSiteByPrimaryKey(key int) (*model.Site, error) 
 // insert
 func (r *MasterRepository) InsertRole(m *model.Role) error {
 	if err := r.db.Create(m).Error; err != nil {
+		log.Printf("%v", err)
 		return err
 	}
 	return nil
@@ -66,6 +70,7 @@ func (r *MasterRepository) InsertRole(m *model.Role) error {
 func (r *MasterRepository) SelectRole() (*[]model.Role, error) {
 	var res []model.Role
 	if err := r.db.Find(&res).Error; err != nil {
+		log.Printf("%v", err)
 		return nil, err
 	}
 	return &res, nil

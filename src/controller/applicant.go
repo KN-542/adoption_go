@@ -76,12 +76,11 @@ func (c *ApplicantController) Download(e echo.Context) error {
 		return e.JSON(http.StatusBadRequest, fmt.Errorf(static.MESSAGE_BAD_REQUEST))
 	}
 
-	res, err := c.s.Download(&request)
-	if err != nil {
+	if err := c.s.Download(&request); err != nil {
 		return e.JSON(err.Status, model.ErrorConvert(*err))
 	}
 
-	return e.JSON(http.StatusOK, res)
+	return e.JSON(http.StatusOK, "OK")
 }
 
 // 検索

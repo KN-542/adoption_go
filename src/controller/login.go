@@ -179,6 +179,18 @@ func (c *LoginController) JWTDecode(e echo.Context) error {
 		return e.JSON(err2.Status, model.ErrorConvert(*err2))
 	}
 
+	// Redis 有効期限更新
+	if err := c.s.SessionConfirm(&req); err != nil {
+		return e.JSON(err.Status, model.ErrorConvert(*err))
+	}
+
+	// JWT＆Cookie 更新
+	cookie, err3 := c.s.JWT(&req.HashKey, 1*time.Hour, "jwt_token", "JWT_SECRET")
+	if err3 != nil {
+		return e.JSON(err3.Status, model.ErrorConvert(*err3))
+	}
+	e.SetCookie(cookie)
+
 	user.MFA = int8(enum.MFA_AUTHENTICATED)
 	return e.JSON(http.StatusOK, user)
 }

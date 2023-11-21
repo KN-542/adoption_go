@@ -4,7 +4,6 @@ import (
 	"api/src/model"
 	"api/src/model/enum"
 	"api/src/repository"
-	"fmt"
 	"log"
 	"net/http"
 	"strconv"
@@ -23,7 +22,7 @@ type IApplicantService interface {
 		txt、csvダウンロード用
 	*/
 	// 応募者ダウンロード
-	Download(d *model.ApplicantsDownload) (*model.ApplicantsDownloadResponse, *model.ErrorResponse)
+	Download(d *model.ApplicantsDownload) *model.ErrorResponse
 	// 検索
 	Search() (*model.ApplicantsDownloadResponse, *model.ErrorResponse)
 }
@@ -79,14 +78,13 @@ func (s *ApplicantService) GetSheets(search model.ApplicantSearch) (*[]model.App
 	txt、csvダウンロード用
 */
 // 応募者ダウンロード
-func (s *ApplicantService) Download(d *model.ApplicantsDownload) (*model.ApplicantsDownloadResponse, *model.ErrorResponse) {
+func (s *ApplicantService) Download(d *model.ApplicantsDownload) *model.ErrorResponse {
 	// STEP1 サイトIDチェック
 	_, err := s.m.SelectSiteByPrimaryKey(d.Site)
 	if err != nil {
 		log.Printf("%v", err)
-		return nil, &model.ErrorResponse{
+		return &model.ErrorResponse{
 			Status: http.StatusInternalServerError,
-			Error:  err,
 		}
 	}
 
@@ -115,39 +113,23 @@ func (s *ApplicantService) Download(d *model.ApplicantsDownload) (*model.Applica
 			count, err := s.r.CountByPrimaryKey(&m.ID)
 			if err != nil {
 				log.Printf("%v", err)
-				return nil, &model.ErrorResponse{
+				return &model.ErrorResponse{
 					Status: http.StatusInternalServerError,
-					Error:  err,
 				}
 			}
-			fmt.Println(m.Name)
 			if *count == int64(0) {
 				// STEP2-2 登録
 				if err := s.r.Insert(&m); err != nil {
 					log.Printf("%v", err)
-					return nil, &model.ErrorResponse{
+					return &model.ErrorResponse{
 						Status: http.StatusInternalServerError,
-						Error:  err,
 					}
 				}
 			}
 		}
 	}
 
-	// STEP3 検索
-	applicants, err := s.r.Search()
-	if err != nil {
-		log.Printf("%v", err)
-		return nil, &model.ErrorResponse{
-			Status: http.StatusInternalServerError,
-			Error:  err,
-		}
-	}
-
-	res := model.ApplicantsDownloadResponse{
-		Applicants: applicants,
-	}
-	return &res, nil
+	return nil
 }
 
 // 検索
@@ -157,12 +139,10 @@ func (s *ApplicantService) Search() (*model.ApplicantsDownloadResponse, *model.E
 		log.Printf("%v", err)
 		return nil, &model.ErrorResponse{
 			Status: http.StatusInternalServerError,
-			Error:  err,
 		}
 	}
 
-	res := model.ApplicantsDownloadResponse{
+	return &model.ApplicantsDownloadResponse{
 		Applicants: applicants,
-	}
-	return &res, nil
+	}, nil
 }
