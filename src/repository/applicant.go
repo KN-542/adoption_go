@@ -40,8 +40,12 @@ type IApplicantRepository interface {
 	Insert(applicant *model.Applicant) error
 	// 検索
 	Search() ([]model.Applicant, error)
+	// 取得(Email)
+	GetByEmail(applicant *model.Applicant) ([]model.Applicant, error)
 	// PK検索(カウント)
 	CountByPrimaryKey(key *string) (*int64, error)
+	// 応募者取得(ハッシュキー)
+	GetByHashKey(m *model.Applicant) (*model.Applicant, error)
 }
 
 type ApplicantRepository struct {
@@ -211,4 +215,30 @@ func (a *ApplicantRepository) CountByPrimaryKey(key *string) (*int64, error) {
 		return nil, err
 	}
 	return &count, nil
+}
+
+// 取得(Email)
+func (a *ApplicantRepository) GetByEmail(applicant *model.Applicant) ([]model.Applicant, error) {
+	var l []model.Applicant
+	if err := a.db.Where(applicant).Find(&l).Error; err != nil {
+		log.Printf("%v", err)
+		return nil, err
+	}
+
+	return l, nil
+}
+
+// 応募者取得(ハッシュキー)
+func (a *ApplicantRepository) GetByHashKey(m *model.Applicant) (*model.Applicant, error) {
+	var res model.Applicant
+	if err := a.db.Where(
+		&model.Applicant{
+			HashKey: m.HashKey,
+		},
+	).First(&res).Error; err != nil {
+		log.Printf("%v", err)
+		return nil, err
+	}
+
+	return &res, nil
 }

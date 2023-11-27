@@ -20,15 +20,15 @@ func main() {
 	userRepository := repository.NewUserRepository(db)
 	userValidate := validator.NewUserValidator()
 
-	loginService := service.NewLoginService(userRepository, redisRepository, userValidate)
+	applicantRepository := repository.NewApplicantRepository(db, redis)
+	applicantService := service.NewApplicantService(applicantRepository, masterRepository)
+	applicantController := controller.NewApplicantController(applicantService)
+
+	loginService := service.NewLoginService(userRepository, applicantRepository, redisRepository, userValidate)
 	loginController := controller.NewLoginController(loginService)
 
 	userService := service.NewUserService(userRepository, masterRepository, userValidate)
 	userController := controller.NewUserController(userService)
-
-	applicantRepository := repository.NewApplicantRepository(db, redis)
-	applicantService := service.NewApplicantService(applicantRepository, masterRepository)
-	applicantController := controller.NewApplicantController(applicantService)
 
 	e := router.NewRouter(
 		loginController,

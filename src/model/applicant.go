@@ -1,5 +1,7 @@
 package model
 
+import "time"
+
 /*
 	OAuth2.0用(削除予定)
 */
@@ -38,8 +40,10 @@ type ApplicantsDownloadResponse struct {
 type Applicant struct {
 	// ID
 	ID string `json:"id" gorm:"primaryKey;type:varchar(255)"`
+	// ハッシュキー
+	HashKey string `json:"hash_key" gorm:"unique;type:text"`
 	// サイトID
-	SiteID int `json:"site_id" gorm:"check:site_id >= 1 AND site_id <= 10"`
+	SiteID int `json:"site_id"`
 	// 氏名
 	Name string `json:"name" gorm:"type:varchar(50)"`
 	// メールアドレス
@@ -48,8 +52,12 @@ type Applicant struct {
 	Tel string `json:"tel" gorm:"type:varchar(20);check:tel ~ '^[0-9]{0,20}$'"`
 	// 年齢
 	Age int `json:"age" gorm:"check:(age >= 18 AND age <= 100) OR age = -1"`
-	// TODO リレーション
-	// Site Site `gorm:"foreignKey:site_id"`
+	// 登録日時
+	CreatedAt time.Time `json:"created_at"`
+	// 更新日時
+	UpdatedAt time.Time `json:"updated_at"`
+	// サイト(外部キー)
+	Site Site `gorm:"foreignKey:site_id;references:id"`
 }
 
 func (t Applicant) TableName() string {

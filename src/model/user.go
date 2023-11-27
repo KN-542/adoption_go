@@ -57,8 +57,6 @@ type UsersResponse struct {
 type UserMFA struct {
 	// ハッシュキー
 	HashKey string `json:"hash_key"`
-	// メールアドレス
-	Email string `json:"email"`
 	// 認証コード
 	Code string `json:"code"`
 }

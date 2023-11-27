@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"time"
 	"unicode/utf8"
 )
 
@@ -100,13 +101,26 @@ func (s *ApplicantService) Download(d *model.ApplicantsDownload) *model.ErrorRes
 			if err != nil {
 				age = -1
 			}
+
+			// ハッシュキー生成
+			_, hashKey, err := generateRandomStr(1, 25)
+			if err != nil {
+				log.Printf("%v", err)
+				return &model.ErrorResponse{
+					Status: http.StatusInternalServerError,
+				}
+			}
+
 			m := model.Applicant{
-				ID:     values[enum.RECRUIT_ID],
-				SiteID: int(enum.RECRUIT),
-				Name:   values[enum.RECRUIT_NAME],
-				Email:  values[enum.RECRUIT_EMAIL],
-				Tel:    values[enum.RECRUIT_TEL],
-				Age:    int(age),
+				ID:        values[enum.RECRUIT_ID],
+				HashKey:   *hashKey,
+				SiteID:    int(enum.RECRUIT),
+				Name:      values[enum.RECRUIT_NAME],
+				Email:     values[enum.RECRUIT_EMAIL],
+				Tel:       values[enum.RECRUIT_TEL],
+				Age:       int(age),
+				CreatedAt: time.Now(),
+				UpdatedAt: time.Now(),
 			}
 
 			// STEP2-1 重複チェック
