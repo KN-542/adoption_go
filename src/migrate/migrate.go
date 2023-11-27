@@ -33,19 +33,19 @@ func CreateData(db *gorm.DB) {
 	// m_site
 	r.InsertSite(
 		&model.Site{
-			SiteID:     int(enum.RECRUIT),
+			ID:         int(enum.RECRUIT),
 			SiteNameJa: "リクナビNEXT",
 		},
 	)
 	r.InsertSite(
 		&model.Site{
-			SiteID:     int(enum.MYNAVI),
+			ID:         int(enum.MYNAVI),
 			SiteNameJa: "マイナビ",
 		},
 	)
 	r.InsertSite(
 		&model.Site{
-			SiteID:     int(enum.DODA),
+			ID:         int(enum.DODA),
 			SiteNameJa: "DODA",
 		},
 	)

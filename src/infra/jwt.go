@@ -10,8 +10,8 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-func JWTLoginToken(e echo.Context) (int, error) {
-	cookie, err := e.Cookie("jwt_token")
+func JWTLoginToken(e echo.Context, name string, secret string) (int, error) {
+	cookie, err := e.Cookie(name)
 	if err != nil {
 		log.Printf("%v", err)
 		return http.StatusUnauthorized, err
@@ -24,7 +24,7 @@ func JWTLoginToken(e echo.Context) (int, error) {
 			log.Print("Unexpected jwt token")
 			return nil, e.JSON(http.StatusUnauthorized, "Unexpected jwt token")
 		}
-		return []byte(os.Getenv("JWT_SECRET")), nil
+		return []byte(os.Getenv(secret)), nil
 	})
 	if err != nil {
 		log.Printf("%v", err)

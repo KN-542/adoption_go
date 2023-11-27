@@ -29,6 +29,16 @@ type ILoginController interface {
 	PasswordChange(e echo.Context) error
 	// ログアウト
 	Logout(e echo.Context) error
+	// ログイン(応募者)
+	LoginApplicant(e echo.Context) error
+	// MFA Applicant
+	MFAApplicant(e echo.Context) error
+	// JWT 検証(応募者)
+	JWTDecodeApplicant(e echo.Context) error
+	// MFA 認証コード生成(応募者)
+	CodeGenerateApplicant(e echo.Context) error
+	// ログアウト(応募者)
+	LogoutApplicant(e echo.Context) error
 }
 
 type LoginController struct {
@@ -159,7 +169,7 @@ func (c *LoginController) JWTDecode(e echo.Context) error {
 	}
 
 	// ログインJWT
-	status, err := infra.JWTLoginToken(e)
+	status, err := infra.JWTLoginToken(e, "jwt_token", "JWT_SECRET")
 	if err != nil {
 		log.Printf("%v", err)
 		return e.JSON(status, model.ErrorCodeResponse{Code: static.CODE_LOGIN_REQUIRED})
@@ -249,6 +259,113 @@ func (c *LoginController) Logout(e echo.Context) error {
 	}
 
 	cookie, err := c.s.Logout(&req)
+	if err != nil {
+		return e.JSON(err.Status, model.ErrorConvert(*err))
+	}
+	e.SetCookie(cookie)
+
+	return e.JSON(http.StatusOK, "OK")
+}
+
+// ログイン(応募者)
+func (c *LoginController) LoginApplicant(e echo.Context) error {
+	req := model.Applicant{}
+	if err := e.Bind(&req); err != nil {
+		log.Printf("%v", err)
+		return e.JSON(http.StatusBadRequest, fmt.Errorf(static.MESSAGE_BAD_REQUEST))
+	}
+
+	// ログイン認証
+	applicant, err := c.s.LoginApplicant(&req)
+	if err != nil {
+		return e.JSON(err.Status, model.ErrorConvert(*err))
+	}
+
+	return e.JSON(http.StatusOK, applicant)
+}
+
+// MFA Applicant
+func (c *LoginController) MFAApplicant(e echo.Context) error {
+	req := model.UserMFA{}
+	if err := e.Bind(&req); err != nil {
+		log.Printf("%v", err)
+		return e.JSON(http.StatusBadRequest, fmt.Errorf(static.MESSAGE_BAD_REQUEST))
+	}
+
+	// MFA
+	if err := c.s.MFA(&req); err != nil {
+		return e.JSON(err.Status, model.ErrorConvert(*err))
+	}
+
+	// JWT＆Cookie
+	cookie, err := c.s.JWT(&req.HashKey, 1*time.Hour, "jwt_token3", "JWT_SECRET3")
+	if err != nil {
+		return e.JSON(err.Status, model.ErrorConvert(*err))
+	}
+	e.SetCookie(cookie)
+
+	return e.JSON(http.StatusOK, "OK")
+}
+
+// JWT 検証(応募者)
+func (c *LoginController) JWTDecodeApplicant(e echo.Context) error {
+	req := model.Applicant{}
+	if err := e.Bind(&req); err != nil {
+		log.Printf("%v", err)
+		return e.JSON(http.StatusBadRequest, fmt.Errorf(static.MESSAGE_BAD_REQUEST))
+	}
+
+	// ログインJWT
+	status, err := infra.JWTLoginToken(e, "jwt_token3", "JWT_SECRET3")
+	if err != nil {
+		log.Printf("%v", err)
+		return e.JSON(status, model.ErrorCodeResponse{Code: static.CODE_LOGIN_REQUIRED})
+	}
+
+	// 応募者が削除されていないかの確認
+	applicant, err2 := c.s.UserCheckApplicant(&req)
+	if err2 != nil {
+		return e.JSON(err2.Status, model.ErrorConvert(*err2))
+	}
+
+	// Redis 有効期限更新
+	if err := c.s.SessionConfirmApplicant(&req); err != nil {
+		return e.JSON(err.Status, model.ErrorConvert(*err))
+	}
+
+	// JWT＆Cookie 更新
+	cookie, err3 := c.s.JWT(&req.HashKey, 1*time.Hour, "jwt_token3", "JWT_SECRET3")
+	if err3 != nil {
+		return e.JSON(err3.Status, model.ErrorConvert(*err3))
+	}
+	e.SetCookie(cookie)
+
+	return e.JSON(http.StatusOK, applicant)
+}
+
+// MFA 認証コード生成(応募者)
+func (c *LoginController) CodeGenerateApplicant(e echo.Context) error {
+	req := model.Applicant{}
+	if err := e.Bind(&req); err != nil {
+		log.Printf("%v", err)
+		return e.JSON(http.StatusBadRequest, fmt.Errorf(static.MESSAGE_BAD_REQUEST))
+	}
+
+	if err := c.s.CodeGenerateApplicant(&req); err != nil {
+		return e.JSON(err.Status, model.ErrorConvert(*err))
+	}
+	return e.JSON(http.StatusOK, "OK")
+}
+
+// ログアウト(応募者)
+func (c *LoginController) LogoutApplicant(e echo.Context) error {
+	req := model.Applicant{}
+	if err := e.Bind(&req); err != nil {
+		log.Printf("%v", err)
+		return e.JSON(http.StatusBadRequest, fmt.Errorf(static.MESSAGE_BAD_REQUEST))
+	}
+
+	cookie, err := c.s.LogoutApplicant(&req)
 	if err != nil {
 		return e.JSON(err.Status, model.ErrorConvert(*err))
 	}

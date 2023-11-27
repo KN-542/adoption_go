@@ -16,6 +16,8 @@ type IUserValidator interface {
 	MFAValidate(u *model.UserMFA) error
 	PasswordChangeValidate(u *model.User) error
 	HashKeyValidate(u *model.User) error
+	LoginApplicantValidate(u *model.Applicant) error
+	HashKeyValidateApplicant(u *model.Applicant) error
 }
 
 type userValidator struct{}
@@ -69,12 +71,6 @@ func (v *userValidator) MFAValidate(u *model.UserMFA) error {
 			validation.Required,
 		),
 		validation.Field(
-			&u.Email,
-			validation.Required,
-			validation.Length(1, 50),
-			is.Email,
-		),
-		validation.Field(
 			&u.Code,
 			validation.Required,
 			validation.Length(6, 6),
@@ -118,6 +114,28 @@ func (v *userValidator) HashKeyValidate(u *model.User) error {
 		validation.Field(
 			&u.HashKey,
 			validation.Required,
+		),
+	)
+}
+
+func (v *userValidator) HashKeyValidateApplicant(u *model.Applicant) error {
+	return validation.ValidateStruct(
+		u,
+		validation.Field(
+			&u.HashKey,
+			validation.Required,
+		),
+	)
+}
+
+func (v *userValidator) LoginApplicantValidate(u *model.Applicant) error {
+	return validation.ValidateStruct(
+		u,
+		validation.Field(
+			&u.Email,
+			validation.Required,
+			validation.Length(1, 50),
+			is.Email,
 		),
 	)
 }

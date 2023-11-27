@@ -1,10 +1,14 @@
 ## マイグレーション
 
+```
 go run src/migrate/migrate.go
+```
 
 ## コンパイル
 
+```
 go run src/main.go
+```
 
 ## 注意点
 
