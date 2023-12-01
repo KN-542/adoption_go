@@ -26,6 +26,8 @@ type IApplicantController interface {
 	Download(e echo.Context) error
 	// 検索
 	Search(e echo.Context) error
+	// 書類アップロード
+	DocumentsUpload(e echo.Context) error
 }
 
 type ApplicantController struct {
@@ -91,4 +93,48 @@ func (c *ApplicantController) Search(e echo.Context) error {
 	}
 
 	return e.JSON(http.StatusOK, res)
+}
+
+// 書類アップロード
+func (c *ApplicantController) DocumentsUpload(e echo.Context) error {
+	hashKey := e.FormValue("hash_key")
+	fileName := e.FormValue("file_name")
+
+	resumeExtension := e.FormValue("resume_extension")
+	if resumeExtension != "" {
+		resume, err := e.FormFile("resume")
+		if err != nil {
+			log.Printf("%v", err)
+			return e.JSON(http.StatusBadRequest, fmt.Errorf(static.MESSAGE_BAD_REQUEST))
+		}
+
+		if err := c.s.S3Upload(&model.FileUpload{
+			HashKey:   hashKey,
+			Name:      fileName,
+			Extension: resumeExtension,
+			NamePre:   "resume",
+		}, resume); err != nil {
+			return e.JSON(err.Status, model.ErrorConvert(*err))
+		}
+	}
+
+	curriculumVitaeExtension := e.FormValue("curriculum_vitae_extension")
+	if curriculumVitaeExtension != "" {
+		curriculumVitae, err := e.FormFile("curriculum_vitae")
+		if err != nil {
+			log.Printf("%v", err)
+			return e.JSON(http.StatusBadRequest, fmt.Errorf(static.MESSAGE_BAD_REQUEST))
+		}
+
+		if err := c.s.S3Upload(&model.FileUpload{
+			HashKey:   hashKey,
+			Name:      fileName,
+			Extension: curriculumVitaeExtension,
+			NamePre:   "curriculum_vitae",
+		}, curriculumVitae); err != nil {
+			return e.JSON(err.Status, model.ErrorConvert(*err))
+		}
+	}
+
+	return e.JSON(http.StatusOK, "OK")
 }

@@ -15,13 +15,16 @@ func main() {
 	redis := infra.NewRedis()
 	redisRepository := repository.NewRedisRepository(redis)
 
+	awsRepository := repository.NewAWSRepository()
+
 	masterRepository := repository.NewMasterRepository(db)
 
 	userRepository := repository.NewUserRepository(db)
 	userValidate := validator.NewUserValidator()
 
 	applicantRepository := repository.NewApplicantRepository(db, redis)
-	applicantService := service.NewApplicantService(applicantRepository, masterRepository)
+	applicantValidator := validator.NewApplicantValidator()
+	applicantService := service.NewApplicantService(applicantRepository, masterRepository, awsRepository, applicantValidator)
 	applicantController := controller.NewApplicantController(applicantService)
 
 	loginService := service.NewLoginService(userRepository, applicantRepository, redisRepository, userValidate)
