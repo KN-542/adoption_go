@@ -63,3 +63,15 @@ type Applicant struct {
 func (t Applicant) TableName() string {
 	return "t_applicant"
 }
+
+// ファイルアップロード
+type FileUpload struct {
+	// ハッシュキー
+	HashKey string `json:"hash_key"`
+	// ファイル名(共通)
+	Name string `json:"name"`
+	// ファイル拡張子
+	Extension string `json:"extension"`
+	// ファイル名(Pre)
+	NamePre string `json:"name_pre"`
+}

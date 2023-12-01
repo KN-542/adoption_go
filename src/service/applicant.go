@@ -1,10 +1,13 @@
 package service
 
 import (
+	"api/resources/static"
 	"api/src/model"
 	"api/src/model/enum"
 	"api/src/repository"
+	"api/src/validator"
 	"log"
+	"mime/multipart"
 	"net/http"
 	"strconv"
 	"time"
@@ -26,15 +29,24 @@ type IApplicantService interface {
 	Download(d *model.ApplicantsDownload) *model.ErrorResponse
 	// 検索
 	Search() (*model.ApplicantsDownloadResponse, *model.ErrorResponse)
+	// 書類アップロード(S3)
+	S3Upload(req *model.FileUpload, fileHeader *multipart.FileHeader) *model.ErrorResponse
 }
 
 type ApplicantService struct {
 	r repository.IApplicantRepository
 	m repository.IMasterRepository
+	a repository.IAWSRepository
+	v validator.IApplicantValidator
 }
 
-func NewApplicantService(r repository.IApplicantRepository, m repository.IMasterRepository) IApplicantService {
-	return &ApplicantService{r, m}
+func NewApplicantService(
+	r repository.IApplicantRepository,
+	m repository.IMasterRepository,
+	a repository.IAWSRepository,
+	v validator.IApplicantValidator,
+) IApplicantService {
+	return &ApplicantService{r, m, a, v}
 }
 
 // 認証URL作成
@@ -159,4 +171,26 @@ func (s *ApplicantService) Search() (*model.ApplicantsDownloadResponse, *model.E
 	return &model.ApplicantsDownloadResponse{
 		Applicants: applicants,
 	}, nil
+}
+
+// 書類アップロード(S3)
+func (s *ApplicantService) S3Upload(req *model.FileUpload, fileHeader *multipart.FileHeader) *model.ErrorResponse {
+	// バリデーション
+	if err := s.v.S3UploadValidator(req); err != nil {
+		log.Printf("%v", err)
+		return &model.ErrorResponse{
+			Status: http.StatusBadRequest,
+			Code:   static.CODE_BAD_REQUEST,
+		}
+	}
+
+	// S3 Upload
+	if err := s.a.S3Upload(req.NamePre+"_"+req.Name+"."+req.Extension, fileHeader); err != nil {
+		log.Printf("%v", err)
+		return &model.ErrorResponse{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	return nil
 }
