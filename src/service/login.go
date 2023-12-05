@@ -12,6 +12,7 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v4"
@@ -48,6 +49,8 @@ type ILoginService interface {
 	SessionConfirmApplicant(req *model.Applicant) *model.ErrorResponse
 	// ログアウト(応募者)
 	LogoutApplicant(req *model.Applicant) (*http.Cookie, *model.ErrorResponse)
+	// S3 Name Redisに登録
+	S3NamePreInsert(req *model.Applicant) *model.ErrorResponse
 }
 
 type LoginService struct {
@@ -593,4 +596,31 @@ func (l *LoginService) LogoutApplicant(req *model.Applicant) (*http.Cookie, *mod
 	}
 
 	return &cookie, nil
+}
+
+// S3 Name Redisに登録
+func (l *LoginService) S3NamePreInsert(req *model.Applicant) *model.ErrorResponse {
+	res, err := l.applicant.GetByHashKey(req)
+	if err != nil {
+		return &model.ErrorResponse{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	s3Name := res.Name + "_" + strings.Replace(res.Email, ".", "", -1)
+
+	ctx := context.Background()
+	if err := l.redis.Set(
+		ctx,
+		req.HashKey,
+		static.REDIS_S3_NAME,
+		&s3Name,
+		1*time.Hour,
+	); err != nil {
+		return &model.ErrorResponse{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	return nil
 }

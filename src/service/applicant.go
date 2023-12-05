@@ -6,10 +6,12 @@ import (
 	"api/src/model/enum"
 	"api/src/repository"
 	"api/src/validator"
+	"context"
 	"log"
 	"mime/multipart"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 	"unicode/utf8"
 )
@@ -31,22 +33,26 @@ type IApplicantService interface {
 	Search() (*model.ApplicantsDownloadResponse, *model.ErrorResponse)
 	// 書類アップロード(S3)
 	S3Upload(req *model.FileUpload, fileHeader *multipart.FileHeader) *model.ErrorResponse
+	// 面接希望日登録
+	InsertDesiredAt(req *model.ApplicantDesired) *model.ErrorResponse
 }
 
 type ApplicantService struct {
-	r repository.IApplicantRepository
-	m repository.IMasterRepository
-	a repository.IAWSRepository
-	v validator.IApplicantValidator
+	r     repository.IApplicantRepository
+	m     repository.IMasterRepository
+	a     repository.IAWSRepository
+	redis repository.IRedisRepository
+	v     validator.IApplicantValidator
 }
 
 func NewApplicantService(
 	r repository.IApplicantRepository,
 	m repository.IMasterRepository,
 	a repository.IAWSRepository,
+	redis repository.IRedisRepository,
 	v validator.IApplicantValidator,
 ) IApplicantService {
-	return &ApplicantService{r, m, a, v}
+	return &ApplicantService{r, m, a, redis, v}
 }
 
 // 認証URL作成
@@ -184,8 +190,68 @@ func (s *ApplicantService) S3Upload(req *model.FileUpload, fileHeader *multipart
 		}
 	}
 
+	ctx := context.Background()
+	fileName, err := s.redis.Get(ctx, req.HashKey, static.REDIS_S3_NAME)
+	if err != nil {
+		return &model.ErrorResponse{
+			Status: http.StatusUnauthorized,
+			Code:   static.CODE_LOGIN_REQUIRED,
+		}
+	}
+
 	// S3 Upload
-	if err := s.a.S3Upload(req.NamePre+"_"+req.Name+"."+req.Extension, fileHeader); err != nil {
+	objName := req.NamePre + "_" + *fileName + "." + req.Extension
+	if err := s.a.S3Upload(objName, fileHeader); err != nil {
+		log.Printf("%v", err)
+		return &model.ErrorResponse{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// 書類登録状況更新
+	if req.NamePre == "resume" {
+		if err := s.r.UpdateDocument(&model.Applicant{
+			HashKey:         req.HashKey,
+			Resume:          objName,
+			CurriculumVitae: "",
+		}); err != nil {
+			log.Printf("%v", err)
+			return &model.ErrorResponse{
+				Status: http.StatusInternalServerError,
+			}
+		}
+	}
+	if req.NamePre == "curriculum_vitae" {
+		if err := s.r.UpdateDocument(&model.Applicant{
+			HashKey:         req.HashKey,
+			Resume:          "",
+			CurriculumVitae: objName,
+		}); err != nil {
+			log.Printf("%v", err)
+			return &model.ErrorResponse{
+				Status: http.StatusInternalServerError,
+			}
+		}
+	}
+
+	return nil
+}
+
+// 面接希望日登録
+func (s *ApplicantService) InsertDesiredAt(req *model.ApplicantDesired) *model.ErrorResponse {
+	// バリデーション
+	if err := s.v.InsertDesiredAtValidator(req); err != nil {
+		log.Printf("%v", err)
+		return &model.ErrorResponse{
+			Status: http.StatusBadRequest,
+			Code:   static.CODE_BAD_REQUEST,
+		}
+	}
+
+	if err := s.r.UpdateDesiredAt(&model.Applicant{
+		HashKey:   req.HashKey,
+		DesiredAt: strings.Join(req.DesiredAt, ","),
+	}); err != nil {
 		log.Printf("%v", err)
 		return &model.ErrorResponse{
 			Status: http.StatusInternalServerError,

@@ -52,6 +52,14 @@ type Applicant struct {
 	Tel string `json:"tel" gorm:"type:varchar(20);check:tel ~ '^[0-9]{0,20}$'"`
 	// 年齢
 	Age int `json:"age" gorm:"check:(age >= 18 AND age <= 100) OR age = -1"`
+	// 履歴書
+	Resume string `json:"resume" gorm:"type:varchar(255)"`
+	// 職務経歴書
+	CurriculumVitae string `json:"curriculum_vitae" gorm:"type:varchar(255)"`
+	// Google Meet URL
+	GoogleMeetURL string `json:"google_meet_url" gorm:"type:text"`
+	// 希望面接日時
+	DesiredAt string `json:"desired_at" gorm:"type:text"`
 	// 登録日時
 	CreatedAt time.Time `json:"created_at"`
 	// 更新日時
@@ -64,12 +72,17 @@ func (t Applicant) TableName() string {
 	return "t_applicant"
 }
 
+type ApplicantDesired struct {
+	// ハッシュキー
+	HashKey string `json:"hash_key"`
+	// 希望面接日時
+	DesiredAt []string `json:"desired_at"`
+}
+
 // ファイルアップロード
 type FileUpload struct {
 	// ハッシュキー
 	HashKey string `json:"hash_key"`
-	// ファイル名(共通)
-	Name string `json:"name"`
 	// ファイル拡張子
 	Extension string `json:"extension"`
 	// ファイル名(Pre)

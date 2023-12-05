@@ -297,6 +297,11 @@ func (c *LoginController) MFAApplicant(e echo.Context) error {
 		return e.JSON(err.Status, model.ErrorConvert(*err))
 	}
 
+	// S3 Name Redisに登録
+	if err := c.s.S3NamePreInsert(&model.Applicant{HashKey: req.HashKey}); err != nil {
+		return e.JSON(err.Status, model.ErrorConvert(*err))
+	}
+
 	// JWT＆Cookie
 	cookie, err := c.s.JWT(&req.HashKey, 1*time.Hour, "jwt_token3", "JWT_SECRET3")
 	if err != nil {

@@ -9,6 +9,7 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"time"
 
 	"github.com/joho/godotenv"
 	"github.com/redis/go-redis/v9"
@@ -46,6 +47,10 @@ type IApplicantRepository interface {
 	CountByPrimaryKey(key *string) (*int64, error)
 	// 応募者取得(ハッシュキー)
 	GetByHashKey(m *model.Applicant) (*model.Applicant, error)
+	// 書類登録状況更新
+	UpdateDocument(m *model.Applicant) error
+	// 面接希望日更新
+	UpdateDesiredAt(m *model.Applicant) error
 }
 
 type ApplicantRepository struct {
@@ -241,4 +246,41 @@ func (a *ApplicantRepository) GetByHashKey(m *model.Applicant) (*model.Applicant
 	}
 
 	return &res, nil
+}
+
+// 書類登録状況更新
+func (a *ApplicantRepository) UpdateDocument(m *model.Applicant) error {
+	applicant := model.Applicant{
+		Resume:          m.Resume,
+		CurriculumVitae: m.CurriculumVitae,
+		UpdatedAt:       time.Now(),
+	}
+	if err := a.db.Model(&model.Applicant{}).Where(
+		&model.Applicant{
+			HashKey: m.HashKey,
+		},
+	).Updates(applicant).Error; err != nil {
+		log.Printf("%v", err)
+		return err
+	}
+
+	return nil
+}
+
+// 面接希望日更新
+func (a *ApplicantRepository) UpdateDesiredAt(m *model.Applicant) error {
+	applicant := model.Applicant{
+		DesiredAt: m.DesiredAt,
+		UpdatedAt: time.Now(),
+	}
+	if err := a.db.Model(&model.Applicant{}).Where(
+		&model.Applicant{
+			HashKey: m.HashKey,
+		},
+	).Updates(applicant).Error; err != nil {
+		log.Printf("%v", err)
+		return err
+	}
+
+	return nil
 }

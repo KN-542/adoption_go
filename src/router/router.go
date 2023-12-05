@@ -49,6 +49,7 @@ func NewRouter(
 	e.POST("/applicant/download", applicant.Download)
 	e.POST("/applicant/search", applicant.Search)
 	e.POST("/applicant/documents", applicant.DocumentsUpload)
+	e.POST("/applicant/desired", applicant.InsertDesiredAt)
 
 	return e
 }
