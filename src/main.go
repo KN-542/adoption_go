@@ -24,7 +24,7 @@ func main() {
 
 	applicantRepository := repository.NewApplicantRepository(db, redis)
 	applicantValidator := validator.NewApplicantValidator()
-	applicantService := service.NewApplicantService(applicantRepository, masterRepository, awsRepository, applicantValidator)
+	applicantService := service.NewApplicantService(applicantRepository, masterRepository, awsRepository, redisRepository, applicantValidator)
 	applicantController := controller.NewApplicantController(applicantService)
 
 	loginService := service.NewLoginService(userRepository, applicantRepository, redisRepository, userValidate)

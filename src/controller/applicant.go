@@ -28,6 +28,8 @@ type IApplicantController interface {
 	Search(e echo.Context) error
 	// 書類アップロード
 	DocumentsUpload(e echo.Context) error
+	// 面接希望日登録
+	InsertDesiredAt(e echo.Context) error
 }
 
 type ApplicantController struct {
@@ -98,7 +100,6 @@ func (c *ApplicantController) Search(e echo.Context) error {
 // 書類アップロード
 func (c *ApplicantController) DocumentsUpload(e echo.Context) error {
 	hashKey := e.FormValue("hash_key")
-	fileName := e.FormValue("file_name")
 
 	resumeExtension := e.FormValue("resume_extension")
 	if resumeExtension != "" {
@@ -110,7 +111,6 @@ func (c *ApplicantController) DocumentsUpload(e echo.Context) error {
 
 		if err := c.s.S3Upload(&model.FileUpload{
 			HashKey:   hashKey,
-			Name:      fileName,
 			Extension: resumeExtension,
 			NamePre:   "resume",
 		}, resume); err != nil {
@@ -128,12 +128,26 @@ func (c *ApplicantController) DocumentsUpload(e echo.Context) error {
 
 		if err := c.s.S3Upload(&model.FileUpload{
 			HashKey:   hashKey,
-			Name:      fileName,
 			Extension: curriculumVitaeExtension,
 			NamePre:   "curriculum_vitae",
 		}, curriculumVitae); err != nil {
 			return e.JSON(err.Status, model.ErrorConvert(*err))
 		}
+	}
+
+	return e.JSON(http.StatusOK, "OK")
+}
+
+// 面接希望日登録
+func (c *ApplicantController) InsertDesiredAt(e echo.Context) error {
+	request := model.ApplicantDesired{}
+	if err := e.Bind(&request); err != nil {
+		log.Printf("%v", err)
+		return e.JSON(http.StatusBadRequest, fmt.Errorf(static.MESSAGE_BAD_REQUEST))
+	}
+
+	if err := c.s.InsertDesiredAt(&request); err != nil {
+		return e.JSON(err.Status, model.ErrorConvert(*err))
 	}
 
 	return e.JSON(http.StatusOK, "OK")
