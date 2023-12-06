@@ -33,6 +33,8 @@ type IApplicantService interface {
 	Search() (*model.ApplicantsDownloadResponse, *model.ErrorResponse)
 	// 書類アップロード(S3)
 	S3Upload(req *model.FileUpload, fileHeader *multipart.FileHeader) *model.ErrorResponse
+	// 書類ダウンロード(S3)
+	S3Download(req *model.FileDownload) ([]byte, *string, *model.ErrorResponse)
 	// 面接希望日登録
 	InsertDesiredAt(req *model.ApplicantDesired) *model.ErrorResponse
 }
@@ -235,6 +237,53 @@ func (s *ApplicantService) S3Upload(req *model.FileUpload, fileHeader *multipart
 	}
 
 	return nil
+}
+
+// 書類ダウンロード(S3)
+func (s *ApplicantService) S3Download(req *model.FileDownload) ([]byte, *string, *model.ErrorResponse) {
+	// バリデーション
+	if err := s.v.S3DownloadValidator(req); err != nil {
+		log.Printf("%v", err)
+		return nil, nil, &model.ErrorResponse{
+			Status: http.StatusBadRequest,
+			Code:   static.CODE_BAD_REQUEST,
+		}
+	}
+
+	// ファイル名取得
+	applicant, err := s.r.GetByHashKey(&model.Applicant{
+		HashKey: req.HashKey,
+	})
+	if err != nil {
+		log.Printf("%v", err)
+		return nil, nil, &model.ErrorResponse{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// S3からダウンロード
+	if applicant.Resume != "" && req.NamePre == "resume" {
+		file, err := s.a.S3Download(applicant.Resume)
+		if err != nil {
+			log.Printf("%v", err)
+			return nil, nil, &model.ErrorResponse{
+				Status: http.StatusInternalServerError,
+			}
+		}
+		return file, &applicant.Resume, nil
+	}
+	if applicant.CurriculumVitae != "" && req.NamePre == "curriculum_vitae" {
+		file, err := s.a.S3Download(applicant.CurriculumVitae)
+		if err != nil {
+			log.Printf("%v", err)
+			return nil, nil, &model.ErrorResponse{
+				Status: http.StatusInternalServerError,
+			}
+		}
+		return file, &applicant.CurriculumVitae, nil
+	}
+
+	return nil, nil, nil
 }
 
 // 面接希望日登録
