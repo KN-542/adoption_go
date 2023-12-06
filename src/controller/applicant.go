@@ -28,6 +28,8 @@ type IApplicantController interface {
 	Search(e echo.Context) error
 	// 書類アップロード
 	DocumentsUpload(e echo.Context) error
+	// 書類ダウンロード
+	DocumentDownload(e echo.Context) error
 	// 面接希望日登録
 	InsertDesiredAt(e echo.Context) error
 }
@@ -136,6 +138,24 @@ func (c *ApplicantController) DocumentsUpload(e echo.Context) error {
 	}
 
 	return e.JSON(http.StatusOK, "OK")
+}
+
+// 書類ダウンロード
+func (c *ApplicantController) DocumentDownload(e echo.Context) error {
+	request := model.FileDownload{}
+	if err := e.Bind(&request); err != nil {
+		log.Printf("%v", err)
+		return e.JSON(http.StatusBadRequest, fmt.Errorf(static.MESSAGE_BAD_REQUEST))
+	}
+
+	file, fileName, err := c.s.S3Download(&request)
+	if err != nil {
+		return e.JSON(err.Status, model.ErrorConvert(*err))
+	}
+
+	e.Response().Header().Set("Content-Disposition", "attachment; filename="+*fileName)
+	e.Response().Header().Set("Content-Type", "application/octet-stream")
+	return e.Blob(http.StatusOK, "application/octet-stream", file)
 }
 
 // 面接希望日登録

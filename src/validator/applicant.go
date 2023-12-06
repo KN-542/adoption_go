@@ -9,8 +9,9 @@ import (
 )
 
 type IApplicantValidator interface {
-	S3UploadValidator(u *model.FileUpload) error
-	InsertDesiredAtValidator(u *model.ApplicantDesired) error
+	S3UploadValidator(a *model.FileUpload) error
+	S3DownloadValidator(a *model.FileDownload) error
+	InsertDesiredAtValidator(a *model.ApplicantDesired) error
 }
 
 type ApplicantValidator struct{}
@@ -32,6 +33,15 @@ func (v *ApplicantValidator) S3UploadValidator(a *model.FileUpload) error {
 		),
 		validation.Field(
 			&a.NamePre,
+			validation.Required,
+		),
+	)
+}
+func (v *ApplicantValidator) S3DownloadValidator(a *model.FileDownload) error {
+	return validation.ValidateStruct(
+		a,
+		validation.Field(
+			&a.HashKey,
 			validation.Required,
 		),
 	)

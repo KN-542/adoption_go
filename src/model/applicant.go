@@ -88,3 +88,11 @@ type FileUpload struct {
 	// ファイル名(Pre)
 	NamePre string `json:"name_pre"`
 }
+
+// ファイルダウンロード
+type FileDownload struct {
+	// ハッシュキー
+	HashKey string `json:"hash_key"`
+	// ファイル名(Pre)
+	NamePre string `json:"name_pre"`
+}
