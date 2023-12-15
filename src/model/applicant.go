@@ -34,7 +34,7 @@ type ApplicantsDownload struct {
 
 // 応募者ダウンロード Response
 type ApplicantsDownloadResponse struct {
-	Applicants []Applicant `json:"applicants"`
+	Applicants []ApplicantWith `json:"applicants"`
 }
 
 type Applicant struct {
@@ -43,7 +43,9 @@ type Applicant struct {
 	// ハッシュキー
 	HashKey string `json:"hash_key" gorm:"unique;type:text"`
 	// サイトID
-	SiteID int `json:"site_id"`
+	SiteID uint `json:"site_id"`
+	// ステータス
+	Status uint `json:"status"`
 	// 氏名
 	Name string `json:"name" gorm:"type:varchar(50)"`
 	// メールアドレス
@@ -59,24 +61,38 @@ type Applicant struct {
 	// Google Meet URL
 	GoogleMeetURL string `json:"google_meet_url" gorm:"type:text"`
 	// 希望面接日時
-	DesiredAt string `json:"desired_at" gorm:"type:text"`
+	DesiredAt string `json:"desired_at" gorm:"type:varchar(255)"`
 	// 登録日時
 	CreatedAt time.Time `json:"created_at"`
 	// 更新日時
 	UpdatedAt time.Time `json:"updated_at"`
 	// サイト(外部キー)
 	Site Site `gorm:"foreignKey:site_id;references:id"`
+	// ステータス(外部キー)
+	ApplicantStatus ApplicantStatus `gorm:"foreignKey:status;references:id"`
 }
 
 func (t Applicant) TableName() string {
 	return "t_applicant"
 }
 
+type ApplicantWith struct {
+	Applicant
+	StatusNameJa string `json:"status_name_ja"`
+}
+
+type ApplicantSearchRequest struct {
+	// サイトID
+	SiteIDList []uint `json:"site_id_list"`
+	// 応募者ステータス
+	ApplicantStatusList []uint `json:"applicant_status_list"`
+}
+
 type ApplicantDesired struct {
 	// ハッシュキー
 	HashKey string `json:"hash_key"`
 	// 希望面接日時
-	DesiredAt []string `json:"desired_at"`
+	DesiredAt string `json:"desired_at"`
 }
 
 // ファイルアップロード
