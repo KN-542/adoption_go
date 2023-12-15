@@ -43,25 +43,25 @@ type Applicant struct {
 	// ハッシュキー
 	HashKey string `json:"hash_key" gorm:"unique;type:text"`
 	// サイトID
-	SiteID uint `json:"site_id"`
+	SiteID uint `json:"site_id" gorm:"index"`
 	// ステータス
-	Status uint `json:"status"`
+	Status uint `json:"status" gorm:"index"`
 	// 氏名
-	Name string `json:"name" gorm:"type:varchar(50)"`
+	Name string `json:"name" gorm:"type:varchar(50);index"`
 	// メールアドレス
-	Email string `json:"email" gorm:"type:varchar(255);check:email ~ '^[a-zA-Z0-9_+-]+(\\.[a-zA-Z0-9_+-]+)*@([a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]*\\.)+[a-zA-Z]{2,}$'"`
+	Email string `json:"email" gorm:"type:varchar(255);check:email ~ '^[a-zA-Z0-9_+-]+(\\.[a-zA-Z0-9_+-]+)*@([a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]*\\.)+[a-zA-Z]{2,}$';index"`
 	// TEL
 	Tel string `json:"tel" gorm:"type:varchar(20);check:tel ~ '^[0-9]{0,20}$'"`
 	// 年齢
-	Age int `json:"age" gorm:"check:(age >= 18 AND age <= 100) OR age = -1"`
+	Age int `json:"age" gorm:"check:(age >= 18 AND age <= 100) OR age = -1;index"`
 	// 履歴書
-	Resume string `json:"resume" gorm:"type:varchar(255)"`
+	Resume string `json:"resume" gorm:"type:varchar(255);index"`
 	// 職務経歴書
-	CurriculumVitae string `json:"curriculum_vitae" gorm:"type:varchar(255)"`
+	CurriculumVitae string `json:"curriculum_vitae" gorm:"type:varchar(255);index"`
 	// Google Meet URL
 	GoogleMeetURL string `json:"google_meet_url" gorm:"type:text"`
 	// 希望面接日時
-	DesiredAt string `json:"desired_at" gorm:"type:varchar(255)"`
+	DesiredAt string `json:"desired_at" gorm:"type:varchar(255);index"`
 	// 登録日時
 	CreatedAt time.Time `json:"created_at"`
 	// 更新日時
