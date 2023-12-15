@@ -11,32 +11,29 @@ import (
 	"mime/multipart"
 	"net/http"
 	"strconv"
-	"strings"
 	"time"
 	"unicode/utf8"
 )
 
 type IApplicantService interface {
-	/*
-		OAuth2.0用(削除予定)
-	*/
 	// 認証URL作成
 	GetOauthURL() (*model.GetOauthURLResponse, *model.ErrorResponse)
 	// シート取得
 	GetSheets(search model.ApplicantSearch) (*[]model.ApplicantResponse, *model.ErrorResponse)
-	/*
-		txt、csvダウンロード用
-	*/
 	// 応募者ダウンロード
 	Download(d *model.ApplicantsDownload) *model.ErrorResponse
 	// 検索
-	Search() (*model.ApplicantsDownloadResponse, *model.ErrorResponse)
+	Search(req *model.ApplicantSearchRequest) (*model.ApplicantsDownloadResponse, *model.ErrorResponse)
 	// 書類アップロード(S3)
 	S3Upload(req *model.FileUpload, fileHeader *multipart.FileHeader) *model.ErrorResponse
 	// 書類ダウンロード(S3)
 	S3Download(req *model.FileDownload) ([]byte, *string, *model.ErrorResponse)
 	// 面接希望日登録
 	InsertDesiredAt(req *model.ApplicantDesired) *model.ErrorResponse
+	// 応募者ステータス一覧取得
+	GetApplicantStatus() (*model.ApplicantStatusList, *model.ErrorResponse)
+	// サイト一覧取得
+	GetSites() (*model.Sites, *model.ErrorResponse)
 }
 
 type ApplicantService struct {
@@ -134,7 +131,8 @@ func (s *ApplicantService) Download(d *model.ApplicantsDownload) *model.ErrorRes
 			m := model.Applicant{
 				ID:        values[enum.RECRUIT_ID],
 				HashKey:   *hashKey,
-				SiteID:    int(enum.RECRUIT),
+				SiteID:    uint(enum.RECRUIT),
+				Status:    uint(enum.SCHEDULE_UNANSWERED),
 				Name:      values[enum.RECRUIT_NAME],
 				Email:     values[enum.RECRUIT_EMAIL],
 				Tel:       values[enum.RECRUIT_TEL],
@@ -167,8 +165,8 @@ func (s *ApplicantService) Download(d *model.ApplicantsDownload) *model.ErrorRes
 }
 
 // 検索
-func (s *ApplicantService) Search() (*model.ApplicantsDownloadResponse, *model.ErrorResponse) {
-	applicants, err := s.r.Search()
+func (s *ApplicantService) Search(req *model.ApplicantSearchRequest) (*model.ApplicantsDownloadResponse, *model.ErrorResponse) {
+	applicants, err := s.r.Search(req)
 	if err != nil {
 		log.Printf("%v", err)
 		return nil, &model.ErrorResponse{
@@ -299,7 +297,7 @@ func (s *ApplicantService) InsertDesiredAt(req *model.ApplicantDesired) *model.E
 
 	if err := s.r.UpdateDesiredAt(&model.Applicant{
 		HashKey:   req.HashKey,
-		DesiredAt: strings.Join(req.DesiredAt, ","),
+		DesiredAt: req.DesiredAt,
 	}); err != nil {
 		log.Printf("%v", err)
 		return &model.ErrorResponse{
@@ -308,4 +306,30 @@ func (s *ApplicantService) InsertDesiredAt(req *model.ApplicantDesired) *model.E
 	}
 
 	return nil
+}
+
+// 応募者ステータス一覧取得
+func (s *ApplicantService) GetApplicantStatus() (*model.ApplicantStatusList, *model.ErrorResponse) {
+	applicantStatus, err := s.m.SelectApplicantStatus()
+	if err != nil {
+		log.Printf("%v", err)
+		return nil, &model.ErrorResponse{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	return &model.ApplicantStatusList{List: *applicantStatus}, nil
+}
+
+// サイト一覧取得
+func (s *ApplicantService) GetSites() (*model.Sites, *model.ErrorResponse) {
+	sites, err := s.m.SelectSite()
+	if err != nil {
+		log.Printf("%v", err)
+		return nil, &model.ErrorResponse{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	return &model.Sites{List: *sites}, nil
 }

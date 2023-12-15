@@ -40,7 +40,7 @@ type IApplicantRepository interface {
 	// 登録
 	Insert(applicant *model.Applicant) error
 	// 検索
-	Search() ([]model.Applicant, error)
+	Search(m *model.ApplicantSearchRequest) ([]model.ApplicantWith, error)
 	// 取得(Email)
 	GetByEmail(applicant *model.Applicant) ([]model.Applicant, error)
 	// PK検索(カウント)
@@ -203,13 +203,26 @@ func (a *ApplicantRepository) Insert(applicant *model.Applicant) error {
 }
 
 // 検索 TODO 検索仕様追加
-func (a *ApplicantRepository) Search() ([]model.Applicant, error) {
-	var l []model.Applicant
-	if err := a.db.Find(&l).Error; err != nil {
+func (a *ApplicantRepository) Search(m *model.ApplicantSearchRequest) ([]model.ApplicantWith, error) {
+	var applicants []model.ApplicantWith
+
+	query := a.db.Model(&model.Applicant{}).
+		Select("t_applicant.*, m_applicant_status.status_name_ja as status_name_ja").
+		Joins("left join m_applicant_status on t_applicant.status = m_applicant_status.id")
+
+	if len(m.SiteIDList) > 0 {
+		query = query.Where("t_applicant.site_id IN ?", m.SiteIDList)
+	}
+
+	if len(m.ApplicantStatusList) > 0 {
+		query = query.Where("t_applicant.status IN ?", m.ApplicantStatusList)
+	}
+
+	if err := query.Find(&applicants).Error; err != nil {
 		log.Printf("%v", err)
 		return nil, err
 	}
-	return l, nil
+	return applicants, nil
 }
 
 // PK検索(カウント)

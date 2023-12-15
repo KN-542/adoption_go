@@ -57,10 +57,7 @@ func (v *ApplicantValidator) InsertDesiredAtValidator(a *model.ApplicantDesired)
 		validation.Field(
 			&a.DesiredAt,
 			validation.Required,
-			validation.Length(1, 0),
-			validation.Each(
-				validation.Match(regexp.MustCompile(`^\d{4}-\d{2}-\d{2} \d{2}:\d{2} ~ \d{2}:\d{2}$`)),
-			),
+			validation.Match(regexp.MustCompile(`^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$`)),
 		),
 	)
 }

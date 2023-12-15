@@ -19,9 +19,6 @@ type IApplicantController interface {
 	GetOauthURL(e echo.Context) error
 	// シート取得
 	GetSheets(e echo.Context) error
-	/*
-		txt、csvダウンロード用
-	*/
 	// 応募者ダウンロード
 	Download(e echo.Context) error
 	// 検索
@@ -32,6 +29,10 @@ type IApplicantController interface {
 	DocumentDownload(e echo.Context) error
 	// 面接希望日登録
 	InsertDesiredAt(e echo.Context) error
+	// 応募者ステータス一覧取得
+	GetApplicantStatus(e echo.Context) error
+	// サイト一覧取得
+	GetSites(e echo.Context) error
 }
 
 type ApplicantController struct {
@@ -71,9 +72,6 @@ func (c *ApplicantController) GetSheets(e echo.Context) error {
 	return e.JSON(http.StatusOK, res)
 }
 
-/*
-	txt、csvダウンロード用
-*/
 // 応募者ダウンロード
 func (c *ApplicantController) Download(e echo.Context) error {
 	request := model.ApplicantsDownload{}
@@ -91,7 +89,13 @@ func (c *ApplicantController) Download(e echo.Context) error {
 
 // 検索
 func (c *ApplicantController) Search(e echo.Context) error {
-	res, err := c.s.Search()
+	request := model.ApplicantSearchRequest{}
+	if err := e.Bind(&request); err != nil {
+		log.Printf("%v", err)
+		return e.JSON(http.StatusBadRequest, fmt.Errorf(static.MESSAGE_BAD_REQUEST))
+	}
+
+	res, err := c.s.Search(&request)
 	if err != nil {
 		return e.JSON(err.Status, model.ErrorConvert(*err))
 	}
@@ -171,4 +175,22 @@ func (c *ApplicantController) InsertDesiredAt(e echo.Context) error {
 	}
 
 	return e.JSON(http.StatusOK, "OK")
+}
+
+// 応募者ステータス一覧取得
+func (c *ApplicantController) GetApplicantStatus(e echo.Context) error {
+	res, err := c.s.GetApplicantStatus()
+	if err != nil {
+		return e.JSON(err.Status, model.ErrorConvert(*err))
+	}
+	return e.JSON(http.StatusOK, res)
+}
+
+// サイト一覧取得
+func (c *ApplicantController) GetSites(e echo.Context) error {
+	res, err := c.s.GetSites()
+	if err != nil {
+		return e.JSON(err.Status, model.ErrorConvert(*err))
+	}
+	return e.JSON(http.StatusOK, res)
 }

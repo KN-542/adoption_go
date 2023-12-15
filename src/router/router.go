@@ -51,6 +51,8 @@ func NewRouter(
 	e.POST("/applicant/documents", applicant.DocumentsUpload)
 	e.POST("/applicant/documents_download", applicant.DocumentDownload)
 	e.POST("/applicant/desired", applicant.InsertDesiredAt)
+	e.POST("/applicant/status", applicant.GetApplicantStatus)
+	e.POST("/applicant/sites", applicant.GetSites)
 
 	return e
 }
