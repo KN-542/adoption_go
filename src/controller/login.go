@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"time"
 
 	"github.com/labstack/echo/v4"
 )
@@ -76,14 +75,14 @@ func (c *LoginController) Login(e echo.Context) error {
 
 	if *passChangeFlg == int8(enum.PASSWORD_CHANGE_UNREQUIRED) {
 		// JWT＆Cookie
-		cookie, err := c.s.JWT(&user.HashKey, 1*time.Hour, "jwt_token", "JWT_SECRET")
+		cookie, err := c.s.JWT(&user.HashKey, "jwt_token", "JWT_SECRET")
 		if err != nil {
 			return e.JSON(err.Status, model.ErrorConvert(*err))
 		}
 		e.SetCookie(cookie)
 
 		// JWT(MFA)＆Cookie
-		cookie2, err := c.s.JWT(&user.HashKey, 2*time.Hour, "jwt_token2", "JWT_SECRET2")
+		cookie2, err := c.s.JWT(&user.HashKey, "jwt_token2", "JWT_SECRET2")
 		if err != nil {
 			return e.JSON(err.Status, model.ErrorConvert(*err))
 		}
@@ -133,14 +132,14 @@ func (c *LoginController) MFA(e echo.Context) error {
 
 	if *passChangeFlg == int8(enum.PASSWORD_CHANGE_UNREQUIRED) {
 		// JWT＆Cookie
-		cookie, err := c.s.JWT(&req.HashKey, 1*time.Hour, "jwt_token", "JWT_SECRET")
+		cookie, err := c.s.JWT(&req.HashKey, "jwt_token", "JWT_SECRET")
 		if err != nil {
 			return e.JSON(err.Status, model.ErrorConvert(*err))
 		}
 		e.SetCookie(cookie)
 
 		// JWT(MFA)＆Cookie
-		cookie2, err := c.s.JWT(&req.HashKey, 2*time.Hour, "jwt_token2", "JWT_SECRET2")
+		cookie2, err := c.s.JWT(&req.HashKey, "jwt_token2", "JWT_SECRET2")
 		if err != nil {
 			return e.JSON(err.Status, model.ErrorConvert(*err))
 		}
@@ -195,7 +194,7 @@ func (c *LoginController) JWTDecode(e echo.Context) error {
 	}
 
 	// JWT＆Cookie 更新
-	cookie, err3 := c.s.JWT(&req.HashKey, 1*time.Hour, "jwt_token", "JWT_SECRET")
+	cookie, err3 := c.s.JWT(&req.HashKey, "jwt_token", "JWT_SECRET")
 	if err3 != nil {
 		return e.JSON(err3.Status, model.ErrorConvert(*err3))
 	}
@@ -219,14 +218,14 @@ func (c *LoginController) PasswordChange(e echo.Context) error {
 	}
 
 	// JWT＆Cookie
-	cookie, err := c.s.JWT(&req.HashKey, 1*time.Hour, "jwt_token", "JWT_SECRET")
+	cookie, err := c.s.JWT(&req.HashKey, "jwt_token", "JWT_SECRET")
 	if err != nil {
 		return e.JSON(err.Status, model.ErrorConvert(*err))
 	}
 	e.SetCookie(cookie)
 
 	// JWT(MFA)＆Cookie
-	cookie2, err := c.s.JWT(&req.HashKey, 2*time.Hour, "jwt_token2", "JWT_SECRET2")
+	cookie2, err := c.s.JWT(&req.HashKey, "jwt_token2", "JWT_SECRET2")
 	if err != nil {
 		return e.JSON(err.Status, model.ErrorConvert(*err))
 	}
@@ -303,7 +302,7 @@ func (c *LoginController) MFAApplicant(e echo.Context) error {
 	}
 
 	// JWT＆Cookie
-	cookie, err := c.s.JWT(&req.HashKey, 1*time.Hour, "jwt_token3", "JWT_SECRET3")
+	cookie, err := c.s.JWT(&req.HashKey, "jwt_token3", "JWT_SECRET3")
 	if err != nil {
 		return e.JSON(err.Status, model.ErrorConvert(*err))
 	}
@@ -339,7 +338,7 @@ func (c *LoginController) JWTDecodeApplicant(e echo.Context) error {
 	}
 
 	// JWT＆Cookie 更新
-	cookie, err3 := c.s.JWT(&req.HashKey, 1*time.Hour, "jwt_token3", "JWT_SECRET3")
+	cookie, err3 := c.s.JWT(&req.HashKey, "jwt_token3", "JWT_SECRET3")
 	if err3 != nil {
 		return e.JSON(err3.Status, model.ErrorConvert(*err3))
 	}

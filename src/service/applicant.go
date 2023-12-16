@@ -166,6 +166,15 @@ func (s *ApplicantService) Download(d *model.ApplicantsDownload) *model.ErrorRes
 
 // 検索
 func (s *ApplicantService) Search(req *model.ApplicantSearchRequest) (*model.ApplicantsDownloadResponse, *model.ErrorResponse) {
+	// バリデーション
+	if err := s.v.SearchValidator(req); err != nil {
+		log.Printf("%v", err)
+		return nil, &model.ErrorResponse{
+			Status: http.StatusBadRequest,
+			Code:   static.CODE_BAD_REQUEST,
+		}
+	}
+
 	applicants, err := s.r.Search(req)
 	if err != nil {
 		log.Printf("%v", err)

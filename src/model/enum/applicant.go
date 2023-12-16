@@ -3,6 +3,7 @@ package enum
 type CellIndex int
 type IsAuthCodeExist int
 type ItemOfSite int
+type isDocumentExist uint
 
 const (
 	CELL_CREATED_AT     CellIndex = 0
@@ -30,4 +31,9 @@ const (
 	RECRUIT_EMAIL ItemOfSite = 17
 	RECRUIT_TEL   ItemOfSite = 18
 	RECRUIT_AGE   ItemOfSite = 14
+)
+
+const (
+	DOCUMENT_EXIST     isDocumentExist = 1
+	DOCUMENT_NOT_EXIST isDocumentExist = 2
 )
