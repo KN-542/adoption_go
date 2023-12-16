@@ -86,6 +86,10 @@ type ApplicantSearchRequest struct {
 	SiteIDList []uint `json:"site_id_list"`
 	// 応募者ステータス
 	ApplicantStatusList []uint `json:"applicant_status_list"`
+	// 履歴書
+	Resume uint `json:"resume"`
+	// 職務経歴書
+	CurriculumVitae uint `json:"curriculum_vitae"`
 }
 
 type ApplicantDesired struct {

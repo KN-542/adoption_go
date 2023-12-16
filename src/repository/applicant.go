@@ -218,6 +218,17 @@ func (a *ApplicantRepository) Search(m *model.ApplicantSearchRequest) ([]model.A
 		query = query.Where("t_applicant.status IN ?", m.ApplicantStatusList)
 	}
 
+	if m.Resume == uint(enum.DOCUMENT_EXIST) {
+		query = query.Where("t_applicant.resume != ''")
+	} else if m.Resume == uint(enum.DOCUMENT_NOT_EXIST) {
+		query = query.Where("t_applicant.resume = ''")
+	}
+	if m.CurriculumVitae == uint(enum.DOCUMENT_EXIST) {
+		query = query.Where("t_applicant.curriculum_vitae != ''")
+	} else if m.CurriculumVitae == uint(enum.DOCUMENT_NOT_EXIST) {
+		query = query.Where("t_applicant.curriculum_vitae = ''")
+	}
+
 	if err := query.Find(&applicants).Error; err != nil {
 		log.Printf("%v", err)
 		return nil, err

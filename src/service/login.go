@@ -24,7 +24,7 @@ type ILoginService interface {
 	// ログイン認証
 	Login(req *model.User) (*model.UserResponse, *model.ErrorResponse)
 	// JWTトークン作成
-	JWT(hashKey *string, exp time.Duration, name string, secret string) (*http.Cookie, *model.ErrorResponse)
+	JWT(hashKey *string, name string, secret string) (*http.Cookie, *model.ErrorResponse)
 	// MFA 認証コード生成
 	CodeGenerate(req *model.User) *model.ErrorResponse
 	// MFA
@@ -113,7 +113,7 @@ func (l *LoginService) Login(req *model.User) (*model.UserResponse, *model.Error
 		user.HashKey,
 		static.REDIS_USER_HASH_KEY,
 		&user.HashKey,
-		1*time.Hour,
+		24*time.Hour,
 	); err != nil {
 		return nil, &model.ErrorResponse{
 			Status: http.StatusInternalServerError,
@@ -129,33 +129,63 @@ func (l *LoginService) Login(req *model.User) (*model.UserResponse, *model.Error
 }
 
 // JWTトークン作成
-func (l *LoginService) JWT(hashKey *string, exp time.Duration, name string, secret string) (*http.Cookie, *model.ErrorResponse) {
+func (l *LoginService) JWT(hashKey *string, name string, secret string) (*http.Cookie, *model.ErrorResponse) {
 	// Token作成
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"user_id": hashKey,
-		"exp":     time.Now().Add(exp).Unix(),
-	})
+	if name == "jwt_token" || name == "jwt_token3" {
+		token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+			"user_id": hashKey,
+			"exp":     time.Now().Add(24 * time.Hour).Unix(),
+		})
 
-	// 署名
-	tokenString, err := token.SignedString([]byte(os.Getenv(secret)))
-	if err != nil {
-		return nil, &model.ErrorResponse{
-			Status: http.StatusInternalServerError,
+		// 署名
+		tokenString, err := token.SignedString([]byte(os.Getenv(secret)))
+		if err != nil {
+			return nil, &model.ErrorResponse{
+				Status: http.StatusInternalServerError,
+			}
 		}
+
+		// Cookie作成
+		cookie := http.Cookie{
+			Name:     name,
+			Value:    tokenString,
+			Expires:  time.Now().Add(24 * time.Hour),
+			HttpOnly: true,  // JavaScriptからのアクセスを禁止する場合はtrueに
+			Secure:   false, // HTTPSでのみ送信 開発環境ではfalseに
+			SameSite: http.SameSiteDefaultMode,
+			Path:     "/",
+		}
+
+		return &cookie, nil
+	} else if name == "jwt_token2" {
+		token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+			"user_id": hashKey,
+			"exp":     time.Now().Add(24 * 30 * 3 * time.Hour).Unix(),
+		})
+
+		// 署名
+		tokenString, err := token.SignedString([]byte(os.Getenv(secret)))
+		if err != nil {
+			return nil, &model.ErrorResponse{
+				Status: http.StatusInternalServerError,
+			}
+		}
+
+		// Cookie作成
+		cookie := http.Cookie{
+			Name:     name,
+			Value:    tokenString,
+			Expires:  time.Now().Add(24 * 30 * 3 * time.Hour),
+			HttpOnly: true,  // JavaScriptからのアクセスを禁止する場合はtrueに
+			Secure:   false, // HTTPSでのみ送信 開発環境ではfalseに
+			SameSite: http.SameSiteDefaultMode,
+			Path:     "/",
+		}
+
+		return &cookie, nil
 	}
 
-	// Cookie作成
-	cookie := http.Cookie{
-		Name:     name,
-		Value:    tokenString,
-		Expires:  time.Now().Add(time.Duration(exp) * time.Hour),
-		HttpOnly: true,  // JavaScriptからのアクセスを禁止する場合はtrueに
-		Secure:   false, // HTTPSでのみ送信 開発環境ではfalseに
-		SameSite: http.SameSiteDefaultMode,
-		Path:     "/",
-	}
-
-	return &cookie, nil
+	return nil, nil
 }
 
 // MFA 認証コード生成
@@ -225,7 +255,7 @@ func (l *LoginService) MFA(req *model.UserMFA) *model.ErrorResponse {
 			req.HashKey,
 			static.REDIS_USER_HASH_KEY,
 			&req.HashKey,
-			1*time.Hour,
+			24*time.Hour,
 		); err != nil {
 			return &model.ErrorResponse{
 				Status: http.StatusInternalServerError,
@@ -249,7 +279,7 @@ func (l *LoginService) MFA(req *model.UserMFA) *model.ErrorResponse {
 			req.HashKey,
 			static.REDIS_USER_HASH_KEY,
 			&req.HashKey,
-			1*time.Hour,
+			24*time.Hour,
 		); err != nil {
 			return &model.ErrorResponse{
 				Status: http.StatusInternalServerError,
@@ -376,7 +406,7 @@ func (l *LoginService) SessionConfirm(req *model.User) *model.ErrorResponse {
 		req.HashKey,
 		static.REDIS_USER_HASH_KEY,
 		&req.HashKey,
-		1*time.Hour,
+		24*time.Hour,
 	); err != nil {
 		return &model.ErrorResponse{
 			Status: http.StatusInternalServerError,
@@ -454,7 +484,7 @@ func (l *LoginService) LoginApplicant(req *model.Applicant) (*model.Applicant, *
 		applicant.HashKey,
 		static.REDIS_USER_HASH_KEY,
 		&applicant.HashKey,
-		1*time.Hour,
+		24*time.Hour,
 	); err != nil {
 		return nil, &model.ErrorResponse{
 			Status: http.StatusInternalServerError,
@@ -555,7 +585,7 @@ func (l *LoginService) SessionConfirmApplicant(req *model.Applicant) *model.Erro
 		req.HashKey,
 		static.REDIS_USER_HASH_KEY,
 		&req.HashKey,
-		1*time.Hour,
+		24*time.Hour,
 	); err != nil {
 		return &model.ErrorResponse{
 			Status: http.StatusInternalServerError,
@@ -615,7 +645,7 @@ func (l *LoginService) S3NamePreInsert(req *model.Applicant) *model.ErrorRespons
 		req.HashKey,
 		static.REDIS_S3_NAME,
 		&s3Name,
-		1*time.Hour,
+		24*time.Hour,
 	); err != nil {
 		return &model.ErrorResponse{
 			Status: http.StatusInternalServerError,
