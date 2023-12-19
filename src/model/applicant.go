@@ -90,6 +90,14 @@ type ApplicantSearchRequest struct {
 	Resume uint `json:"resume"`
 	// 職務経歴書
 	CurriculumVitae uint `json:"curriculum_vitae"`
+	// 氏名
+	Name string `json:"name"`
+	// メールアドレス
+	Email string `json:"email"`
+	// ソート(key)
+	SortKey string `json:"sort_key"`
+	// ソート(向き)
+	SortAsc bool `json:"sort_asc"`
 }
 
 type ApplicantDesired struct {

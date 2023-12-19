@@ -229,6 +229,21 @@ func (a *ApplicantRepository) Search(m *model.ApplicantSearchRequest) ([]model.A
 		query = query.Where("t_applicant.curriculum_vitae = ''")
 	}
 
+	if m.Name != "" {
+		query = query.Where("name LIKE ?", "%"+m.Name+"%")
+	}
+	if m.Email != "" {
+		query = query.Where("email LIKE ?", "%"+m.Email+"%")
+	}
+
+	if m.SortKey != "" {
+		if m.SortAsc {
+			query = query.Order(m.SortKey + " ASC")
+		} else {
+			query = query.Order(m.SortKey + " DESC")
+		}
+	}
+
 	if err := query.Find(&applicants).Error; err != nil {
 		log.Printf("%v", err)
 		return nil, err
