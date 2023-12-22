@@ -50,7 +50,7 @@ func (u *UserService) List() (*model.UsersResponse, *model.ErrorResponse) {
 	}
 
 	return &model.UsersResponse{
-		Users: *model.ConvertUsers(users),
+		Users: users,
 	}, nil
 }
 

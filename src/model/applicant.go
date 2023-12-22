@@ -79,6 +79,7 @@ func (t Applicant) TableName() string {
 type ApplicantWith struct {
 	Applicant
 	StatusNameJa string `json:"status_name_ja"`
+	SiteNameJa   string `json:"site_name_ja"`
 }
 
 type ApplicantSearchRequest struct {

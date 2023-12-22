@@ -11,15 +11,15 @@ type User struct {
 	// ハッシュキー
 	HashKey string `json:"hash_key" gorm:"unique;type:text"`
 	// 氏名
-	Name string `json:"name" gorm:"unique;type:varchar(30)"`
+	Name string `json:"name" gorm:"unique;type:varchar(30);index"`
 	// メールアドレス
-	Email string `json:"email" gorm:"unique;type:varchar(50);check:email ~ '^[a-zA-Z0-9_+-]+(\\.[a-zA-Z0-9_+-]+)*@([a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]*\\.)+[a-zA-Z]{2,}$'"`
+	Email string `json:"email" gorm:"unique;type:varchar(50);check:email ~ '^[a-zA-Z0-9_+-]+(\\.[a-zA-Z0-9_+-]+)*@([a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]*\\.)+[a-zA-Z]{2,}$';index"`
 	// パスワード(ハッシュ化)
 	Password string `json:"password"`
 	// 初回パスワード(ハッシュ化)
 	InitPassword string `json:"init_password"`
 	// ロールID
-	RoleID uint `json:"role_id"`
+	RoleID uint `json:"role_id" gorm:"index"`
 	// 登録日時
 	CreatedAt time.Time `json:"created_at"`
 	// 更新日時
@@ -48,6 +48,8 @@ type UserResponse struct {
 	MFA int8 `json:"mfa"`
 	// パスワード変更 必要性
 	PasswordChange int8 `json:"password_change"`
+	// ロール名
+	RoleNameJa string `json:"role_name_ja"`
 }
 type UsersResponse struct {
 	Users []UserResponse `json:"users"`

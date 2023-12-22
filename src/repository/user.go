@@ -12,8 +12,8 @@ import (
 type IUserRepository interface {
 	// 登録
 	Insert(m *model.User) error
-	// 全件取得
-	List() (*[]model.User, error)
+	// 検索
+	List() ([]model.UserResponse, error)
 	// ユーザー取得
 	Get(m *model.User) (*model.User, error)
 	// ログイン認証
@@ -45,14 +45,19 @@ func (u *UserRepository) Insert(m *model.User) error {
 	return nil
 }
 
-// 全件取得
-func (u *UserRepository) List() (*[]model.User, error) {
-	var l []model.User
-	if err := u.db.Find(&l).Error; err != nil {
+// 検索
+func (u *UserRepository) List() ([]model.UserResponse, error) {
+	var l []model.UserResponse
+
+	query := u.db.Model(&model.User{}).
+		Select("t_user.hash_key, t_user.name, t_user.email, t_user.role_id, m_role.name_ja as role_name_ja").
+		Joins("left join m_role on t_user.role_id = m_role.id")
+
+	if err := query.Find(&l).Error; err != nil {
 		log.Printf("%v", err)
 		return nil, err
 	}
-	return &l, nil
+	return l, nil
 }
 
 // ユーザー取得

@@ -207,8 +207,9 @@ func (a *ApplicantRepository) Search(m *model.ApplicantSearchRequest) ([]model.A
 	var applicants []model.ApplicantWith
 
 	query := a.db.Model(&model.Applicant{}).
-		Select("t_applicant.*, m_applicant_status.status_name_ja as status_name_ja").
-		Joins("left join m_applicant_status on t_applicant.status = m_applicant_status.id")
+		Select("t_applicant.*, m_applicant_status.status_name_ja as status_name_ja, m_site.site_name_ja as site_name_ja").
+		Joins("left join m_applicant_status on t_applicant.status = m_applicant_status.id").
+		Joins("left join m_site on t_applicant.site_id = m_site.id")
 
 	if len(m.SiteIDList) > 0 {
 		query = query.Where("t_applicant.site_id IN ?", m.SiteIDList)
