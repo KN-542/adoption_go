@@ -14,6 +14,8 @@ type IUserRepository interface {
 	Insert(m *model.User) error
 	// 検索
 	List() ([]model.UserResponse, error)
+	// ユーザー存在確認
+	ConfirmUserByHashKeys(hashKeys []string) ([]model.UserResponse, error)
 	// ユーザー取得
 	Get(m *model.User) (*model.User, error)
 	// ログイン認証
@@ -26,6 +28,10 @@ type IUserRepository interface {
 	ConfirmInitPassword2(m *model.User) (*string, error)
 	// メールアドレス重複チェック
 	EmailDuplCheck(m *model.User) error
+	// 検索(ユーザーグループ)
+	SearchGroup() ([]model.UserGroupResponse, error)
+	// グループ登録
+	InsertGroup(m *model.UserGroup) error
 }
 
 type UserRepository struct {
@@ -52,6 +58,26 @@ func (u *UserRepository) List() ([]model.UserResponse, error) {
 	query := u.db.Model(&model.User{}).
 		Select("t_user.hash_key, t_user.name, t_user.email, t_user.role_id, m_role.name_ja as role_name_ja").
 		Joins("left join m_role on t_user.role_id = m_role.id")
+
+	if err := query.Find(&l).Error; err != nil {
+		log.Printf("%v", err)
+		return nil, err
+	}
+	return l, nil
+}
+
+// ユーザー存在確認
+func (u *UserRepository) ConfirmUserByHashKeys(hashKeys []string) ([]model.UserResponse, error) {
+	if len(hashKeys) == 0 {
+		return nil, nil
+	}
+	var l []model.UserResponse
+
+	query := u.db.Model(&model.User{}).
+		Select("t_user.hash_key, t_user.name, t_user.email, t_user.role_id, m_role.name_ja as role_name_ja").
+		Joins("left join m_role on t_user.role_id = m_role.id")
+
+	query = query.Where("t_user.hash_key IN ?", hashKeys)
 
 	if err := query.Find(&l).Error; err != nil {
 		log.Printf("%v", err)
@@ -155,5 +181,29 @@ func (u *UserRepository) EmailDuplCheck(m *model.User) error {
 		return fmt.Errorf("Duplicate Email Address")
 	}
 
+	return nil
+}
+
+// 検索(ユーザーグループ)
+func (u *UserRepository) SearchGroup() ([]model.UserGroupResponse, error) {
+	var l []model.UserGroupResponse
+
+	query := u.db.Model(&model.UserGroup{}).
+		Select("t_user_group.hash_key, t_user_group.name, t_user_group.users")
+
+	if err := query.Find(&l).Error; err != nil {
+		log.Printf("%v", err)
+		return nil, err
+	}
+
+	return l, nil
+}
+
+// グループ登録
+func (u *UserRepository) InsertGroup(m *model.UserGroup) error {
+	if err := u.db.Create(m).Error; err != nil {
+		log.Printf("%v", err)
+		return err
+	}
 	return nil
 }

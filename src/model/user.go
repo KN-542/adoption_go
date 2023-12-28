@@ -32,6 +32,26 @@ func (t User) TableName() string {
 	return "t_user"
 }
 
+// ユーザーグループ
+type UserGroup struct {
+	// ID
+	ID uint64 `json:"id" gorm:"primaryKey;AUTO_INCREMENT"`
+	// ハッシュキー
+	HashKey string `json:"hash_key" gorm:"unique;type:text"`
+	// グループ名
+	Name string `json:"name" gorm:"unique;type:varchar(30);index"`
+	// 所属ユーザー
+	Users string `json:"users" gorm:"type:text;index"`
+	// 登録日時
+	CreatedAt time.Time `json:"created_at"`
+	// 更新日時
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+func (t UserGroup) TableName() string {
+	return "t_user_group"
+}
+
 // ユーザ(管理) response
 type UserResponse struct {
 	// ハッシュキー
@@ -53,6 +73,19 @@ type UserResponse struct {
 }
 type UsersResponse struct {
 	Users []UserResponse `json:"users"`
+}
+
+// ユーザーグループ response
+type UserGroupResponse struct {
+	// ハッシュキー
+	HashKey string `json:"hash_key"`
+	// グループ名
+	Name string `json:"name"`
+	// 所属ユーザー
+	Users string `json:"users"`
+}
+type UserGroupsResponse struct {
+	UserGroups []UserGroupResponse `json:"user_groups"`
 }
 
 // ユーザー MFA

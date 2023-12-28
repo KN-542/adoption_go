@@ -9,6 +9,7 @@ import (
 	"log"
 	"math/big"
 	"net/http"
+	"strings"
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
@@ -23,6 +24,10 @@ type IUserService interface {
 	Get(req *model.User) (*model.UserResponse, *model.ErrorResponse)
 	// ロール一覧
 	RoleList() (*model.UserRoles, *model.ErrorResponse)
+	// 検索(グループ)
+	SearchGroups() (*model.UserGroupsResponse, *model.ErrorResponse)
+	// グループ登録
+	CreateGroup(req *model.UserGroup) *model.ErrorResponse
 }
 
 type UserService struct {
@@ -150,6 +155,92 @@ func (u *UserService) RoleList() (*model.UserRoles, *model.ErrorResponse) {
 	}
 
 	return &model.UserRoles{Roles: *roles}, nil
+}
+
+// 検索(グループ)
+func (u *UserService) SearchGroups() (*model.UserGroupsResponse, *model.ErrorResponse) {
+	userGroups, err := u.r.SearchGroup()
+	if err != nil {
+		log.Printf("%v", err)
+		return nil, &model.ErrorResponse{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// ユーザー存在確認
+	for index, userGroup := range userGroups {
+		var l []string
+		users, err := u.r.ConfirmUserByHashKeys(strings.Split(userGroup.Users, ","))
+		if err != nil {
+			if err != nil {
+				return nil, &model.ErrorResponse{
+					Status: http.StatusInternalServerError,
+				}
+			}
+		}
+		if users == nil || len(users) == 0 {
+			userGroups[index].Users = ""
+			continue
+		}
+
+		for _, user := range users {
+			l = append(l, user.Name)
+		}
+		userGroups[index].Users = strings.Join(l, ",")
+	}
+
+	return &model.UserGroupsResponse{
+		UserGroups: userGroups,
+	}, nil
+}
+
+// グループ登録
+func (u *UserService) CreateGroup(req *model.UserGroup) *model.ErrorResponse {
+	// バリデーション
+	if err := u.v.CreateGroupValidate(req); err != nil {
+		log.Printf("%v", err)
+		return &model.ErrorResponse{
+			Status: http.StatusBadRequest,
+			Code:   static.CODE_BAD_REQUEST,
+		}
+	}
+
+	// ユーザー存在確認
+	users, err := u.r.ConfirmUserByHashKeys(strings.Split(req.Users, ","))
+	if err != nil {
+		if err != nil {
+			return &model.ErrorResponse{
+				Status: http.StatusInternalServerError,
+			}
+		}
+	}
+
+	var l []string
+	for _, row := range users {
+		l = append(l, row.HashKey)
+	}
+	req.Users = strings.Join(l, ",")
+
+	// ハッシュキー生成
+	_, hashKey, err := generateRandomStr(1, 25)
+	if err != nil {
+		log.Printf("%v", err)
+		return &model.ErrorResponse{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// グループ登録
+	req.HashKey = *hashKey
+	if err := u.r.InsertGroup(req); err != nil {
+		if err != nil {
+			return &model.ErrorResponse{
+				Status: http.StatusInternalServerError,
+			}
+		}
+	}
+
+	return nil
 }
 
 func generateRandomStr(minLength, maxLength int) (*string, *string, error) {

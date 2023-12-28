@@ -10,6 +10,7 @@ import (
 
 type IUserValidator interface {
 	CreateValidate(u *model.User) error
+	CreateGroupValidate(u *model.UserGroup) error
 	LoginValidate(u *model.User) error
 	MFAValidate(u *model.UserMFA) error
 	PasswordChangeValidate(u *model.User) error
@@ -41,6 +42,16 @@ func (v *userValidator) CreateValidate(u *model.User) error {
 		validation.Field(
 			&u.RoleID,
 			validation.Required,
+		),
+	)
+}
+func (v *userValidator) CreateGroupValidate(u *model.UserGroup) error {
+	return validation.ValidateStruct(
+		u,
+		validation.Field(
+			&u.Name,
+			validation.Required,
+			validation.Length(1, 30),
 		),
 	)
 }
