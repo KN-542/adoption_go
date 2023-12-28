@@ -42,7 +42,9 @@ func NewRouter(
 
 	e.POST("/user/list", user.List)
 	e.POST("/user/create", user.Create)
+	e.POST("/user/create_group", user.InsertGroup)
 	e.POST("/user/role_list", user.RoleList)
+	e.POST("/user/search_group", user.SearchGroups)
 
 	e.POST("/applicant/get_url", applicant.GetOauthURL)
 	e.POST("/applicant/get_sheets", applicant.GetSheets)

@@ -17,6 +17,7 @@ func main() {
 		&model.Role{},
 		&model.Site{},
 		&model.User{},
+		&model.UserGroup{},
 		&model.ApplicantStatus{},
 		&model.Applicant{},
 	)

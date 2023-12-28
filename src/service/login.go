@@ -467,7 +467,6 @@ func (l *LoginService) LoginApplicant(req *model.Applicant) (*model.Applicant, *
 			Status: http.StatusInternalServerError,
 		}
 	}
-	fmt.Println(applicants)
 	if len(applicants) == 0 {
 		return nil, &model.ErrorResponse{
 			Status: http.StatusUnauthorized,

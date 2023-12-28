@@ -25,14 +25,5 @@ func NewRedis() *redis.Client {
 		PoolSize: 1000,
 	})
 
-	// rdb.Set(ctx, "mykey1", "hoge", 0) // キー名 mykey1で文字列hogeをセット
-	// ret, err := rdb.Get(ctx, "mykey1").Result() // キー名mykey1を取得
-	// if err != nil {
-	// 	log.Fatalln(err)
-	// 	return rdb
-	// }
-
-	// println("Result: ", ret)
-
 	return rdb
 }
