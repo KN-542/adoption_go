@@ -2,6 +2,7 @@ package enum
 
 type Site int
 type ApplicantStatus uint
+type CalendarStatus uint
 
 // m_site
 const (
@@ -93,4 +94,16 @@ const (
 	OFFER_DISMISSAL ApplicantStatus = 37
 	// 内定承諾後辞退
 	OFFER_COMMITMENT_DISMISSAL ApplicantStatus = 38
+)
+
+// m_calendar_freq_status
+const (
+	// なし
+	FREQ_NONE CalendarStatus = 9
+	// 毎週
+	FREQ_WEEKLY CalendarStatus = 1
+	// 毎月
+	FREQ_MONTHLY CalendarStatus = 2
+	// 毎年
+	FREQ_YEARLY CalendarStatus = 3
 )

@@ -32,6 +32,10 @@ type IUserRepository interface {
 	SearchGroup() ([]model.UserGroupResponse, error)
 	// グループ登録
 	InsertGroup(m *model.UserGroup) error
+	// スケジュール登録
+	InsertSchedule(m *model.UserSchedule) error
+	// スケジュール一覧
+	ListSchedule() ([]model.UserScheduleResponse, error)
 }
 
 type UserRepository struct {
@@ -206,4 +210,23 @@ func (u *UserRepository) InsertGroup(m *model.UserGroup) error {
 		return err
 	}
 	return nil
+}
+
+// スケジュール登録
+func (u *UserRepository) InsertSchedule(m *model.UserSchedule) error {
+	if err := u.db.Create(m).Error; err != nil {
+		log.Printf("%v", err)
+		return err
+	}
+	return nil
+}
+
+// スケジュール一覧
+func (u *UserRepository) ListSchedule() ([]model.UserScheduleResponse, error) {
+	var res []model.UserScheduleResponse
+	if err := u.db.Find(&res).Error; err != nil {
+		log.Printf("%v", err)
+		return nil, err
+	}
+	return res, nil
 }

@@ -42,6 +42,7 @@ type ApplicantService struct {
 	a     repository.IAWSRepository
 	redis repository.IRedisRepository
 	v     validator.IApplicantValidator
+	d     repository.IDBRepository
 }
 
 func NewApplicantService(
@@ -50,8 +51,9 @@ func NewApplicantService(
 	a repository.IAWSRepository,
 	redis repository.IRedisRepository,
 	v validator.IApplicantValidator,
+	d repository.IDBRepository,
 ) IApplicantService {
-	return &ApplicantService{r, m, a, redis, v}
+	return &ApplicantService{r, m, a, redis, v, d}
 }
 
 // 認証URL作成
@@ -150,9 +152,26 @@ func (s *ApplicantService) Download(d *model.ApplicantsDownload) *model.ErrorRes
 				}
 			}
 			if *count == int64(0) {
+				tx, err := s.d.TxStart()
+				if err != nil {
+					return &model.ErrorResponse{
+						Status: http.StatusInternalServerError,
+					}
+				}
+
 				// STEP2-2 登録
 				if err := s.r.Insert(&m); err != nil {
-					log.Printf("%v", err)
+					if err := s.d.TxRollback(tx); err != nil {
+						return &model.ErrorResponse{
+							Status: http.StatusInternalServerError,
+						}
+					}
+					return &model.ErrorResponse{
+						Status: http.StatusInternalServerError,
+					}
+				}
+
+				if err := s.d.TxCommit(tx); err != nil {
 					return &model.ErrorResponse{
 						Status: http.StatusInternalServerError,
 					}
@@ -217,6 +236,13 @@ func (s *ApplicantService) S3Upload(req *model.FileUpload, fileHeader *multipart
 		}
 	}
 
+	tx, err := s.d.TxStart()
+	if err != nil {
+		return &model.ErrorResponse{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
 	// 書類登録状況更新
 	if req.NamePre == "resume" {
 		if err := s.r.UpdateDocument(&model.Applicant{
@@ -224,7 +250,11 @@ func (s *ApplicantService) S3Upload(req *model.FileUpload, fileHeader *multipart
 			Resume:          objName,
 			CurriculumVitae: "",
 		}); err != nil {
-			log.Printf("%v", err)
+			if err := s.d.TxRollback(tx); err != nil {
+				return &model.ErrorResponse{
+					Status: http.StatusInternalServerError,
+				}
+			}
 			return &model.ErrorResponse{
 				Status: http.StatusInternalServerError,
 			}
@@ -236,10 +266,20 @@ func (s *ApplicantService) S3Upload(req *model.FileUpload, fileHeader *multipart
 			Resume:          "",
 			CurriculumVitae: objName,
 		}); err != nil {
-			log.Printf("%v", err)
+			if err := s.d.TxRollback(tx); err != nil {
+				return &model.ErrorResponse{
+					Status: http.StatusInternalServerError,
+				}
+			}
 			return &model.ErrorResponse{
 				Status: http.StatusInternalServerError,
 			}
+		}
+	}
+
+	if err := s.d.TxCommit(tx); err != nil {
+		return &model.ErrorResponse{
+			Status: http.StatusInternalServerError,
 		}
 	}
 
@@ -304,11 +344,28 @@ func (s *ApplicantService) InsertDesiredAt(req *model.ApplicantDesired) *model.E
 		}
 	}
 
+	tx, err := s.d.TxStart()
+	if err != nil {
+		return &model.ErrorResponse{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
 	if err := s.r.UpdateDesiredAt(&model.Applicant{
 		HashKey:   req.HashKey,
 		DesiredAt: req.DesiredAt,
 	}); err != nil {
-		log.Printf("%v", err)
+		if err := s.d.TxRollback(tx); err != nil {
+			return &model.ErrorResponse{
+				Status: http.StatusInternalServerError,
+			}
+		}
+		return &model.ErrorResponse{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	if err := s.d.TxCommit(tx); err != nil {
 		return &model.ErrorResponse{
 			Status: http.StatusInternalServerError,
 		}

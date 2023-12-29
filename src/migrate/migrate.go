@@ -16,8 +16,11 @@ func main() {
 	dbConn.AutoMigrate(
 		&model.Role{},
 		&model.Site{},
+		&model.CalendarFreqStatus{},
 		&model.User{},
 		&model.UserGroup{},
+		&model.UserGroup{},
+		&model.UserSchedule{},
 		&model.ApplicantStatus{},
 		&model.Applicant{},
 	)
@@ -299,6 +302,32 @@ func CreateData(db *gorm.DB) {
 		&model.ApplicantStatus{
 			ID:           uint(enum.OFFER_COMMITMENT_DISMISSAL),
 			StatusNameJa: "内定承諾後辞退",
+		},
+	)
+
+	// m_calendar_freq_status
+	r.InsertCalendarFreqStatus(
+		&model.CalendarFreqStatus{
+			ID:   uint(enum.FREQ_NONE),
+			Freq: "",
+		},
+	)
+	r.InsertCalendarFreqStatus(
+		&model.CalendarFreqStatus{
+			ID:   uint(enum.FREQ_WEEKLY),
+			Freq: "weekly",
+		},
+	)
+	r.InsertCalendarFreqStatus(
+		&model.CalendarFreqStatus{
+			ID:   uint(enum.FREQ_MONTHLY),
+			Freq: "monthly",
+		},
+	)
+	r.InsertCalendarFreqStatus(
+		&model.CalendarFreqStatus{
+			ID:   uint(enum.FREQ_YEARLY),
+			Freq: "yearly",
 		},
 	)
 }

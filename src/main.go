@@ -12,6 +12,8 @@ import (
 func main() {
 	db := infra.NewDB()
 
+	dbRepository := repository.NewDBRepository(db)
+
 	redis := infra.NewRedis()
 	redisRepository := repository.NewRedisRepository(redis)
 
@@ -24,13 +26,13 @@ func main() {
 
 	applicantRepository := repository.NewApplicantRepository(db, redis)
 	applicantValidator := validator.NewApplicantValidator()
-	applicantService := service.NewApplicantService(applicantRepository, masterRepository, awsRepository, redisRepository, applicantValidator)
+	applicantService := service.NewApplicantService(applicantRepository, masterRepository, awsRepository, redisRepository, applicantValidator, dbRepository)
 	applicantController := controller.NewApplicantController(applicantService)
 
-	loginService := service.NewLoginService(userRepository, applicantRepository, redisRepository, userValidate)
+	loginService := service.NewLoginService(userRepository, applicantRepository, redisRepository, userValidate, dbRepository)
 	loginController := controller.NewLoginController(loginService)
 
-	userService := service.NewUserService(userRepository, masterRepository, userValidate)
+	userService := service.NewUserService(userRepository, masterRepository, userValidate, dbRepository)
 	userController := controller.NewUserController(userService)
 
 	e := router.NewRouter(

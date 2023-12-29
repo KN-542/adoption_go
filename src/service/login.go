@@ -58,6 +58,7 @@ type LoginService struct {
 	applicant repository.IApplicantRepository
 	redis     repository.IRedisRepository
 	v         validator.IUserValidator
+	d         repository.IDBRepository
 }
 
 func NewLoginService(
@@ -65,8 +66,9 @@ func NewLoginService(
 	applicant repository.IApplicantRepository,
 	redis repository.IRedisRepository,
 	v validator.IUserValidator,
+	d repository.IDBRepository,
 ) ILoginService {
-	return &LoginService{login, applicant, redis, v}
+	return &LoginService{login, applicant, redis, v, d}
 }
 
 // ログイン認証
@@ -368,9 +370,27 @@ func (l *LoginService) PasswordChange(req *model.User) *model.ErrorResponse {
 	}
 	req.Password = string(buffer)
 
+	tx, err := l.d.TxStart()
+	if err != nil {
+		return &model.ErrorResponse{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
 	// パスワード変更
 	req.UpdatedAt = time.Now()
 	if err := l.login.PasswordChange(req); err != nil {
+		if err := l.d.TxRollback(tx); err != nil {
+			return &model.ErrorResponse{
+				Status: http.StatusInternalServerError,
+			}
+		}
+		return &model.ErrorResponse{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	if err := l.d.TxCommit(tx); err != nil {
 		return &model.ErrorResponse{
 			Status: http.StatusInternalServerError,
 		}

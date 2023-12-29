@@ -31,6 +31,13 @@ type IMasterRepository interface {
 	InsertApplicantStatus(m *model.ApplicantStatus) error
 	// select
 	SelectApplicantStatus() (*[]model.ApplicantStatus, error)
+	/*
+		m_calendar_freq_status
+	*/
+	// insert
+	InsertCalendarFreqStatus(m *model.CalendarFreqStatus) error
+	// select
+	SelectCalendarFreqStatus() (*[]model.CalendarFreqStatus, error)
 }
 
 type MasterRepository struct {
@@ -110,6 +117,28 @@ func (r *MasterRepository) InsertApplicantStatus(m *model.ApplicantStatus) error
 // select
 func (r *MasterRepository) SelectApplicantStatus() (*[]model.ApplicantStatus, error) {
 	var res []model.ApplicantStatus
+	if err := r.db.Find(&res).Error; err != nil {
+		log.Printf("%v", err)
+		return nil, err
+	}
+	return &res, nil
+}
+
+/*
+	m_calendar_freq_status
+*/
+// insert
+func (r *MasterRepository) InsertCalendarFreqStatus(m *model.CalendarFreqStatus) error {
+	if err := r.db.Create(m).Error; err != nil {
+		log.Printf("%v", err)
+		return err
+	}
+	return nil
+}
+
+// select
+func (r *MasterRepository) SelectCalendarFreqStatus() (*[]model.CalendarFreqStatus, error) {
+	var res []model.CalendarFreqStatus
 	if err := r.db.Find(&res).Error; err != nil {
 		log.Printf("%v", err)
 		return nil, err

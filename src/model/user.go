@@ -52,6 +52,28 @@ func (t UserGroup) TableName() string {
 	return "t_user_group"
 }
 
+// ユーザー予定
+type UserSchedule struct {
+	// ID
+	ID uint64 `json:"id" gorm:"primaryKey;AUTO_INCREMENT"`
+	// ハッシュキー
+	HashKey string `json:"hash_key" gorm:"unique;type:text"`
+	// ハッシュキー(ユーザー)
+	UserHashKey string `json:"user_hash_key" gorm:"notNull;type:text;index"`
+	// 頻度ID
+	FreqID uint `json:"freq_id"`
+	// 登録日時
+	CreatedAt time.Time `json:"created_at"`
+	// 更新日時
+	UpdatedAt time.Time `json:"updated_at"`
+	// 頻度(外部キー)
+	CalendarFreqStatus CalendarFreqStatus `gorm:"foreignKey:freq_id;references:id"`
+}
+
+func (t UserSchedule) TableName() string {
+	return "t_user_schedule"
+}
+
 // ユーザ(管理) response
 type UserResponse struct {
 	// ハッシュキー
@@ -86,6 +108,22 @@ type UserGroupResponse struct {
 }
 type UserGroupsResponse struct {
 	UserGroups []UserGroupResponse `json:"user_groups"`
+}
+
+// ユーザー予定
+type UserScheduleResponse struct {
+	// ハッシュキー
+	HashKey string `json:"hash_key"`
+	// ハッシュキー(ユーザー)
+	UserHashKey string `json:"user_hash_key"`
+	// 頻度ID
+	FreqID uint `json:"freq_id"`
+	// 頻度
+	Freq string `json:"freq"`
+}
+
+type UserSchedulesResponse struct {
+	List []UserScheduleResponse `json:"list"`
 }
 
 // ユーザー MFA
