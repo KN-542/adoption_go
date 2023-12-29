@@ -34,14 +34,16 @@ type UserService struct {
 	r repository.IUserRepository
 	m repository.IMasterRepository
 	v validator.IUserValidator
+	d repository.IDBRepository
 }
 
 func NewUserService(
 	r repository.IUserRepository,
 	m repository.IMasterRepository,
 	v validator.IUserValidator,
+	d repository.IDBRepository,
 ) IUserService {
-	return &UserService{r, m, v}
+	return &UserService{r, m, v, d}
 }
 
 // 一覧
@@ -72,7 +74,6 @@ func (u *UserService) Create(req *model.User) (*model.UserResponse, *model.Error
 
 	// メールアドレス重複チェック
 	if err := u.r.EmailDuplCheck(req); err != nil {
-		log.Printf("%v", err)
 		return nil, &model.ErrorResponse{
 			Status: http.StatusConflict,
 			Code:   static.CODE_USER_EMAIL_DUPL,
@@ -97,6 +98,13 @@ func (u *UserService) Create(req *model.User) (*model.UserResponse, *model.Error
 		}
 	}
 
+	tx, err := u.d.TxStart()
+	if err != nil {
+		return nil, &model.ErrorResponse{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
 	// 登録
 	user := model.User{
 		HashKey:      *hashKey,
@@ -110,7 +118,17 @@ func (u *UserService) Create(req *model.User) (*model.UserResponse, *model.Error
 	}
 
 	if err := u.r.Insert(&user); err != nil {
-		log.Printf("%v", err)
+		if err := u.d.TxRollback(tx); err != nil {
+			return nil, &model.ErrorResponse{
+				Status: http.StatusInternalServerError,
+			}
+		}
+		return nil, &model.ErrorResponse{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	if err := u.d.TxCommit(tx); err != nil {
 		return nil, &model.ErrorResponse{
 			Status: http.StatusInternalServerError,
 		}
@@ -230,13 +248,31 @@ func (u *UserService) CreateGroup(req *model.UserGroup) *model.ErrorResponse {
 		}
 	}
 
+	tx, err := u.d.TxStart()
+	if err != nil {
+		return &model.ErrorResponse{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
 	// グループ登録
 	req.HashKey = *hashKey
 	if err := u.r.InsertGroup(req); err != nil {
+		if err := u.d.TxRollback(tx); err != nil {
+			return &model.ErrorResponse{
+				Status: http.StatusInternalServerError,
+			}
+		}
 		if err != nil {
 			return &model.ErrorResponse{
 				Status: http.StatusInternalServerError,
 			}
+		}
+	}
+
+	if err := u.d.TxCommit(tx); err != nil {
+		return &model.ErrorResponse{
+			Status: http.StatusInternalServerError,
 		}
 	}
 

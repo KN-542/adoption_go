@@ -43,3 +43,15 @@ func (m ApplicantStatus) TableName() string {
 type ApplicantStatusList struct {
 	List []ApplicantStatus `json:"list"`
 }
+
+// m_calendar_freq_status
+type CalendarFreqStatus struct {
+	// ID
+	ID uint `json:"id" gorm:"primaryKey"`
+	// 頻度
+	Freq string `json:"freq" gorm:"unique;type:varchar(10)"`
+}
+
+func (m CalendarFreqStatus) TableName() string {
+	return "m_calendar_freq_status"
+}
