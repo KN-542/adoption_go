@@ -2,6 +2,7 @@ package validator
 
 import (
 	"api/src/model"
+	"api/src/model/enum"
 	"errors"
 
 	validation "github.com/go-ozzo/ozzo-validation/v4"
@@ -11,10 +12,12 @@ import (
 type IUserValidator interface {
 	CreateValidate(u *model.User) error
 	CreateGroupValidate(u *model.UserGroup) error
+	CreateScheduleValidate(u *model.UserScheduleRequest) error
 	LoginValidate(u *model.User) error
 	MFAValidate(u *model.UserMFA) error
 	PasswordChangeValidate(u *model.User) error
 	HashKeyValidate(u *model.User) error
+	ScheduleHashKeyValidate(u *model.UserSchedule) error
 	LoginApplicantValidate(u *model.Applicant) error
 	HashKeyValidateApplicant(u *model.Applicant) error
 }
@@ -50,6 +53,28 @@ func (v *userValidator) CreateGroupValidate(u *model.UserGroup) error {
 		u,
 		validation.Field(
 			&u.Name,
+			validation.Required,
+			validation.Length(1, 30*3),
+		),
+	)
+}
+func (v *userValidator) CreateScheduleValidate(u *model.UserScheduleRequest) error {
+	return validation.ValidateStruct(
+		u,
+		validation.Field(
+			&u.FreqID,
+			validation.By(validateUintRange(0, uint(enum.FREQ_NONE))),
+		),
+		validation.Field(
+			&u.Start,
+			validation.Required,
+		),
+		validation.Field(
+			&u.End,
+			validation.Required,
+		),
+		validation.Field(
+			&u.Title,
 			validation.Required,
 			validation.Length(1, 30),
 		),
@@ -118,6 +143,16 @@ func (v *userValidator) PasswordChangeValidate(u *model.User) error {
 }
 
 func (v *userValidator) HashKeyValidate(u *model.User) error {
+	return validation.ValidateStruct(
+		u,
+		validation.Field(
+			&u.HashKey,
+			validation.Required,
+		),
+	)
+}
+
+func (v *userValidator) ScheduleHashKeyValidate(u *model.UserSchedule) error {
 	return validation.ValidateStruct(
 		u,
 		validation.Field(

@@ -59,9 +59,15 @@ type UserSchedule struct {
 	// ハッシュキー
 	HashKey string `json:"hash_key" gorm:"unique;type:text"`
 	// ハッシュキー(ユーザー)
-	UserHashKey string `json:"user_hash_key" gorm:"notNull;type:text;index"`
+	UserHashKeys string `json:"user_hash_keys" gorm:"notNull;type:text;index"`
+	// タイトル
+	Title string `json:"title" gorm:"type:varchar(30)"`
 	// 頻度ID
 	FreqID uint `json:"freq_id"`
+	// 開始時刻
+	Start time.Time `json:"start" gorm:"notNull"`
+	// 終了時刻
+	End time.Time `json:"end" gorm:"notNull"`
 	// 登録日時
 	CreatedAt time.Time `json:"created_at"`
 	// 更新日時
@@ -72,6 +78,20 @@ type UserSchedule struct {
 
 func (t UserSchedule) TableName() string {
 	return "t_user_schedule"
+}
+
+// ユーザー予定 Request
+type UserScheduleRequest struct {
+	// ハッシュキーリスト(ユーザー)
+	UserHashKeys string `json:"user_hash_keys"`
+	// タイトル
+	Title string `json:"title"`
+	// 頻度ID
+	FreqID uint `json:"freq_id"`
+	// 開始時刻
+	Start time.Time `json:"start"`
+	// 終了時刻
+	End time.Time `json:"end"`
 }
 
 // ユーザ(管理) response
@@ -110,12 +130,22 @@ type UserGroupsResponse struct {
 	UserGroups []UserGroupResponse `json:"user_groups"`
 }
 
-// ユーザー予定
+type CalendarsFreqStatus struct {
+	List []CalendarFreqStatus `json:"list"`
+}
+
+// ユーザー予定 Response
 type UserScheduleResponse struct {
 	// ハッシュキー
 	HashKey string `json:"hash_key"`
 	// ハッシュキー(ユーザー)
-	UserHashKey string `json:"user_hash_key"`
+	UserHashKeys string `json:"user_hash_keys"`
+	// タイトル
+	Title string `json:"title"`
+	// 開始時刻
+	Start time.Time `json:"start"`
+	// 終了時刻
+	End time.Time `json:"end"`
 	// 頻度ID
 	FreqID uint `json:"freq_id"`
 	// 頻度

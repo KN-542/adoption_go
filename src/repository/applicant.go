@@ -38,7 +38,7 @@ type IApplicantRepository interface {
 		txt、csvダウンロード用
 	*/
 	// 登録
-	Insert(applicant *model.Applicant) error
+	Insert(tx *gorm.DB, applicant *model.Applicant) error
 	// 検索
 	Search(m *model.ApplicantSearchRequest) ([]model.ApplicantWith, error)
 	// 取得(Email)
@@ -48,9 +48,9 @@ type IApplicantRepository interface {
 	// 応募者取得(ハッシュキー)
 	GetByHashKey(m *model.Applicant) (*model.Applicant, error)
 	// 書類登録状況更新
-	UpdateDocument(m *model.Applicant) error
+	UpdateDocument(tx *gorm.DB, m *model.Applicant) error
 	// 面接希望日更新
-	UpdateDesiredAt(m *model.Applicant) error
+	UpdateDesiredAt(tx *gorm.DB, m *model.Applicant) error
 }
 
 type ApplicantRepository struct {
@@ -194,8 +194,8 @@ func (a *ApplicantRepository) GetSheets(search model.ApplicantSearch, token *oau
 }
 
 // 登録
-func (a *ApplicantRepository) Insert(applicant *model.Applicant) error {
-	if err := a.db.Create(applicant).Error; err != nil {
+func (a *ApplicantRepository) Insert(tx *gorm.DB, applicant *model.Applicant) error {
+	if err := tx.Create(applicant).Error; err != nil {
 		log.Printf("%v", err)
 		return err
 	}
@@ -289,13 +289,13 @@ func (a *ApplicantRepository) GetByHashKey(m *model.Applicant) (*model.Applicant
 }
 
 // 書類登録状況更新
-func (a *ApplicantRepository) UpdateDocument(m *model.Applicant) error {
+func (a *ApplicantRepository) UpdateDocument(tx *gorm.DB, m *model.Applicant) error {
 	applicant := model.Applicant{
 		Resume:          m.Resume,
 		CurriculumVitae: m.CurriculumVitae,
 		UpdatedAt:       time.Now(),
 	}
-	if err := a.db.Model(&model.Applicant{}).Where(
+	if err := tx.Model(&model.Applicant{}).Where(
 		&model.Applicant{
 			HashKey: m.HashKey,
 		},
@@ -308,12 +308,12 @@ func (a *ApplicantRepository) UpdateDocument(m *model.Applicant) error {
 }
 
 // 面接希望日更新
-func (a *ApplicantRepository) UpdateDesiredAt(m *model.Applicant) error {
+func (a *ApplicantRepository) UpdateDesiredAt(tx *gorm.DB, m *model.Applicant) error {
 	applicant := model.Applicant{
 		DesiredAt: m.DesiredAt,
 		UpdatedAt: time.Now(),
 	}
-	if err := a.db.Model(&model.Applicant{}).Where(
+	if err := tx.Model(&model.Applicant{}).Where(
 		&model.Applicant{
 			HashKey: m.HashKey,
 		},

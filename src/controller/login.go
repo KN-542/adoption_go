@@ -14,6 +14,8 @@ import (
 )
 
 type ILoginController interface {
+	// Hello World Test By Batch
+	HelloWorld(e echo.Context) error
 	// ログイン
 	Login(e echo.Context) error
 	// MFA 認証コード生成
@@ -46,6 +48,13 @@ type LoginController struct {
 
 func NewLoginController(s service.ILoginService) ILoginController {
 	return &LoginController{s}
+}
+
+// Hello World Test By Batch
+func (c *LoginController) HelloWorld(e echo.Context) error {
+	fmt.Println("Hello World!")
+
+	return e.JSON(http.StatusOK, "OK")
 }
 
 // ログイン
