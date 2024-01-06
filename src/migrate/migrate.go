@@ -308,26 +308,37 @@ func CreateData(db *gorm.DB) {
 	// m_calendar_freq_status
 	r.InsertCalendarFreqStatus(
 		&model.CalendarFreqStatus{
-			ID:   uint(enum.FREQ_NONE),
-			Freq: "",
+			ID:     uint(enum.FREQ_NONE),
+			Freq:   "",
+			NameJa: "なし",
 		},
 	)
 	r.InsertCalendarFreqStatus(
 		&model.CalendarFreqStatus{
-			ID:   uint(enum.FREQ_WEEKLY),
-			Freq: "weekly",
+			ID:     uint(enum.FREQ_DAILY),
+			Freq:   "daily",
+			NameJa: "毎日",
 		},
 	)
 	r.InsertCalendarFreqStatus(
 		&model.CalendarFreqStatus{
-			ID:   uint(enum.FREQ_MONTHLY),
-			Freq: "monthly",
+			ID:     uint(enum.FREQ_WEEKLY),
+			Freq:   "weekly",
+			NameJa: "毎週",
 		},
 	)
 	r.InsertCalendarFreqStatus(
 		&model.CalendarFreqStatus{
-			ID:   uint(enum.FREQ_YEARLY),
-			Freq: "yearly",
+			ID:     uint(enum.FREQ_MONTHLY),
+			Freq:   "monthly",
+			NameJa: "毎月",
+		},
+	)
+	r.InsertCalendarFreqStatus(
+		&model.CalendarFreqStatus{
+			ID:     uint(enum.FREQ_YEARLY),
+			Freq:   "yearly",
+			NameJa: "毎年",
 		},
 	)
 }

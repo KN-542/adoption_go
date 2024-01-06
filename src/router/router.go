@@ -18,6 +18,7 @@ func NewRouter(
 	// CORSミドルウェアの設定。認証情報を含むリクエストを許可
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins: []string{
+			os.Getenv("BATCH_URL"),
 			os.Getenv("FE_CSR_URL"),
 			os.Getenv("FE_SSG_URL"),
 			os.Getenv("FE_APPLICANT_CSR_URL"),
@@ -27,6 +28,7 @@ func NewRouter(
 		AllowCredentials: true, // 認証情報を含むリクエストを許可
 	}))
 
+	e.POST("/hello", login.HelloWorld)
 	e.POST("/login", login.Login)
 	e.POST("/logout", login.Logout)
 	e.POST("/code_gen", login.CodeGenerate)
@@ -45,6 +47,10 @@ func NewRouter(
 	e.POST("/user/create_group", user.InsertGroup)
 	e.POST("/user/role_list", user.RoleList)
 	e.POST("/user/search_group", user.SearchGroups)
+	e.POST("/user/schedule_type", user.ListScheduleType)
+	e.POST("/user/create_schedule", user.InsertSchedules)
+	e.POST("/user/schedules", user.Schedules)
+	e.POST("/user/delete_schedule", user.DeleteSchedule)
 
 	e.POST("/applicant/get_url", applicant.GetOauthURL)
 	e.POST("/applicant/get_sheets", applicant.GetSheets)

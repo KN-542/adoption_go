@@ -11,7 +11,7 @@ import (
 
 type IUserRepository interface {
 	// 登録
-	Insert(m *model.User) error
+	Insert(tx *gorm.DB, m *model.User) error
 	// 検索
 	List() ([]model.UserResponse, error)
 	// ユーザー存在確認
@@ -21,7 +21,7 @@ type IUserRepository interface {
 	// ログイン認証
 	Login(m *model.User) ([]model.User, error)
 	// パスワード変更
-	PasswordChange(m *model.User) error
+	PasswordChange(tx *gorm.DB, m *model.User) error
 	// 初期パスワード一致確認
 	ConfirmInitPassword(m *model.User) (*int8, error)
 	// 初期パスワード一致確認2
@@ -31,11 +31,13 @@ type IUserRepository interface {
 	// 検索(ユーザーグループ)
 	SearchGroup() ([]model.UserGroupResponse, error)
 	// グループ登録
-	InsertGroup(m *model.UserGroup) error
+	InsertGroup(tx *gorm.DB, m *model.UserGroup) error
 	// スケジュール登録
-	InsertSchedule(m *model.UserSchedule) error
+	InsertSchedule(tx *gorm.DB, m *model.UserSchedule) error
 	// スケジュール一覧
 	ListSchedule() ([]model.UserScheduleResponse, error)
+	// スケジュール削除
+	DeleteSchedule(tx *gorm.DB, m *model.UserSchedule) error
 }
 
 type UserRepository struct {
@@ -47,8 +49,8 @@ func NewUserRepository(db *gorm.DB) IUserRepository {
 }
 
 // 登録
-func (u *UserRepository) Insert(m *model.User) error {
-	if err := u.db.Create(m).Error; err != nil {
+func (u *UserRepository) Insert(tx *gorm.DB, m *model.User) error {
+	if err := tx.Create(m).Error; err != nil {
 		log.Printf("%v", err)
 		return err
 	}
@@ -120,9 +122,9 @@ func (u *UserRepository) Login(m *model.User) ([]model.User, error) {
 }
 
 // パスワード変更
-func (u *UserRepository) PasswordChange(m *model.User) error {
+func (u *UserRepository) PasswordChange(tx *gorm.DB, m *model.User) error {
 	user := model.User{Password: m.Password}
-	if err := u.db.Model(&model.User{}).Where(
+	if err := tx.Model(&model.User{}).Where(
 		&model.User{
 			HashKey: m.HashKey,
 		},
@@ -204,8 +206,8 @@ func (u *UserRepository) SearchGroup() ([]model.UserGroupResponse, error) {
 }
 
 // グループ登録
-func (u *UserRepository) InsertGroup(m *model.UserGroup) error {
-	if err := u.db.Create(m).Error; err != nil {
+func (u *UserRepository) InsertGroup(tx *gorm.DB, m *model.UserGroup) error {
+	if err := tx.Create(m).Error; err != nil {
 		log.Printf("%v", err)
 		return err
 	}
@@ -213,8 +215,8 @@ func (u *UserRepository) InsertGroup(m *model.UserGroup) error {
 }
 
 // スケジュール登録
-func (u *UserRepository) InsertSchedule(m *model.UserSchedule) error {
-	if err := u.db.Create(m).Error; err != nil {
+func (u *UserRepository) InsertSchedule(tx *gorm.DB, m *model.UserSchedule) error {
+	if err := tx.Create(m).Error; err != nil {
 		log.Printf("%v", err)
 		return err
 	}
@@ -224,9 +226,23 @@ func (u *UserRepository) InsertSchedule(m *model.UserSchedule) error {
 // スケジュール一覧
 func (u *UserRepository) ListSchedule() ([]model.UserScheduleResponse, error) {
 	var res []model.UserScheduleResponse
-	if err := u.db.Find(&res).Error; err != nil {
+
+	query := u.db.Model(&model.UserSchedule{}).
+		Select("t_user_schedule.*, m_calendar_freq_status.freq").
+		Joins("left join m_calendar_freq_status on t_user_schedule.freq_id = m_calendar_freq_status.id")
+
+	if err := query.Find(&res).Error; err != nil {
 		log.Printf("%v", err)
 		return nil, err
 	}
 	return res, nil
+}
+
+// スケジュール削除
+func (u *UserRepository) DeleteSchedule(tx *gorm.DB, m *model.UserSchedule) error {
+	if err := tx.Where(m).Delete(&model.UserSchedule{}).Error; err != nil {
+		log.Printf("%v", err)
+		return err
+	}
+	return nil
 }

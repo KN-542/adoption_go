@@ -122,7 +122,7 @@ func (s *ApplicantService) Download(d *model.ApplicantsDownload) *model.ErrorRes
 			}
 
 			// ハッシュキー生成
-			_, hashKey, err := generateRandomStr(1, 25)
+			_, hashKey, err := GenerateHash(1, 25)
 			if err != nil {
 				log.Printf("%v", err)
 				return &model.ErrorResponse{
@@ -160,7 +160,7 @@ func (s *ApplicantService) Download(d *model.ApplicantsDownload) *model.ErrorRes
 				}
 
 				// STEP2-2 登録
-				if err := s.r.Insert(&m); err != nil {
+				if err := s.r.Insert(tx, &m); err != nil {
 					if err := s.d.TxRollback(tx); err != nil {
 						return &model.ErrorResponse{
 							Status: http.StatusInternalServerError,
@@ -245,7 +245,7 @@ func (s *ApplicantService) S3Upload(req *model.FileUpload, fileHeader *multipart
 
 	// 書類登録状況更新
 	if req.NamePre == "resume" {
-		if err := s.r.UpdateDocument(&model.Applicant{
+		if err := s.r.UpdateDocument(tx, &model.Applicant{
 			HashKey:         req.HashKey,
 			Resume:          objName,
 			CurriculumVitae: "",
@@ -261,7 +261,7 @@ func (s *ApplicantService) S3Upload(req *model.FileUpload, fileHeader *multipart
 		}
 	}
 	if req.NamePre == "curriculum_vitae" {
-		if err := s.r.UpdateDocument(&model.Applicant{
+		if err := s.r.UpdateDocument(tx, &model.Applicant{
 			HashKey:         req.HashKey,
 			Resume:          "",
 			CurriculumVitae: objName,
@@ -351,7 +351,7 @@ func (s *ApplicantService) InsertDesiredAt(req *model.ApplicantDesired) *model.E
 		}
 	}
 
-	if err := s.r.UpdateDesiredAt(&model.Applicant{
+	if err := s.r.UpdateDesiredAt(tx, &model.Applicant{
 		HashKey:   req.HashKey,
 		DesiredAt: req.DesiredAt,
 	}); err != nil {

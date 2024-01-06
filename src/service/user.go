@@ -28,6 +28,14 @@ type IUserService interface {
 	SearchGroups() (*model.UserGroupsResponse, *model.ErrorResponse)
 	// グループ登録
 	CreateGroup(req *model.UserGroup) *model.ErrorResponse
+	// スケジュール登録種別一覧
+	ListScheduleType() (*model.CalendarsFreqStatus, *model.ErrorResponse)
+	// スケジュール登録
+	CreateSchedule(req *model.UserScheduleRequest) *model.ErrorResponse
+	// スケジュール一覧
+	Schedules() (*model.UserSchedulesResponse, *model.ErrorResponse)
+	// スケジュール削除
+	DeleteSchedule(req *model.UserSchedule) *model.ErrorResponse
 }
 
 type UserService struct {
@@ -81,7 +89,7 @@ func (u *UserService) Create(req *model.User) (*model.UserResponse, *model.Error
 	}
 
 	// 初回パスワード発行
-	password, hashPassword, err := generateRandomStr(8, 16)
+	password, hashPassword, err := GenerateHash(8, 16)
 	if err != nil {
 		log.Printf("%v", err)
 		return nil, &model.ErrorResponse{
@@ -90,7 +98,7 @@ func (u *UserService) Create(req *model.User) (*model.UserResponse, *model.Error
 	}
 
 	// ハッシュキー生成
-	_, hashKey, err := generateRandomStr(1, 25)
+	_, hashKey, err := GenerateHash(1, 25)
 	if err != nil {
 		log.Printf("%v", err)
 		return nil, &model.ErrorResponse{
@@ -117,7 +125,7 @@ func (u *UserService) Create(req *model.User) (*model.UserResponse, *model.Error
 		UpdatedAt:    time.Now(),
 	}
 
-	if err := u.r.Insert(&user); err != nil {
+	if err := u.r.Insert(tx, &user); err != nil {
 		if err := u.d.TxRollback(tx); err != nil {
 			return nil, &model.ErrorResponse{
 				Status: http.StatusInternalServerError,
@@ -240,7 +248,7 @@ func (u *UserService) CreateGroup(req *model.UserGroup) *model.ErrorResponse {
 	req.Users = strings.Join(l, ",")
 
 	// ハッシュキー生成
-	_, hashKey, err := generateRandomStr(1, 25)
+	_, hashKey, err := GenerateHash(1, 25)
 	if err != nil {
 		log.Printf("%v", err)
 		return &model.ErrorResponse{
@@ -257,7 +265,7 @@ func (u *UserService) CreateGroup(req *model.UserGroup) *model.ErrorResponse {
 
 	// グループ登録
 	req.HashKey = *hashKey
-	if err := u.r.InsertGroup(req); err != nil {
+	if err := u.r.InsertGroup(tx, req); err != nil {
 		if err := u.d.TxRollback(tx); err != nil {
 			return &model.ErrorResponse{
 				Status: http.StatusInternalServerError,
@@ -279,7 +287,126 @@ func (u *UserService) CreateGroup(req *model.UserGroup) *model.ErrorResponse {
 	return nil
 }
 
-func generateRandomStr(minLength, maxLength int) (*string, *string, error) {
+// スケジュール登録種別一覧
+func (u *UserService) ListScheduleType() (*model.CalendarsFreqStatus, *model.ErrorResponse) {
+	res, err := u.m.SelectCalendarFreqStatus()
+	if err != nil {
+		return nil, &model.ErrorResponse{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	return &model.CalendarsFreqStatus{
+		List: *res,
+	}, nil
+}
+
+// スケジュール登録
+func (u *UserService) CreateSchedule(req *model.UserScheduleRequest) *model.ErrorResponse {
+	// バリデーション
+	if err := u.v.CreateScheduleValidate(req); err != nil {
+		log.Printf("%v", err)
+		return &model.ErrorResponse{
+			Status: http.StatusBadRequest,
+			Code:   static.CODE_BAD_REQUEST,
+		}
+	}
+
+	// ハッシュキー生成
+	_, hashKey, err := GenerateHash(1, 25)
+	if err != nil {
+		log.Printf("%v", err)
+		return &model.ErrorResponse{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	tx, err := u.d.TxStart()
+	if err != nil {
+		return &model.ErrorResponse{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// スケジュール登録
+	if err := u.r.InsertSchedule(tx, &model.UserSchedule{
+		HashKey:      *hashKey,
+		UserHashKeys: req.UserHashKeys,
+		FreqID:       req.FreqID,
+		Start:        req.Start,
+		End:          req.End,
+		Title:        req.Title,
+	}); err != nil {
+		if err := u.d.TxRollback(tx); err != nil {
+			return &model.ErrorResponse{
+				Status: http.StatusInternalServerError,
+			}
+		}
+		return &model.ErrorResponse{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	if err := u.d.TxCommit(tx); err != nil {
+		return &model.ErrorResponse{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	return nil
+}
+
+// スケジュール一覧
+func (u *UserService) Schedules() (*model.UserSchedulesResponse, *model.ErrorResponse) {
+	res, err := u.r.ListSchedule()
+	if err != nil {
+		return nil, &model.ErrorResponse{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	return &model.UserSchedulesResponse{List: res}, nil
+}
+
+// スケジュール削除
+func (u *UserService) DeleteSchedule(req *model.UserSchedule) *model.ErrorResponse {
+	if err := u.v.ScheduleHashKeyValidate(req); err != nil {
+		log.Printf("%v", err)
+		return &model.ErrorResponse{
+			Status: http.StatusBadRequest,
+			Code:   static.CODE_BAD_REQUEST,
+		}
+	}
+
+	tx, err := u.d.TxStart()
+	if err != nil {
+		return &model.ErrorResponse{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// 削除
+	if err := u.r.DeleteSchedule(tx, req); err != nil {
+		if err := u.d.TxRollback(tx); err != nil {
+			return &model.ErrorResponse{
+				Status: http.StatusInternalServerError,
+			}
+		}
+		return &model.ErrorResponse{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	if err := u.d.TxCommit(tx); err != nil {
+		return &model.ErrorResponse{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	return nil
+}
+
+func GenerateHash(minLength, maxLength int) (*string, *string, error) {
 	chars := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 
 	length, err := rand.Int(rand.Reader, big.NewInt(int64(maxLength-minLength+1)))

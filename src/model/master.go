@@ -50,6 +50,8 @@ type CalendarFreqStatus struct {
 	ID uint `json:"id" gorm:"primaryKey"`
 	// 頻度
 	Freq string `json:"freq" gorm:"unique;type:varchar(10)"`
+	// 名前_日本語
+	NameJa string `json:"name_ja" gorm:"unique;type:varchar(10)"`
 }
 
 func (m CalendarFreqStatus) TableName() string {

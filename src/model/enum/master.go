@@ -100,10 +100,12 @@ const (
 const (
 	// なし
 	FREQ_NONE CalendarStatus = 9
+	// 毎日
+	FREQ_DAILY CalendarStatus = 1
 	// 毎週
-	FREQ_WEEKLY CalendarStatus = 1
+	FREQ_WEEKLY CalendarStatus = 2
 	// 毎月
-	FREQ_MONTHLY CalendarStatus = 2
+	FREQ_MONTHLY CalendarStatus = 3
 	// 毎年
-	FREQ_YEARLY CalendarStatus = 3
+	FREQ_YEARLY CalendarStatus = 4
 )

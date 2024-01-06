@@ -379,7 +379,7 @@ func (l *LoginService) PasswordChange(req *model.User) *model.ErrorResponse {
 
 	// パスワード変更
 	req.UpdatedAt = time.Now()
-	if err := l.login.PasswordChange(req); err != nil {
+	if err := l.login.PasswordChange(tx, req); err != nil {
 		if err := l.d.TxRollback(tx); err != nil {
 			return &model.ErrorResponse{
 				Status: http.StatusInternalServerError,
