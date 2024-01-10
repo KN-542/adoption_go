@@ -6,6 +6,7 @@ import (
 	"api/src/repository"
 	"api/src/validator"
 	"crypto/rand"
+	"fmt"
 	"log"
 	"math/big"
 	"net/http"
@@ -36,6 +37,8 @@ type IUserService interface {
 	Schedules() (*model.UserSchedulesResponse, *model.ErrorResponse)
 	// スケジュール削除
 	DeleteSchedule(req *model.UserSchedule) *model.ErrorResponse
+	// 予約表提示
+	DispReserveTable() (*model.ReserveTableResponse, *model.ErrorResponse)
 }
 
 type UserService struct {
@@ -43,6 +46,7 @@ type UserService struct {
 	m repository.IMasterRepository
 	v validator.IUserValidator
 	d repository.IDBRepository
+	o repository.IOuterIFRepository
 }
 
 func NewUserService(
@@ -50,8 +54,9 @@ func NewUserService(
 	m repository.IMasterRepository,
 	v validator.IUserValidator,
 	d repository.IDBRepository,
+	o repository.IOuterIFRepository,
 ) IUserService {
-	return &UserService{r, m, v, d}
+	return &UserService{r, m, v, d, o}
 }
 
 // 一覧
@@ -404,6 +409,168 @@ func (u *UserService) DeleteSchedule(req *model.UserSchedule) *model.ErrorRespon
 	}
 
 	return nil
+}
+
+// 予約表提示
+func (u *UserService) DispReserveTable() (*model.ReserveTableResponse, *model.ErrorResponse) {
+	const WEEKS = 7
+	const RESERVE_DURATION = 2 * WEEKS
+
+	// TZをAsia/Tokyoに
+	jst, err := time.LoadLocation("Asia/Tokyo")
+	if err != nil {
+		log.Printf("%v", err)
+		return nil, &model.ErrorResponse{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// TODO 応募者の面接可能グループ取得(一旦全グループ可能であるとする)
+	var availabilityGroups []model.UserGroupResponse
+	list, err := u.r.SearchGroup()
+	if err != nil {
+		return nil, &model.ErrorResponse{
+			Status: http.StatusInternalServerError,
+		}
+	}
+	for _, row := range list {
+		availabilityGroups = append(availabilityGroups, row)
+	}
+
+	// TODO 異なるグループメンバーでの面接可否設定取得(一旦不可能とする)
+	isAvailabilityDifferentGroupMeeting := false
+
+	// スケジュール一覧
+	schedulesUTC, err := u.r.ListSchedule()
+	if err != nil {
+		return nil, &model.ErrorResponse{
+			Status: http.StatusInternalServerError,
+		}
+	}
+	var schedules []model.UserScheduleResponse
+	for _, row := range schedulesUTC {
+		start := row.Start.In(jst)
+		end := row.End.In(jst)
+		row.Start = start
+		row.End = end
+		schedules = append(schedules, row)
+	}
+
+	// 日本の休日取得
+	holidays, err := u.o.HolidaysJp(time.Now().Year())
+	if err != nil {
+		return nil, &model.ErrorResponse{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// 祝日かどうかの判定
+	var reserveTable []model.ReserveTable
+	var reserveTime []model.ReserveTime
+	start := time.Now().AddDate(0, 0, WEEKS).In(jst)
+	for i := 0; i < RESERVE_DURATION; i++ {
+		isReserve := true
+
+		s := time.Date(
+			start.AddDate(0, 0, i).Year(),
+			start.AddDate(0, 0, i).Month(),
+			start.AddDate(0, 0, i).Day(),
+			0,
+			0,
+			0,
+			0,
+			jst,
+		)
+
+		for _, holiday := range holidays {
+			y1, m1, d1 := s.Date()
+			y2, m2, d2 := holiday.Date()
+			if y1 == y2 && m1 == m2 && d1 == d2 {
+				isReserve = false
+				break
+			}
+		}
+
+		for d := s.Add(9 * time.Hour); d.Day() == s.Day() && d.Hour() <= 20; d = d.Add(30 * time.Minute) {
+			if !isReserve {
+				reserveTime = append(reserveTime, model.ReserveTime{
+					Time:      d,
+					IsReserve: false,
+				})
+			} else {
+				var reserveOfGroups []model.ReserveOfGroup
+
+				// グループ毎の面接可能人数
+				for _, schedule := range schedules {
+					userHashKeys := strings.Split(schedule.UserHashKeys, ",")
+
+					for _, group := range availabilityGroups {
+						var min uint = uint(len(strings.Split(group.Users, ",")))
+						for _, userHashKey := range userHashKeys {
+							var sum uint = uint(len(strings.Split(group.Users, ",")))
+
+							// 時刻dは対象範囲内か
+							if d.After(schedule.Start.Add(-1*time.Minute)) && d.Before(schedule.End.Add(1*time.Minute)) {
+								// ユーザーグループまたはユーザーのハッシュキーか
+								if userHashKey == group.HashKey {
+									sum -= sum
+								} else if strings.Contains(group.Users, userHashKey) {
+									sum--
+								}
+							}
+							if min > sum {
+								min = sum
+							}
+						}
+						reserveOfGroups = append(reserveOfGroups, model.ReserveOfGroup{
+							HashKey: group.HashKey,
+							Count:   min,
+						})
+					}
+				}
+
+				fmt.Println(reserveOfGroups)
+				if isAvailabilityDifferentGroupMeeting {
+					var sum uint = 0
+					for _, reserve := range reserveOfGroups {
+						sum += reserve.Count
+					}
+					reserveTime = append(reserveTime, model.ReserveTime{
+						Time:      d,
+						IsReserve: sum > 1,
+					})
+				} else {
+					isMore2 := false
+					for _, reserve := range reserveOfGroups {
+						if reserve.Count > 1 {
+							isMore2 = true
+							reserveTime = append(reserveTime, model.ReserveTime{
+								Time:      d,
+								IsReserve: true,
+							})
+							break
+						}
+					}
+					if !isMore2 {
+						reserveTime = append(reserveTime, model.ReserveTime{
+							Time:      d,
+							IsReserve: false,
+						})
+					}
+				}
+			}
+		}
+
+		reserveTable = append(reserveTable, model.ReserveTable{
+			Date:    s,
+			Options: reserveTime,
+		})
+		reserveTime = []model.ReserveTime{}
+	}
+
+	return &model.ReserveTableResponse{
+		List: reserveTable,
+	}, nil
 }
 
 func GenerateHash(minLength, maxLength int) (*string, *string, error) {

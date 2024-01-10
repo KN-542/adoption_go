@@ -51,6 +51,7 @@ func NewRouter(
 	e.POST("/user/create_schedule", user.InsertSchedules)
 	e.POST("/user/schedules", user.Schedules)
 	e.POST("/user/delete_schedule", user.DeleteSchedule)
+	e.POST("/user/reserve_table", user.DispReserveTable)
 
 	e.POST("/applicant/get_url", applicant.GetOauthURL)
 	e.POST("/applicant/get_sheets", applicant.GetSheets)

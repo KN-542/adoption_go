@@ -17,6 +17,8 @@ func main() {
 	redis := infra.NewRedis()
 	redisRepository := repository.NewRedisRepository(redis)
 
+	outerRepository := repository.NewOuterRepository()
+
 	awsRepository := repository.NewAWSRepository()
 
 	masterRepository := repository.NewMasterRepository(db)
@@ -32,7 +34,7 @@ func main() {
 	loginService := service.NewLoginService(userRepository, applicantRepository, redisRepository, userValidate, dbRepository)
 	loginController := controller.NewLoginController(loginService)
 
-	userService := service.NewUserService(userRepository, masterRepository, userValidate, dbRepository)
+	userService := service.NewUserService(userRepository, masterRepository, userValidate, dbRepository, outerRepository)
 	userController := controller.NewUserController(userService)
 
 	e := router.NewRouter(

@@ -30,6 +30,8 @@ type IUserController interface {
 	Schedules(e echo.Context) error
 	// スケジュール削除
 	DeleteSchedule(e echo.Context) error
+	// 予約表提示
+	DispReserveTable(e echo.Context) error
 }
 
 type UserController struct {
@@ -140,4 +142,13 @@ func (c *UserController) DeleteSchedule(e echo.Context) error {
 		return e.JSON(err.Status, model.ErrorConvert(*err))
 	}
 	return e.JSON(http.StatusOK, "OK")
+}
+
+// 予約表提示
+func (c *UserController) DispReserveTable(e echo.Context) error {
+	res, err := c.s.DispReserveTable()
+	if err != nil {
+		return e.JSON(err.Status, model.ErrorConvert(*err))
+	}
+	return e.JSON(http.StatusOK, res)
 }

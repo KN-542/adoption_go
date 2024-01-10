@@ -177,6 +177,33 @@ type UserRoles struct {
 	Roles []Role `json:"roles"`
 }
 
+// 予約時間
+type ReserveTime struct {
+	// 時間
+	Time time.Time `json:"time"`
+	// 予約可否
+	IsReserve bool `json:"is_reserve"`
+}
+
+// 予約表
+type ReserveTable struct {
+	// 年月日
+	Date time.Time `json:"date"`
+	// 予約時間
+	Options []ReserveTime `json:"options"`
+}
+type ReserveTableResponse struct {
+	List []ReserveTable `json:"list"`
+}
+
+// グループ毎の面接可能人数
+type ReserveOfGroup struct {
+	// ハッシュキー
+	HashKey string `json:"hash_key"`
+	// 面接可能人数
+	Count uint `json:"count"`
+}
+
 func ConvertUsers(u *[]User) *[]UserResponse {
 	var respList []UserResponse
 	for _, row := range *u {
