@@ -109,3 +109,17 @@ const (
 	// 毎年
 	FREQ_YEARLY CalendarStatus = 4
 )
+
+func ConvertFreqStatus(value CalendarStatus) string {
+	switch {
+	case value == FREQ_DAILY:
+		return "day"
+	case value == FREQ_WEEKLY:
+		return "week"
+	case value == FREQ_MONTHLY:
+		return "month"
+	case value == FREQ_YEARLY:
+		return "year"
+	}
+	return ""
+}

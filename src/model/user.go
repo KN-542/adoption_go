@@ -188,12 +188,9 @@ type ReserveTime struct {
 // 予約表
 type ReserveTable struct {
 	// 年月日
-	Date time.Time `json:"date"`
+	Dates []time.Time `json:"date"`
 	// 予約時間
 	Options []ReserveTime `json:"options"`
-}
-type ReserveTableResponse struct {
-	List []ReserveTable `json:"list"`
 }
 
 // グループ毎の面接可能人数
