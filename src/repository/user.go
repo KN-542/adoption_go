@@ -38,6 +38,8 @@ type IUserRepository interface {
 	ListSchedule() ([]model.UserScheduleResponse, error)
 	// スケジュール削除
 	DeleteSchedule(tx *gorm.DB, m *model.UserSchedule) error
+	// 過去のスケジュールを更新
+	UpdatePastSchedule(tx *gorm.DB, m *model.UserSchedule) error
 }
 
 type UserRepository struct {
@@ -244,5 +246,24 @@ func (u *UserRepository) DeleteSchedule(tx *gorm.DB, m *model.UserSchedule) erro
 		log.Printf("%v", err)
 		return err
 	}
+	return nil
+}
+
+// 過去のスケジュールを更新
+func (u *UserRepository) UpdatePastSchedule(tx *gorm.DB, m *model.UserSchedule) error {
+	schedule := model.UserSchedule{
+		Start:     m.Start,
+		End:       m.End,
+		UpdatedAt: m.UpdatedAt,
+	}
+	if err := tx.Model(&model.UserSchedule{}).Where(
+		&model.UserSchedule{
+			HashKey: m.HashKey,
+		},
+	).Updates(schedule).Error; err != nil {
+		log.Printf("%v", err)
+		return err
+	}
+
 	return nil
 }

@@ -3,10 +3,10 @@ package service
 import (
 	"api/resources/static"
 	"api/src/model"
+	"api/src/model/enum"
 	"api/src/repository"
 	"api/src/validator"
 	"crypto/rand"
-	"fmt"
 	"log"
 	"math/big"
 	"net/http"
@@ -38,7 +38,7 @@ type IUserService interface {
 	// スケジュール削除
 	DeleteSchedule(req *model.UserSchedule) *model.ErrorResponse
 	// 予約表提示
-	DispReserveTable() (*model.ReserveTableResponse, *model.ErrorResponse)
+	DispReserveTable() (*model.ReserveTable, *model.ErrorResponse)
 }
 
 type UserService struct {
@@ -361,16 +361,92 @@ func (u *UserService) CreateSchedule(req *model.UserScheduleRequest) *model.Erro
 	return nil
 }
 
-// スケジュール一覧
+// スケジュール一覧 (バッチでも実行したい)
 func (u *UserService) Schedules() (*model.UserSchedulesResponse, *model.ErrorResponse) {
-	res, err := u.r.ListSchedule()
+	schedulesBefore, err := u.r.ListSchedule()
 	if err != nil {
 		return nil, &model.ErrorResponse{
 			Status: http.StatusInternalServerError,
 		}
 	}
 
-	return &model.UserSchedulesResponse{List: res}, nil
+	tx, err := u.d.TxStart()
+	if err != nil {
+		return nil, &model.ErrorResponse{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// 日付が過去の場合、更新or削除
+	for _, schedule := range schedulesBefore {
+		if schedule.Start.Before(time.Now()) {
+			// なしの場合
+			if schedule.FreqID == uint(enum.FREQ_NONE) {
+				if err := u.r.DeleteSchedule(tx, &model.UserSchedule{
+					HashKey: schedule.HashKey,
+				}); err != nil {
+					if err := u.d.TxRollback(tx); err != nil {
+						return nil, &model.ErrorResponse{
+							Status: http.StatusInternalServerError,
+						}
+					}
+					return nil, &model.ErrorResponse{
+						Status: http.StatusInternalServerError,
+					}
+				}
+			} else {
+				s := schedule.Start
+				e := schedule.End
+				if schedule.FreqID == uint(enum.FREQ_DAILY) {
+					s = s.AddDate(0, 0, 1)
+					e = e.AddDate(0, 0, 1)
+				}
+				if schedule.FreqID == uint(enum.FREQ_WEEKLY) {
+					s = s.AddDate(0, 0, 7)
+					e = e.AddDate(0, 0, 7)
+				}
+				if schedule.FreqID == uint(enum.FREQ_MONTHLY) {
+					s = s.AddDate(0, 1, 0)
+					e = e.AddDate(0, 1, 0)
+				}
+				if schedule.FreqID == uint(enum.FREQ_YEARLY) {
+					s = s.AddDate(1, 0, 0)
+					e = e.AddDate(1, 0, 0)
+				}
+
+				if err := u.r.UpdatePastSchedule(tx, &model.UserSchedule{
+					HashKey:   schedule.HashKey,
+					Start:     s,
+					End:       e,
+					UpdatedAt: time.Now(),
+				}); err != nil {
+					if err := u.d.TxRollback(tx); err != nil {
+						return nil, &model.ErrorResponse{
+							Status: http.StatusInternalServerError,
+						}
+					}
+					return nil, &model.ErrorResponse{
+						Status: http.StatusInternalServerError,
+					}
+				}
+			}
+		}
+	}
+
+	if err := u.d.TxCommit(tx); err != nil {
+		return nil, &model.ErrorResponse{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	schedulesAfter, err := u.r.ListSchedule()
+	if err != nil {
+		return nil, &model.ErrorResponse{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	return &model.UserSchedulesResponse{List: schedulesAfter}, nil
 }
 
 // スケジュール削除
@@ -412,7 +488,7 @@ func (u *UserService) DeleteSchedule(req *model.UserSchedule) *model.ErrorRespon
 }
 
 // 予約表提示
-func (u *UserService) DispReserveTable() (*model.ReserveTableResponse, *model.ErrorResponse) {
+func (u *UserService) DispReserveTable() (*model.ReserveTable, *model.ErrorResponse) {
 	const WEEKS = 7
 	const RESERVE_DURATION = 2 * WEEKS
 
@@ -447,13 +523,71 @@ func (u *UserService) DispReserveTable() (*model.ReserveTableResponse, *model.Er
 			Status: http.StatusInternalServerError,
 		}
 	}
-	var schedules []model.UserScheduleResponse
+
+	// TZを日本に
+	var schedulesJST []model.UserScheduleResponse
 	for _, row := range schedulesUTC {
 		start := row.Start.In(jst)
 		end := row.End.In(jst)
 		row.Start = start
 		row.End = end
-		schedules = append(schedules, row)
+		schedulesJST = append(schedulesJST, row)
+	}
+
+	// スケジュールの頻度が「毎日」と「毎週」の場合、コピー
+	var schedules []model.UserScheduleResponse
+	start := time.Now().AddDate(0, 0, WEEKS).In(jst)
+	s := time.Date(
+		start.Year(),
+		start.Month(),
+		start.Day(),
+		0,
+		0,
+		0,
+		0,
+		jst,
+	)
+	for _, row := range schedulesJST {
+		if row.FreqID == uint(enum.FREQ_NONE) || row.FreqID == uint(enum.FREQ_MONTHLY) || row.FreqID == uint(enum.FREQ_YEARLY) {
+			if row.Start.After(s.Add(-1*time.Second)) && row.End.Before(s.AddDate(0, 0, 1).Add(1*time.Second)) {
+				schedules = append(schedules, row)
+			}
+			continue
+		}
+
+		for i := 0; i < RESERVE_DURATION; i++ {
+			s_0 := time.Date(
+				s.AddDate(0, 0, i).Year(),
+				s.AddDate(0, 0, i).Month(),
+				s.AddDate(0, 0, i).Day(),
+				row.Start.Hour(),
+				row.Start.Minute(),
+				row.Start.Second(),
+				row.Start.Nanosecond(),
+				jst,
+			)
+			e_0 := time.Date(
+				s.AddDate(0, 0, i).Year(),
+				s.AddDate(0, 0, i).Month(),
+				s.AddDate(0, 0, i).Day(),
+				row.End.Hour(),
+				row.End.Minute(),
+				row.End.Second(),
+				row.End.Nanosecond(),
+				jst,
+			)
+			if row.FreqID == uint(enum.FREQ_DAILY) || (row.FreqID == uint(enum.FREQ_WEEKLY) && s_0.Weekday() == row.Start.Weekday()) {
+				schedules = append(schedules, model.UserScheduleResponse{
+					HashKey:      row.HashKey,
+					UserHashKeys: row.UserHashKeys,
+					Title:        row.Title,
+					FreqID:       row.FreqID,
+					Freq:         row.Freq,
+					Start:        s_0,
+					End:          e_0,
+				})
+			}
+		}
 	}
 
 	// 日本の休日取得
@@ -465,9 +599,8 @@ func (u *UserService) DispReserveTable() (*model.ReserveTableResponse, *model.Er
 	}
 
 	// 祝日かどうかの判定
-	var reserveTable []model.ReserveTable
+	var times []time.Time
 	var reserveTime []model.ReserveTime
-	start := time.Now().AddDate(0, 0, WEEKS).In(jst)
 	for i := 0; i < RESERVE_DURATION; i++ {
 		isReserve := true
 
@@ -481,6 +614,8 @@ func (u *UserService) DispReserveTable() (*model.ReserveTableResponse, *model.Er
 			0,
 			jst,
 		)
+
+		times = append(times, s)
 
 		for _, holiday := range holidays {
 			y1, m1, d1 := s.Date()
@@ -501,35 +636,35 @@ func (u *UserService) DispReserveTable() (*model.ReserveTableResponse, *model.Er
 				var reserveOfGroups []model.ReserveOfGroup
 
 				// グループ毎の面接可能人数
-				for _, schedule := range schedules {
-					userHashKeys := strings.Split(schedule.UserHashKeys, ",")
+				for _, group := range availabilityGroups {
+					var sum uint = uint(len(strings.Split(group.Users, ",")))
 
-					for _, group := range availabilityGroups {
-						var min uint = uint(len(strings.Split(group.Users, ",")))
+					for _, schedule := range schedules {
+						userHashKeys := strings.Split(schedule.UserHashKeys, ",")
+
 						for _, userHashKey := range userHashKeys {
-							var sum uint = uint(len(strings.Split(group.Users, ",")))
-
 							// 時刻dは対象範囲内か
 							if d.After(schedule.Start.Add(-1*time.Minute)) && d.Before(schedule.End.Add(1*time.Minute)) {
 								// ユーザーグループまたはユーザーのハッシュキーか
 								if userHashKey == group.HashKey {
-									sum -= sum
+									sum = 0
 								} else if strings.Contains(group.Users, userHashKey) {
-									sum--
+									if sum > 0 {
+										sum--
+									}
+								} else {
+									continue
 								}
 							}
-							if min > sum {
-								min = sum
-							}
 						}
-						reserveOfGroups = append(reserveOfGroups, model.ReserveOfGroup{
-							HashKey: group.HashKey,
-							Count:   min,
-						})
 					}
+
+					reserveOfGroups = append(reserveOfGroups, model.ReserveOfGroup{
+						HashKey: group.HashKey,
+						Count:   sum,
+					})
 				}
 
-				fmt.Println(reserveOfGroups)
 				if isAvailabilityDifferentGroupMeeting {
 					var sum uint = 0
 					for _, reserve := range reserveOfGroups {
@@ -560,16 +695,11 @@ func (u *UserService) DispReserveTable() (*model.ReserveTableResponse, *model.Er
 				}
 			}
 		}
-
-		reserveTable = append(reserveTable, model.ReserveTable{
-			Date:    s,
-			Options: reserveTime,
-		})
-		reserveTime = []model.ReserveTime{}
 	}
 
-	return &model.ReserveTableResponse{
-		List: reserveTable,
+	return &model.ReserveTable{
+		Dates:   times,
+		Options: reserveTime,
 	}, nil
 }
 
