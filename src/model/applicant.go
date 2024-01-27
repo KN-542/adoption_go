@@ -61,7 +61,7 @@ type Applicant struct {
 	// Google Meet URL
 	GoogleMeetURL string `json:"google_meet_url" gorm:"type:text"`
 	// 希望面接日時
-	DesiredAt string `json:"desired_at" gorm:"type:varchar(255);index"`
+	DesiredAt time.Time `json:"desired_at"`
 	// 登録日時
 	CreatedAt time.Time `json:"created_at"`
 	// 更新日時
@@ -105,7 +105,7 @@ type ApplicantDesired struct {
 	// ハッシュキー
 	HashKey string `json:"hash_key"`
 	// 希望面接日時
-	DesiredAt string `json:"desired_at"`
+	DesiredAt time.Time `json:"desired_at"`
 }
 
 // ファイルアップロード

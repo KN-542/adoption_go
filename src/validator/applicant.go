@@ -6,8 +6,6 @@ import (
 	"errors"
 	"fmt"
 
-	"regexp"
-
 	validation "github.com/go-ozzo/ozzo-validation/v4"
 )
 
@@ -89,7 +87,6 @@ func (v *ApplicantValidator) InsertDesiredAtValidator(a *model.ApplicantDesired)
 		validation.Field(
 			&a.DesiredAt,
 			validation.Required,
-			validation.Match(regexp.MustCompile(`^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$`)),
 		),
 	)
 }
