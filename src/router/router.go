@@ -62,6 +62,7 @@ func NewRouter(
 	e.POST("/applicant/desired", applicant.InsertDesiredAt)
 	e.POST("/applicant/status", applicant.GetApplicantStatus)
 	e.POST("/applicant/sites", applicant.GetSites)
+	e.POST("/applicant/get_google_meet_url", applicant.GetGoogleMeetUrl)
 
 	return e
 }
