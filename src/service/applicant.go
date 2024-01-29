@@ -34,12 +34,16 @@ type IApplicantService interface {
 	GetApplicantStatus() (*model.ApplicantStatusList, *model.ErrorResponse)
 	// サイト一覧取得
 	GetSites() (*model.Sites, *model.ErrorResponse)
+	// Google Meet Url 発行
+	GetGoogleMeetUrl(req *model.ApplicantAndUser) (*model.Applicant, *model.ErrorResponse)
 }
 
 type ApplicantService struct {
 	r     repository.IApplicantRepository
+	u     repository.IUserRepository
 	m     repository.IMasterRepository
 	a     repository.IAWSRepository
+	g     repository.IGoogleRepository
 	redis repository.IRedisRepository
 	v     validator.IApplicantValidator
 	d     repository.IDBRepository
@@ -47,20 +51,21 @@ type ApplicantService struct {
 
 func NewApplicantService(
 	r repository.IApplicantRepository,
+	u repository.IUserRepository,
 	m repository.IMasterRepository,
 	a repository.IAWSRepository,
+	g repository.IGoogleRepository,
 	redis repository.IRedisRepository,
 	v validator.IApplicantValidator,
 	d repository.IDBRepository,
 ) IApplicantService {
-	return &ApplicantService{r, m, a, redis, v, d}
+	return &ApplicantService{r, u, m, a, g, redis, v, d}
 }
 
 // 認証URL作成
 func (s *ApplicantService) GetOauthURL() (*model.GetOauthURLResponse, *model.ErrorResponse) {
-	res, err := s.r.GetOauthURL()
+	res, err := s.g.GetOauthURL()
 	if err != nil {
-		log.Printf("%v", err)
 		return nil, &model.ErrorResponse{
 			Status: http.StatusInternalServerError,
 			Error:  err,
@@ -398,4 +403,58 @@ func (s *ApplicantService) GetSites() (*model.Sites, *model.ErrorResponse) {
 	}
 
 	return &model.Sites{List: *sites}, nil
+}
+
+// Google Meet Url 発行
+func (s *ApplicantService) GetGoogleMeetUrl(req *model.ApplicantAndUser) (*model.Applicant, *model.ErrorResponse) {
+	// バリデーション
+	if err := s.v.HashKeyValidate(&req.Applicant); err != nil {
+		log.Printf("%v", err)
+		return nil, &model.ErrorResponse{
+			Status: http.StatusBadRequest,
+			Code:   static.CODE_BAD_REQUEST,
+		}
+	}
+
+	ctx := context.Background()
+	userHashKey, err := s.redis.Get(ctx, req.UserHashKey, static.REDIS_USER_HASH_KEY)
+	if err != nil {
+		return nil, &model.ErrorResponse{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	user, err := s.u.Get(&model.User{
+		HashKey: *userHashKey,
+	})
+	if err != nil {
+		return nil, &model.ErrorResponse{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	accessToken, err := s.g.GetAccessToken(&user.RefreshToken, &req.Code)
+	if err != nil {
+		log.Printf("%v", err)
+		return nil, &model.ErrorResponse{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	googleMeetUrl, err := s.g.GetGoogleMeetUrl(
+		accessToken,
+		user.Name,
+		req.Applicant.DesiredAt,
+		req.Applicant.DesiredAt.Add(time.Hour),
+	)
+	if err != nil {
+		log.Printf("%v", err)
+		return nil, &model.ErrorResponse{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	return &model.Applicant{
+		GoogleMeetURL: *googleMeetUrl,
+	}, nil
 }

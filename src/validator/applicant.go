@@ -10,6 +10,7 @@ import (
 )
 
 type IApplicantValidator interface {
+	HashKeyValidate(a *model.Applicant) error
 	SearchValidator(a *model.ApplicantSearchRequest) error
 	S3UploadValidator(a *model.FileUpload) error
 	S3DownloadValidator(a *model.FileDownload) error
@@ -34,6 +35,16 @@ func validateUintRange(min, max uint) validation.RuleFunc {
 		}
 		return nil
 	}
+}
+
+func (v *ApplicantValidator) HashKeyValidate(a *model.Applicant) error {
+	return validation.ValidateStruct(
+		a,
+		validation.Field(
+			&a.HashKey,
+			validation.Required,
+		),
+	)
 }
 
 func (v *ApplicantValidator) SearchValidator(a *model.ApplicantSearchRequest) error {

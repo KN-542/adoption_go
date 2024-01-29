@@ -33,6 +33,8 @@ type IApplicantController interface {
 	GetApplicantStatus(e echo.Context) error
 	// サイト一覧取得
 	GetSites(e echo.Context) error
+	// Google Meet Url 発行
+	GetGoogleMeetUrl(e echo.Context) error
 }
 
 type ApplicantController struct {
@@ -189,6 +191,21 @@ func (c *ApplicantController) GetApplicantStatus(e echo.Context) error {
 // サイト一覧取得
 func (c *ApplicantController) GetSites(e echo.Context) error {
 	res, err := c.s.GetSites()
+	if err != nil {
+		return e.JSON(err.Status, model.ErrorConvert(*err))
+	}
+	return e.JSON(http.StatusOK, res)
+}
+
+// Google Meet Url 発行
+func (c *ApplicantController) GetGoogleMeetUrl(e echo.Context) error {
+	request := model.ApplicantAndUser{}
+	if err := e.Bind(&request); err != nil {
+		log.Printf("%v", err)
+		return e.JSON(http.StatusBadRequest, fmt.Errorf(static.MESSAGE_BAD_REQUEST))
+	}
+
+	res, err := c.s.GetGoogleMeetUrl(&request)
 	if err != nil {
 		return e.JSON(err.Status, model.ErrorConvert(*err))
 	}

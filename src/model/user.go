@@ -20,6 +20,8 @@ type User struct {
 	InitPassword string `json:"init_password"`
 	// ロールID
 	RoleID uint `json:"role_id" gorm:"index"`
+	// リフレッシュトークン
+	RefreshToken string `json:"refresh_token" gorm:"type:text"`
 	// 登録日時
 	CreatedAt time.Time `json:"created_at"`
 	// 更新日時

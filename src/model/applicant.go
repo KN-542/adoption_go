@@ -108,6 +108,12 @@ type ApplicantDesired struct {
 	DesiredAt time.Time `json:"desired_at"`
 }
 
+type ApplicantAndUser struct {
+	Applicant   Applicant `json:"applicant"`
+	UserHashKey string    `json:"user_hash_key"`
+	Code        string    `json:"code"`
+}
+
 // ファイルアップロード
 type FileUpload struct {
 	// ハッシュキー
