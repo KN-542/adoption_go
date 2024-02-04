@@ -17,7 +17,7 @@ import (
 
 type IApplicantService interface {
 	// 認証URL作成
-	GetOauthURL() (*model.GetOauthURLResponse, *model.ErrorResponse)
+	GetOauthURL(req *model.ApplicantAndUser) (*model.GetOauthURLResponse, *model.ErrorResponse)
 	// シート取得
 	GetSheets(search model.ApplicantSearch) (*[]model.ApplicantResponse, *model.ErrorResponse)
 	// 応募者ダウンロード
@@ -63,7 +63,38 @@ func NewApplicantService(
 }
 
 // 認証URL作成
-func (s *ApplicantService) GetOauthURL() (*model.GetOauthURLResponse, *model.ErrorResponse) {
+func (s *ApplicantService) GetOauthURL(req *model.ApplicantAndUser) (*model.GetOauthURLResponse, *model.ErrorResponse) {
+	// バリデーション
+	if err := s.v.HashKeyValidate(&req.Applicant); err != nil {
+		log.Printf("%v", err)
+		return nil, &model.ErrorResponse{
+			Status: http.StatusBadRequest,
+			Code:   static.CODE_BAD_REQUEST,
+		}
+	}
+	if err := s.v.HashKeyValidate(&model.Applicant{
+		HashKey: req.UserHashKey,
+	}); err != nil {
+		log.Printf("%v", err)
+		return nil, &model.ErrorResponse{
+			Status: http.StatusBadRequest,
+			Code:   static.CODE_BAD_REQUEST,
+		}
+	}
+
+	ctx := context.Background()
+	if err := s.redis.Set(
+		ctx,
+		req.UserHashKey,
+		static.REDIS_APPLICANT_HASH_KEY,
+		&req.Applicant.HashKey,
+		24*time.Hour,
+	); err != nil {
+		return nil, &model.ErrorResponse{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
 	res, err := s.g.GetOauthURL()
 	if err != nil {
 		return nil, &model.ErrorResponse{
@@ -408,7 +439,9 @@ func (s *ApplicantService) GetSites() (*model.Sites, *model.ErrorResponse) {
 // Google Meet Url 発行
 func (s *ApplicantService) GetGoogleMeetUrl(req *model.ApplicantAndUser) (*model.Applicant, *model.ErrorResponse) {
 	// バリデーション
-	if err := s.v.HashKeyValidate(&req.Applicant); err != nil {
+	if err := s.v.HashKeyValidate(&model.Applicant{
+		HashKey: req.UserHashKey,
+	}); err != nil {
 		log.Printf("%v", err)
 		return nil, &model.ErrorResponse{
 			Status: http.StatusBadRequest,
@@ -417,15 +450,26 @@ func (s *ApplicantService) GetGoogleMeetUrl(req *model.ApplicantAndUser) (*model
 	}
 
 	ctx := context.Background()
-	userHashKey, err := s.redis.Get(ctx, req.UserHashKey, static.REDIS_USER_HASH_KEY)
+	applicantHashKey, err := s.redis.Get(ctx, req.UserHashKey, static.REDIS_APPLICANT_HASH_KEY)
 	if err != nil {
 		return nil, &model.ErrorResponse{
 			Status: http.StatusInternalServerError,
 		}
 	}
 
+	// 応募者情報取得
+	applicant, err := s.r.GetByHashKey(&model.Applicant{
+		HashKey: *applicantHashKey,
+	})
+	if err != nil {
+		return nil, &model.ErrorResponse{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// ユーザー取得
 	user, err := s.u.Get(&model.User{
-		HashKey: *userHashKey,
+		HashKey: req.UserHashKey,
 	})
 	if err != nil {
 		return nil, &model.ErrorResponse{
@@ -444,8 +488,8 @@ func (s *ApplicantService) GetGoogleMeetUrl(req *model.ApplicantAndUser) (*model
 	googleMeetUrl, err := s.g.GetGoogleMeetUrl(
 		accessToken,
 		user.Name,
-		req.Applicant.DesiredAt,
-		req.Applicant.DesiredAt.Add(time.Hour),
+		applicant.DesiredAt,
+		applicant.DesiredAt.Add(time.Hour),
 	)
 	if err != nil {
 		log.Printf("%v", err)
