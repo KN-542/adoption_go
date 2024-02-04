@@ -50,7 +50,13 @@ func NewApplicantController(s service.IApplicantService) IApplicantController {
 */
 // 認証URL作成
 func (c *ApplicantController) GetOauthURL(e echo.Context) error {
-	res, err := c.s.GetOauthURL()
+	request := model.ApplicantAndUser{}
+	if err := e.Bind(&request); err != nil {
+		log.Printf("%v", err)
+		return e.JSON(http.StatusBadRequest, fmt.Errorf(static.MESSAGE_BAD_REQUEST))
+	}
+
+	res, err := c.s.GetOauthURL(&request)
 	if err != nil {
 		return e.JSON(err.Status, model.ErrorConvert(*err))
 	}
