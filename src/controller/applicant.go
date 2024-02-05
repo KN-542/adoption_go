@@ -21,6 +21,8 @@ type IApplicantController interface {
 	GetSheets(e echo.Context) error
 	// 応募者ダウンロード
 	Download(e echo.Context) error
+	// 応募者取得(1件)
+	Get(e echo.Context) error
 	// 検索
 	Search(e echo.Context) error
 	// 書類アップロード
@@ -93,6 +95,22 @@ func (c *ApplicantController) Download(e echo.Context) error {
 	}
 
 	return e.JSON(http.StatusOK, "OK")
+}
+
+// 応募者取得(1件)
+func (c *ApplicantController) Get(e echo.Context) error {
+	request := model.Applicant{}
+	if err := e.Bind(&request); err != nil {
+		log.Printf("%v", err)
+		return e.JSON(http.StatusBadRequest, fmt.Errorf(static.MESSAGE_BAD_REQUEST))
+	}
+
+	res, err := c.s.Get(&request)
+	if err != nil {
+		return e.JSON(err.Status, model.ErrorConvert(*err))
+	}
+
+	return e.JSON(http.StatusOK, res)
 }
 
 // 検索

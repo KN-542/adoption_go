@@ -47,6 +47,8 @@ type IApplicantRepository interface {
 	CountByPrimaryKey(key *string) (*int64, error)
 	// 応募者取得(ハッシュキー)
 	GetByHashKey(m *model.Applicant) (*model.Applicant, error)
+	// Google Meet Url 格納
+	UpdateGoogleMeet(tx *gorm.DB, m *model.Applicant) error
 	// 書類登録状況更新
 	UpdateDocument(tx *gorm.DB, m *model.Applicant) error
 	// 面接希望日更新
@@ -286,6 +288,24 @@ func (a *ApplicantRepository) GetByHashKey(m *model.Applicant) (*model.Applicant
 	}
 
 	return &res, nil
+}
+
+// Google Meet Url 格納
+func (a *ApplicantRepository) UpdateGoogleMeet(tx *gorm.DB, m *model.Applicant) error {
+	applicant := model.Applicant{
+		GoogleMeetURL: m.GoogleMeetURL,
+		UpdatedAt:     time.Now(),
+	}
+	if err := tx.Model(&model.Applicant{}).Where(
+		&model.Applicant{
+			HashKey: m.HashKey,
+		},
+	).Updates(applicant).Error; err != nil {
+		log.Printf("%v", err)
+		return err
+	}
+
+	return nil
 }
 
 // 書類登録状況更新
