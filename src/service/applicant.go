@@ -16,12 +16,14 @@ import (
 )
 
 type IApplicantService interface {
-	// 認証URL作成
+	// Google 認証URL作成
 	GetOauthURL(req *model.ApplicantAndUser) (*model.GetOauthURLResponse, *model.ErrorResponse)
 	// シート取得
 	GetSheets(search model.ApplicantSearch) (*[]model.ApplicantResponse, *model.ErrorResponse)
 	// 応募者ダウンロード
 	Download(d *model.ApplicantsDownload) *model.ErrorResponse
+	// 応募者取得(1件)
+	Get(req *model.Applicant) (*model.Applicant, *model.ErrorResponse)
 	// 検索
 	Search(req *model.ApplicantSearchRequest) (*model.ApplicantsDownloadResponse, *model.ErrorResponse)
 	// 書類アップロード(S3)
@@ -217,6 +219,30 @@ func (s *ApplicantService) Download(d *model.ApplicantsDownload) *model.ErrorRes
 	}
 
 	return nil
+}
+
+// 応募者取得(1件)
+func (s *ApplicantService) Get(req *model.Applicant) (*model.Applicant, *model.ErrorResponse) {
+	// バリデーション
+	if err := s.v.HashKeyValidate(req); err != nil {
+		log.Printf("%v", err)
+		return nil, &model.ErrorResponse{
+			Status: http.StatusBadRequest,
+			Code:   static.CODE_BAD_REQUEST,
+		}
+	}
+
+	// 応募者情報取得
+	applicant, err := s.r.GetByHashKey(&model.Applicant{
+		HashKey: req.HashKey,
+	})
+	if err != nil {
+		return nil, &model.ErrorResponse{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	return applicant, nil
 }
 
 // 検索
@@ -485,6 +511,7 @@ func (s *ApplicantService) GetGoogleMeetUrl(req *model.ApplicantAndUser) (*model
 		}
 	}
 
+	// Google Meet Url 発行
 	googleMeetUrl, err := s.g.GetGoogleMeetUrl(
 		accessToken,
 		user.Name,
@@ -493,6 +520,28 @@ func (s *ApplicantService) GetGoogleMeetUrl(req *model.ApplicantAndUser) (*model
 	)
 	if err != nil {
 		log.Printf("%v", err)
+		return nil, &model.ErrorResponse{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// Google Meet Url 格納
+	tx, err := s.d.TxStart()
+	if err := s.r.UpdateGoogleMeet(tx, &model.Applicant{
+		HashKey:       *applicantHashKey,
+		GoogleMeetURL: *googleMeetUrl,
+	}); err != nil {
+		if err := s.d.TxRollback(tx); err != nil {
+			return nil, &model.ErrorResponse{
+				Status: http.StatusInternalServerError,
+			}
+		}
+		return nil, &model.ErrorResponse{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	if err := s.d.TxCommit(tx); err != nil {
 		return nil, &model.ErrorResponse{
 			Status: http.StatusInternalServerError,
 		}
