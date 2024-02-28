@@ -21,7 +21,7 @@ type Role struct {
 	// ID
 	ID uint `json:"id" gorm:"primaryKey"`
 	// ロール名_日本語
-	NameJa string `json:"name_ja" gorm:"unique;type:varchar(20)"`
+	NameJa string `json:"name_ja" gorm:"unique;not null;type:varchar(20)"`
 }
 
 func (m Role) TableName() string {
@@ -33,7 +33,7 @@ type ApplicantStatus struct {
 	// ID
 	ID uint `json:"id" gorm:"primaryKey"`
 	// ステータス名_日本語
-	StatusNameJa string `json:"status_name_ja" gorm:"unique;type:varchar(20)"`
+	StatusNameJa string `json:"status_name_ja" gorm:"unique;not null;type:varchar(20)"`
 }
 
 func (m ApplicantStatus) TableName() string {
@@ -49,9 +49,9 @@ type CalendarFreqStatus struct {
 	// ID
 	ID uint `json:"id" gorm:"primaryKey"`
 	// 頻度
-	Freq string `json:"freq" gorm:"unique;type:varchar(10)"`
+	Freq string `json:"freq" gorm:"unique;not null;type:varchar(10)"`
 	// 名前_日本語
-	NameJa string `json:"name_ja" gorm:"unique;type:varchar(10)"`
+	NameJa string `json:"name_ja" gorm:"unique;not null;type:varchar(10)"`
 }
 
 func (m CalendarFreqStatus) TableName() string {

@@ -14,10 +14,14 @@ type IUserRepository interface {
 	Insert(tx *gorm.DB, m *model.User) error
 	// 検索
 	List() ([]model.UserResponse, error)
+	// 取得
+	Get(m *model.User) (*model.User, error)
+	// 更新
+	Update(tx *gorm.DB, m *model.User) error
+	// 削除
+	Delete(tx *gorm.DB, m *model.User) error
 	// ユーザー存在確認
 	ConfirmUserByHashKeys(hashKeys []string) ([]model.UserResponse, error)
-	// ユーザー取得
-	Get(m *model.User) (*model.User, error)
 	// ログイン認証
 	Login(m *model.User) ([]model.User, error)
 	// パスワード変更
@@ -74,6 +78,54 @@ func (u *UserRepository) List() ([]model.UserResponse, error) {
 	return l, nil
 }
 
+// 取得
+func (u *UserRepository) Get(m *model.User) (*model.User, error) {
+	var res model.User
+	if err := u.db.Where(
+		&model.User{
+			HashKey: m.HashKey,
+		},
+	).First(&res).Error; err != nil {
+		log.Printf("%v", err)
+		return nil, err
+	}
+
+	return &res, nil
+}
+
+// 更新
+func (u *UserRepository) Update(tx *gorm.DB, m *model.User) error {
+	user := model.User{
+		Name:         m.Name,
+		Email:        m.Email,
+		Password:     m.Password,
+		RoleID:       m.RoleID,
+		RefreshToken: m.RefreshToken,
+		UpdatedAt:    m.UpdatedAt,
+	}
+	if err := tx.Model(&model.User{}).Where(
+		&model.User{
+			HashKey: m.HashKey,
+		},
+	).Updates(user).Error; err != nil {
+		log.Printf("%v", err)
+		return err
+	}
+
+	return nil
+}
+
+// 削除
+func (u *UserRepository) Delete(tx *gorm.DB, m *model.User) error {
+	if err := tx.Where(&model.User{
+		HashKey: m.HashKey,
+	}).Delete(&model.User{}).Error; err != nil {
+		log.Printf("%v", err)
+		return err
+	}
+	return nil
+}
+
 // ユーザー存在確認
 func (u *UserRepository) ConfirmUserByHashKeys(hashKeys []string) ([]model.UserResponse, error) {
 	if len(hashKeys) == 0 {
@@ -92,21 +144,6 @@ func (u *UserRepository) ConfirmUserByHashKeys(hashKeys []string) ([]model.UserR
 		return nil, err
 	}
 	return l, nil
-}
-
-// ユーザー取得
-func (u *UserRepository) Get(m *model.User) (*model.User, error) {
-	var res model.User
-	if err := u.db.Where(
-		&model.User{
-			HashKey: m.HashKey,
-		},
-	).First(&res).Error; err != nil {
-		log.Printf("%v", err)
-		return nil, err
-	}
-
-	return &res, nil
 }
 
 // ログイン認証
@@ -186,7 +223,7 @@ func (u *UserRepository) EmailDuplCheck(m *model.User) error {
 	}
 
 	if count > 0 {
-		return fmt.Errorf("Duplicate Email Address")
+		return fmt.Errorf("duplicate Email Address")
 	}
 
 	return nil

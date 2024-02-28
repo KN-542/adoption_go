@@ -9,17 +9,17 @@ type User struct {
 	// ID
 	ID uint64 `json:"id" gorm:"primaryKey;AUTO_INCREMENT"`
 	// ハッシュキー
-	HashKey string `json:"hash_key" gorm:"unique;type:text"`
+	HashKey string `json:"hash_key" gorm:"unique;not null;type:text;check:hash_key <> ''"`
 	// 氏名
-	Name string `json:"name" gorm:"unique;type:varchar(30);index"`
+	Name string `json:"name" gorm:"unique;not null;type:varchar(30);check:name <> '';index"`
 	// メールアドレス
-	Email string `json:"email" gorm:"unique;type:varchar(50);check:email ~ '^[a-zA-Z0-9_+-]+(\\.[a-zA-Z0-9_+-]+)*@([a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]*\\.)+[a-zA-Z]{2,}$';index"`
+	Email string `json:"email" gorm:"unique;not null;type:varchar(50);check:email ~ '^[a-zA-Z0-9_+-]+(\\.[a-zA-Z0-9_+-]+)*@([a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]*\\.)+[a-zA-Z]{2,}$';index"`
 	// パスワード(ハッシュ化)
-	Password string `json:"password"`
+	Password string `json:"password" gorm:"not null;check:password <> ''"`
 	// 初回パスワード(ハッシュ化)
-	InitPassword string `json:"init_password"`
+	InitPassword string `json:"init_password" gorm:"not null;check:init_password <> ''"`
 	// ロールID
-	RoleID uint `json:"role_id" gorm:"index"`
+	RoleID uint `json:"role_id" gorm:"not null"`
 	// リフレッシュトークン
 	RefreshToken string `json:"refresh_token" gorm:"type:text"`
 	// 登録日時
@@ -61,15 +61,15 @@ type UserSchedule struct {
 	// ハッシュキー
 	HashKey string `json:"hash_key" gorm:"unique;type:text"`
 	// ハッシュキー(ユーザー)
-	UserHashKeys string `json:"user_hash_keys" gorm:"notNull;type:text;index"`
+	UserHashKeys string `json:"user_hash_keys" gorm:"not null;type:text;index"`
 	// タイトル
 	Title string `json:"title" gorm:"type:varchar(30)"`
 	// 頻度ID
 	FreqID uint `json:"freq_id"`
 	// 開始時刻
-	Start time.Time `json:"start" gorm:"notNull"`
+	Start time.Time `json:"start" gorm:"not null"`
 	// 終了時刻
-	End time.Time `json:"end" gorm:"notNull"`
+	End time.Time `json:"end" gorm:"not null"`
 	// 登録日時
 	CreatedAt time.Time `json:"created_at"`
 	// 更新日時

@@ -54,7 +54,6 @@ func NewRouter(
 	e.POST("/user/reserve_table", user.DispReserveTable)
 
 	e.POST("/applicant/get_url", applicant.GetOauthURL)
-	e.POST("/applicant/get_sheets", applicant.GetSheets)
 	e.POST("/applicant/download", applicant.Download)
 	e.POST("/applicant/get", applicant.Get)
 	e.POST("/applicant/search", applicant.Search)
