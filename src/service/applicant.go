@@ -18,8 +18,6 @@ import (
 type IApplicantService interface {
 	// Google 認証URL作成
 	GetOauthURL(req *model.ApplicantAndUser) (*model.GetOauthURLResponse, *model.ErrorResponse)
-	// シート取得
-	GetSheets(search model.ApplicantSearch) (*[]model.ApplicantResponse, *model.ErrorResponse)
 	// 応募者ダウンロード
 	Download(d *model.ApplicantsDownload) *model.ErrorResponse
 	// 応募者取得(1件)
@@ -104,31 +102,6 @@ func (s *ApplicantService) GetOauthURL(req *model.ApplicantAndUser) (*model.GetO
 			Error:  err,
 		}
 	}
-	return res, nil
-}
-
-// シート取得
-func (s *ApplicantService) GetSheets(search model.ApplicantSearch) (*[]model.ApplicantResponse, *model.ErrorResponse) {
-	refreshToken, _ := s.r.GetRefreshToken()
-
-	accessToken, err := s.r.GetAccessToken(refreshToken, &search.Code)
-	if err != nil {
-		log.Printf("%v", err)
-		return nil, &model.ErrorResponse{
-			Status: http.StatusInternalServerError,
-			Error:  err,
-		}
-	}
-
-	res, err := s.r.GetSheets(search, accessToken)
-	if err != nil {
-		log.Printf("%v", err)
-		return nil, &model.ErrorResponse{
-			Status: http.StatusInternalServerError,
-			Error:  err,
-		}
-	}
-
 	return res, nil
 }
 

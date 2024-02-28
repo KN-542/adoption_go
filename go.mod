@@ -6,7 +6,6 @@ require (
 	github.com/aws/aws-sdk-go v1.48.6
 	github.com/go-ozzo/ozzo-validation/v4 v4.3.0
 	github.com/golang-jwt/jwt/v4 v4.5.0
-	github.com/joho/godotenv v1.5.1
 	github.com/labstack/echo/v4 v4.11.1
 	github.com/redis/go-redis/v9 v9.1.0
 	golang.org/x/crypto v0.14.0

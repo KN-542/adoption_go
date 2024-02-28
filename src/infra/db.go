@@ -22,7 +22,6 @@ func NewDB() *gorm.DB {
 	if err != nil {
 		log.Fatalln(err)
 	}
-	fmt.Println("Connceted")
 	return db
 }
 
