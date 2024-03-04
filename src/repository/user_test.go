@@ -137,20 +137,20 @@ func TestUserRepository_Insert(t *testing.T) {
 				_, err := u.Get(tt.args.m)
 				if err != nil {
 					if err := tx.Rollback().Error; err != nil {
-						t.Errorf("UserRepository.Insert() error = %v", err)
+						t.Errorf("UserRepository.Get() error = %v", err)
 					}
-					t.Errorf("UserRepository.Insert() error = %v", err)
+					t.Errorf("UserRepository.Get() error = %v", err)
 				}
 
 				tx := u.db.Begin()
 				if err := u.Delete(tx, tt.args.m); err != nil {
 					if err := tx.Rollback().Error; err != nil {
-						t.Errorf("UserRepository.Insert() error = %v", err)
+						t.Errorf("UserRepository.Delete() error = %v", err)
 					}
-					t.Errorf("UserRepository.Insert() error = %v", err)
+					t.Errorf("UserRepository.Delete() error = %v", err)
 				}
 				if err := tx.Commit().Error; err != nil {
-					t.Errorf("UserRepository.Insert() error = %v", err)
+					t.Errorf("UserRepository.Delete() error = %v", err)
 				}
 
 				if tt.wantErr {
@@ -161,6 +161,7 @@ func TestUserRepository_Insert(t *testing.T) {
 	}
 }
 
+// TODO
 func TestUserRepository_List(t *testing.T) {
 	type fields struct {
 		db *gorm.DB
@@ -191,33 +192,127 @@ func TestUserRepository_List(t *testing.T) {
 }
 
 func TestUserRepository_Get(t *testing.T) {
-	type fields struct {
-		db *gorm.DB
-	}
 	type args struct {
 		m *model.User
 	}
 	tests := []struct {
 		name    string
-		fields  fields
 		args    args
 		want    *model.User
 		wantErr bool
 	}{
-		// TODO: Add test cases.
+		// ok
+		{
+			"ok",
+			args{&model.User{
+				HashKey: "abc",
+			}},
+			&model.User{
+				HashKey:      "abc",
+				Name:         "taro",
+				Email:        "taro@au.com",
+				Password:     "root",
+				InitPassword: "root",
+				RoleID:       1,
+				RefreshToken: "token",
+				CreatedAt:    time.Date(2024, time.January, 1, 0, 0, 0, 0, time.UTC),
+				UpdatedAt:    time.Date(2024, time.January, 2, 0, 0, 0, 0, time.UTC),
+			},
+			false,
+		},
+		// ng 0件
+		{
+			"ng_0",
+			args{&model.User{
+				HashKey: "ng_ab",
+			}},
+			&model.User{
+				HashKey:      "ng_abc",
+				Name:         "taro",
+				Email:        "taro@au.com",
+				Password:     "root",
+				InitPassword: "root",
+				RoleID:       1,
+				RefreshToken: "token",
+				CreatedAt:    time.Date(2024, time.January, 1, 0, 0, 0, 0, time.UTC),
+				UpdatedAt:    time.Date(2024, time.January, 2, 0, 0, 0, 0, time.UTC),
+			},
+			true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			u := &UserRepository{
-				db: tt.fields.db,
+				db: infra.NewDB(),
 			}
+			tx := u.db.Begin()
+			if err := tx.Error; err != nil {
+				t.Errorf("UserRepository.Insert() error = %v", err)
+			}
+
+			if err := u.Insert(tx, tt.want); err != nil {
+				if err := tx.Rollback().Error; err != nil {
+					t.Errorf("UserRepository.Insert() error = %v", err)
+				}
+				t.Errorf("UserRepository.Insert() error = %v", err)
+			}
+			if err := tx.Commit().Error; err != nil {
+				t.Errorf("UserRepository.Insert() error = %v", err)
+			}
+
 			got, err := u.Get(tt.args.m)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("UserRepository.Get() error = %v, wantErr %v", err, tt.wantErr)
+			if err != nil {
+				tx2 := u.db.Begin()
+				if err := u.Delete(tx2, tt.want); err != nil {
+					if err := tx2.Rollback().Error; err != nil {
+						t.Errorf("UserRepository.Delete() error = %v", err)
+					}
+					t.Errorf("UserRepository.Delete() error = %v", err)
+				}
+				if err := tx2.Commit().Error; err != nil {
+					t.Errorf("UserRepository.Delete() error = %v", err)
+				}
+
+				if !tt.wantErr {
+					t.Errorf("UserRepository.Get() error = %v, wantErr %v", err, tt.wantErr)
+				}
 				return
 			}
-			if !reflect.DeepEqual(got, tt.want) {
+			if !(got == nil || (got.Name == tt.want.Name &&
+				got.Email == tt.want.Email &&
+				got.Password == tt.want.Password &&
+				got.InitPassword == tt.want.InitPassword &&
+				got.RoleID == tt.want.RoleID &&
+				got.RefreshToken == tt.want.RefreshToken &&
+				got.CreatedAt.Sub(tt.want.CreatedAt) < time.Second &&
+				got.UpdatedAt.Sub(tt.want.UpdatedAt) < time.Second)) {
+				tx2 := u.db.Begin()
+				if err := u.Delete(tx2, tt.want); err != nil {
+					if err := tx2.Rollback().Error; err != nil {
+						t.Errorf("UserRepository.Delete() error = %v", err)
+					}
+					t.Errorf("UserRepository.Delete() error = %v", err)
+				}
+				if err := tx2.Commit().Error; err != nil {
+					t.Errorf("UserRepository.Delete() error = %v", err)
+				}
+
 				t.Errorf("UserRepository.Get() = %v, want %v", got, tt.want)
+			}
+
+			tx2 := u.db.Begin()
+			if err := u.Delete(tx2, tt.want); err != nil {
+				if err := tx2.Rollback().Error; err != nil {
+					t.Errorf("UserRepository.Delete() error = %v", err)
+				}
+				t.Errorf("UserRepository.Delete() error = %v", err)
+			}
+			if err := tx2.Commit().Error; err != nil {
+				t.Errorf("UserRepository.Delete() error = %v", err)
+			}
+
+			if tt.wantErr {
+				t.Errorf("UserRepository.Get() error = %v, wantErr %v", nil, tt.wantErr)
 			}
 		})
 	}
