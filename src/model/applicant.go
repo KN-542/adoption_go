@@ -66,6 +66,10 @@ type Applicant struct {
 	CreatedAt time.Time `json:"created_at"`
 	// 更新日時
 	UpdatedAt time.Time `json:"updated_at"`
+	// 面接官
+	Users string `json:"users" gorm:"type:text"`
+	// カレンダー用ハッシュキー
+	CalendarHashKey string `json:"calendar_hash_key" gorm:"type:text"`
 	// サイト(外部キー)
 	Site Site `gorm:"foreignKey:site_id;references:id"`
 	// ステータス(外部キー)
@@ -80,6 +84,7 @@ type ApplicantWith struct {
 	Applicant
 	StatusNameJa string `json:"status_name_ja"`
 	SiteNameJa   string `json:"site_name_ja"`
+	UserNames    string `json:"user_names"`
 }
 
 type ApplicantSearchRequest struct {
@@ -106,6 +111,10 @@ type ApplicantDesired struct {
 	HashKey string `json:"hash_key"`
 	// 希望面接日時
 	DesiredAt time.Time `json:"desired_at"`
+	// タイトル
+	Title string `json:"title"`
+	// カレンダーハッシュキー
+	CalendarHashKey string `json:"calendar_hash_key"`
 }
 
 type ApplicantAndUser struct {

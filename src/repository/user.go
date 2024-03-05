@@ -38,6 +38,8 @@ type IUserRepository interface {
 	InsertGroup(tx *gorm.DB, m *model.UserGroup) error
 	// スケジュール登録
 	InsertSchedule(tx *gorm.DB, m *model.UserSchedule) error
+	// スケジュール更新
+	UpdateSchedule(tx *gorm.DB, m *model.UserSchedule) error
 	// スケジュール一覧
 	ListSchedule() ([]model.UserScheduleResponse, error)
 	// スケジュール削除
@@ -259,6 +261,20 @@ func (u *UserRepository) InsertSchedule(tx *gorm.DB, m *model.UserSchedule) erro
 		log.Printf("%v", err)
 		return err
 	}
+	return nil
+}
+
+// スケジュール更新
+func (u *UserRepository) UpdateSchedule(tx *gorm.DB, m *model.UserSchedule) error {
+	if err := tx.Model(&model.UserSchedule{}).Where(
+		&model.UserSchedule{
+			HashKey: m.HashKey,
+		},
+	).Updates(m).Error; err != nil {
+		log.Printf("%v", err)
+		return err
+	}
+
 	return nil
 }
 

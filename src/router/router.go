@@ -49,6 +49,7 @@ func NewRouter(
 	e.POST("/user/search_group", user.SearchGroups)
 	e.POST("/user/schedule_type", user.ListScheduleType)
 	e.POST("/user/create_schedule", user.InsertSchedules)
+	e.POST("/user/update_schedule", user.UpdateSchedule)
 	e.POST("/user/schedules", user.Schedules)
 	e.POST("/user/delete_schedule", user.DeleteSchedule)
 	e.POST("/user/reserve_table", user.DispReserveTable)

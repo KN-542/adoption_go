@@ -26,6 +26,8 @@ type IUserController interface {
 	ListScheduleType(e echo.Context) error
 	// スケジュール登録
 	InsertSchedules(e echo.Context) error
+	// スケジュール更新
+	UpdateSchedule(e echo.Context) error
 	// スケジュール一覧
 	Schedules(e echo.Context) error
 	// スケジュール削除
@@ -115,7 +117,22 @@ func (c *UserController) InsertSchedules(e echo.Context) error {
 		return e.JSON(http.StatusBadRequest, fmt.Errorf(static.MESSAGE_BAD_REQUEST))
 	}
 
-	if err := c.s.CreateSchedule(&req); err != nil {
+	_, err := c.s.CreateSchedule(&req)
+	if err != nil {
+		return e.JSON(err.Status, model.ErrorConvert(*err))
+	}
+	return e.JSON(http.StatusOK, "OK")
+}
+
+// スケジュール更新
+func (c *UserController) UpdateSchedule(e echo.Context) error {
+	req := model.UserScheduleRequest{}
+	if err := e.Bind(&req); err != nil {
+		log.Printf("%v", err)
+		return e.JSON(http.StatusBadRequest, fmt.Errorf(static.MESSAGE_BAD_REQUEST))
+	}
+
+	if err := c.s.UpdateSchedule(&req); err != nil {
 		return e.JSON(err.Status, model.ErrorConvert(*err))
 	}
 	return e.JSON(http.StatusOK, "OK")

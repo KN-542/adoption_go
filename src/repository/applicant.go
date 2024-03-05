@@ -173,8 +173,10 @@ func (a *ApplicantRepository) UpdateDocument(tx *gorm.DB, m *model.Applicant) er
 // 面接希望日更新
 func (a *ApplicantRepository) UpdateDesiredAt(tx *gorm.DB, m *model.Applicant) error {
 	applicant := model.Applicant{
-		DesiredAt: m.DesiredAt,
-		UpdatedAt: time.Now(),
+		DesiredAt:       m.DesiredAt,
+		CalendarHashKey: m.CalendarHashKey,
+		Users:           m.Users,
+		UpdatedAt:       time.Now(),
 	}
 	if err := tx.Model(&model.Applicant{}).Where(
 		&model.Applicant{

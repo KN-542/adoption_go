@@ -3,10 +3,12 @@ package controller
 import (
 	"api/resources/static"
 	"api/src/model"
+	"api/src/model/enum"
 	"api/src/service"
 	"fmt"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/labstack/echo/v4"
 )
@@ -38,11 +40,12 @@ type IApplicantController interface {
 }
 
 type ApplicantController struct {
-	s service.IApplicantService
+	s  service.IApplicantService
+	su service.IUserService
 }
 
-func NewApplicantController(s service.IApplicantService) IApplicantController {
-	return &ApplicantController{s}
+func NewApplicantController(s service.IApplicantService, su service.IUserService) IApplicantController {
+	return &ApplicantController{s, su}
 }
 
 /*
@@ -177,6 +180,20 @@ func (c *ApplicantController) InsertDesiredAt(e echo.Context) error {
 		log.Printf("%v", err)
 		return e.JSON(http.StatusBadRequest, fmt.Errorf(static.MESSAGE_BAD_REQUEST))
 	}
+
+	uReq := &model.UserScheduleRequest{
+		Title:  request.Title,
+		FreqID: uint(enum.FREQ_NONE),
+		Start:  request.DesiredAt,
+		End:    request.DesiredAt.Add(1 * time.Hour),
+	}
+
+	hashKey, err := c.su.CreateSchedule(uReq)
+	if err != nil {
+		return e.JSON(err.Status, model.ErrorConvert(*err))
+	}
+
+	request.CalendarHashKey = *hashKey
 
 	if err := c.s.InsertDesiredAt(&request); err != nil {
 		return e.JSON(err.Status, model.ErrorConvert(*err))

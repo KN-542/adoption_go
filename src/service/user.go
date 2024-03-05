@@ -32,7 +32,9 @@ type IUserService interface {
 	// スケジュール登録種別一覧
 	ListScheduleType() (*model.CalendarsFreqStatus, *model.ErrorResponse)
 	// スケジュール登録
-	CreateSchedule(req *model.UserScheduleRequest) *model.ErrorResponse
+	CreateSchedule(req *model.UserScheduleRequest) (*string, *model.ErrorResponse)
+	// スケジュール更新
+	UpdateSchedule(req *model.UserScheduleRequest) *model.ErrorResponse
 	// スケジュール一覧
 	Schedules() (*model.UserSchedulesResponse, *model.ErrorResponse)
 	// スケジュール削除
@@ -42,21 +44,23 @@ type IUserService interface {
 }
 
 type UserService struct {
-	r repository.IUserRepository
-	m repository.IMasterRepository
-	v validator.IUserValidator
-	d repository.IDBRepository
-	o repository.IOuterIFRepository
+	r  repository.IUserRepository
+	ra repository.IApplicantRepository
+	m  repository.IMasterRepository
+	v  validator.IUserValidator
+	d  repository.IDBRepository
+	o  repository.IOuterIFRepository
 }
 
 func NewUserService(
 	r repository.IUserRepository,
+	ra repository.IApplicantRepository,
 	m repository.IMasterRepository,
 	v validator.IUserValidator,
 	d repository.IDBRepository,
 	o repository.IOuterIFRepository,
 ) IUserService {
-	return &UserService{r, m, v, d, o}
+	return &UserService{r, ra, m, v, d, o}
 }
 
 // 一覧
@@ -307,11 +311,11 @@ func (u *UserService) ListScheduleType() (*model.CalendarsFreqStatus, *model.Err
 }
 
 // スケジュール登録
-func (u *UserService) CreateSchedule(req *model.UserScheduleRequest) *model.ErrorResponse {
+func (u *UserService) CreateSchedule(req *model.UserScheduleRequest) (*string, *model.ErrorResponse) {
 	// バリデーション
 	if err := u.v.CreateScheduleValidate(req); err != nil {
 		log.Printf("%v", err)
-		return &model.ErrorResponse{
+		return nil, &model.ErrorResponse{
 			Status: http.StatusBadRequest,
 			Code:   static.CODE_BAD_REQUEST,
 		}
@@ -321,14 +325,14 @@ func (u *UserService) CreateSchedule(req *model.UserScheduleRequest) *model.Erro
 	_, hashKey, err := GenerateHash(1, 25)
 	if err != nil {
 		log.Printf("%v", err)
-		return &model.ErrorResponse{
+		return nil, &model.ErrorResponse{
 			Status: http.StatusInternalServerError,
 		}
 	}
 
 	tx, err := u.d.TxStart()
 	if err != nil {
-		return &model.ErrorResponse{
+		return nil, &model.ErrorResponse{
 			Status: http.StatusInternalServerError,
 		}
 	}
@@ -341,6 +345,55 @@ func (u *UserService) CreateSchedule(req *model.UserScheduleRequest) *model.Erro
 		Start:        req.Start,
 		End:          req.End,
 		Title:        req.Title,
+	}); err != nil {
+		if err := u.d.TxRollback(tx); err != nil {
+			return nil, &model.ErrorResponse{
+				Status: http.StatusInternalServerError,
+			}
+		}
+		return nil, &model.ErrorResponse{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	if err := u.d.TxCommit(tx); err != nil {
+		return nil, &model.ErrorResponse{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	return hashKey, nil
+}
+
+// スケジュール更新
+func (u *UserService) UpdateSchedule(req *model.UserScheduleRequest) *model.ErrorResponse {
+	tx, err := u.d.TxStart()
+	if err != nil {
+		return &model.ErrorResponse{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// スケジュール更新
+	if err := u.r.UpdateSchedule(tx, &model.UserSchedule{
+		HashKey:      req.HashKey,
+		UserHashKeys: req.UserHashKeys,
+		UpdatedAt:    time.Now(),
+	}); err != nil {
+		if err := u.d.TxRollback(tx); err != nil {
+			return &model.ErrorResponse{
+				Status: http.StatusInternalServerError,
+			}
+		}
+		return &model.ErrorResponse{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// 応募者側更新
+	if err := u.ra.UpdateDesiredAt(tx, &model.Applicant{
+		HashKey: req.ApplicantHashKey,
+		Users:   req.UserHashKeys,
 	}); err != nil {
 		if err := u.d.TxRollback(tx); err != nil {
 			return &model.ErrorResponse{

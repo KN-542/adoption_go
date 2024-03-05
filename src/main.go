@@ -39,12 +39,12 @@ func main() {
 		applicantValidator,
 		dbRepository,
 	)
-	applicantController := controller.NewApplicantController(applicantService)
 
 	loginService := service.NewLoginService(userRepository, applicantRepository, redisRepository, userValidate, dbRepository)
 	loginController := controller.NewLoginController(loginService)
 
-	userService := service.NewUserService(userRepository, masterRepository, userValidate, dbRepository, outerRepository)
+	userService := service.NewUserService(userRepository, applicantRepository, masterRepository, userValidate, dbRepository, outerRepository)
+	applicantController := controller.NewApplicantController(applicantService, userService)
 	userController := controller.NewUserController(userService)
 
 	e := router.NewRouter(

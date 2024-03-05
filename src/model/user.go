@@ -84,6 +84,10 @@ func (t UserSchedule) TableName() string {
 
 // ユーザー予定 Request
 type UserScheduleRequest struct {
+	// ハッシュキー
+	HashKey string `json:"hash_key"`
+	// 応募者ハッシュキー
+	ApplicantHashKey string `json:"applicant_hash_key"`
 	// ハッシュキーリスト(ユーザー)
 	UserHashKeys string `json:"user_hash_keys"`
 	// タイトル
