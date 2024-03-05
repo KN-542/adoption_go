@@ -602,9 +602,7 @@ func (u *UserService) DispReserveTable() (*model.ReserveTable, *model.ErrorRespo
 	)
 	for _, row := range schedulesJST {
 		if row.FreqID == uint(enum.FREQ_NONE) || row.FreqID == uint(enum.FREQ_MONTHLY) || row.FreqID == uint(enum.FREQ_YEARLY) {
-			if row.Start.After(s.Add(-1*time.Second)) && row.End.Before(s.AddDate(0, 0, 1).Add(1*time.Second)) {
-				schedules = append(schedules, row)
-			}
+			schedules = append(schedules, row)
 			continue
 		}
 
