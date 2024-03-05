@@ -11,6 +11,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 	"unicode/utf8"
 )
@@ -237,6 +238,26 @@ func (s *ApplicantService) Search(req *model.ApplicantSearchRequest) (*model.App
 		}
 	}
 
+	for i, row := range applicants {
+		if row.Users != "" {
+			var strList []string
+			list := strings.Split(row.Users, ",")
+			for _, l := range list {
+				user, err := s.u.Get(&model.User{
+					HashKey: l,
+				})
+				if err != nil {
+					log.Printf("%v", err)
+					return nil, &model.ErrorResponse{
+						Status: http.StatusInternalServerError,
+					}
+				}
+				strList = append(strList, user.Name)
+			}
+			applicants[i].UserNames = strings.Join(strList, ",")
+		}
+	}
+
 	return &model.ApplicantsDownloadResponse{
 		Applicants: applicants,
 	}, nil
@@ -386,9 +407,11 @@ func (s *ApplicantService) InsertDesiredAt(req *model.ApplicantDesired) *model.E
 		}
 	}
 
+	// 面接希望日登録
 	if err := s.r.UpdateDesiredAt(tx, &model.Applicant{
-		HashKey:   req.HashKey,
-		DesiredAt: req.DesiredAt,
+		HashKey:         req.HashKey,
+		DesiredAt:       req.DesiredAt,
+		CalendarHashKey: req.CalendarHashKey,
 	}); err != nil {
 		if err := s.d.TxRollback(tx); err != nil {
 			return &model.ErrorResponse{
