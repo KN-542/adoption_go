@@ -182,10 +182,11 @@ func (c *ApplicantController) InsertDesiredAt(e echo.Context) error {
 	}
 
 	uReq := &model.UserScheduleRequest{
-		Title:  request.Title,
-		FreqID: uint(enum.FREQ_NONE),
-		Start:  request.DesiredAt,
-		End:    request.DesiredAt.Add(1 * time.Hour),
+		Title:        request.Title,
+		FreqID:       uint(enum.FREQ_NONE),
+		InterviewFlg: uint(enum.USER_INTERVIEW),
+		Start:        request.DesiredAt,
+		End:          request.DesiredAt.Add(1 * time.Hour),
 	}
 
 	hashKey, err := c.su.CreateSchedule(uReq)
