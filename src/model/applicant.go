@@ -100,6 +100,8 @@ type ApplicantSearchRequest struct {
 	Name string `json:"name"`
 	// メールアドレス
 	Email string `json:"email"`
+	// 面接官
+	Users string `json:"users"`
 	// ソート(key)
 	SortKey string `json:"sort_key"`
 	// ソート(向き)

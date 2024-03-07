@@ -81,6 +81,9 @@ func (a *ApplicantRepository) Search(m *model.ApplicantSearchRequest) ([]model.A
 	if m.Email != "" {
 		query = query.Where("email LIKE ?", "%"+m.Email+"%")
 	}
+	if m.Users != "" {
+		query = query.Where("users LIKE ?", "%"+m.Users+"%")
+	}
 
 	if m.SortKey != "" {
 		if m.SortAsc {

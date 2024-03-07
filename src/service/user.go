@@ -341,6 +341,7 @@ func (u *UserService) CreateSchedule(req *model.UserScheduleRequest) (*string, *
 	if err := u.r.InsertSchedule(tx, &model.UserSchedule{
 		HashKey:      *hashKey,
 		UserHashKeys: req.UserHashKeys,
+		InterviewFlg: req.InterviewFlg,
 		FreqID:       req.FreqID,
 		Start:        req.Start,
 		End:          req.End,

@@ -66,6 +66,8 @@ type UserSchedule struct {
 	Title string `json:"title" gorm:"type:varchar(30)"`
 	// 頻度ID
 	FreqID uint `json:"freq_id"`
+	// 面接フラグ
+	InterviewFlg uint `json:"interview_flg"`
 	// 開始時刻
 	Start time.Time `json:"start" gorm:"not null"`
 	// 終了時刻
@@ -90,6 +92,8 @@ type UserScheduleRequest struct {
 	ApplicantHashKey string `json:"applicant_hash_key"`
 	// ハッシュキーリスト(ユーザー)
 	UserHashKeys string `json:"user_hash_keys"`
+	// 面接フラグ
+	InterviewFlg uint `json:"interview_flg"`
 	// タイトル
 	Title string `json:"title"`
 	// 頻度ID
@@ -146,6 +150,8 @@ type UserScheduleResponse struct {
 	HashKey string `json:"hash_key"`
 	// ハッシュキー(ユーザー)
 	UserHashKeys string `json:"user_hash_keys"`
+	// 面接フラグ
+	InterviewFlg uint `json:"interview_flg"`
 	// タイトル
 	Title string `json:"title"`
 	// 開始時刻
