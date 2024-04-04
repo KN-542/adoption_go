@@ -275,6 +275,18 @@ func (u *UserRepository) UpdateSchedule(tx *gorm.DB, m *model.UserSchedule) erro
 		return err
 	}
 
+	if m.UserHashKeys == "" {
+
+		if err := tx.Model(&model.UserSchedule{}).Where(
+			&model.UserSchedule{
+				HashKey: m.HashKey,
+			},
+		).Update("user_hash_keys", "").Error; err != nil {
+			log.Printf("%v", err)
+			return err
+		}
+	}
+
 	return nil
 }
 
