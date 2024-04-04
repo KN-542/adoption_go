@@ -190,5 +190,16 @@ func (a *ApplicantRepository) UpdateDesiredAt(tx *gorm.DB, m *model.Applicant) e
 		return err
 	}
 
+	if applicant.Users == "" {
+		if err := tx.Model(&model.Applicant{}).Where(
+			&model.Applicant{
+				HashKey: m.HashKey,
+			},
+		).Update("users", "").Error; err != nil {
+			log.Printf("%v", err)
+			return err
+		}
+	}
+
 	return nil
 }
