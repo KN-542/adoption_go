@@ -266,11 +266,12 @@ func (c *LoginController) Logout(e echo.Context) error {
 		return e.JSON(http.StatusBadRequest, fmt.Errorf(static.MESSAGE_BAD_REQUEST))
 	}
 
-	cookie, err := c.s.Logout(&req)
+	cookie, cookie2, err := c.s.Logout(&req)
 	if err != nil {
 		return e.JSON(err.Status, model.ErrorConvert(*err))
 	}
 	e.SetCookie(cookie)
+	e.SetCookie(cookie2)
 
 	return e.JSON(http.StatusOK, "OK")
 }
