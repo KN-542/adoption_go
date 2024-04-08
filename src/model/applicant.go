@@ -3,20 +3,58 @@ package model
 import "time"
 
 /*
-	OAuth2.0用(削除予定)
+	t_applicant
+	応募者
 */
-type ApplicantResponse struct {
-	ID    string `json:"id" gorm:"primaryKey;type:varchar(255)"`
-	Name  string `json:"name" gorm:"notNull;type:varchar(50)"`
-	Email string `json:"email" gorm:"notNull;type:varchar(50)"`
+type Applicant struct {
+	// ID
+	ID uint64 `json:"id" gorm:"primaryKey;AUTO_INCREMENT"`
+	// 媒体側ID
+	OuterID string `json:"outer_id" gorm:"not null;unique;check:outer_id <> '';type:varchar(255)"`
+	// ハッシュキー
+	HashKey string `json:"hash_key" gorm:"not null;unique;check:hash_key <> '';type:text"`
+	// サイトID
+	SiteID uint `json:"site_id" gorm:"index"`
+	// ステータス
+	Status uint `json:"status" gorm:"index"`
+	// 氏名
+	Name string `json:"name" gorm:"not null;check:name <> '';type:varchar(50);index"`
+	// メールアドレス
+	Email string `json:"email" gorm:"not null;unique;type:varchar(255);check:email ~ '^[a-zA-Z0-9_+-]+(\\.[a-zA-Z0-9_+-]+)*@([a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]*\\.)+[a-zA-Z]{2,}$';index"`
+	// TEL
+	Tel string `json:"tel" gorm:"type:varchar(20);check:tel ~ '^[0-9]{0,20}$'"`
+	// 年齢
+	Age int `json:"age" gorm:"check:(age >= 18 AND age <= 100) OR age = -1;index"`
+	// 履歴書
+	Resume string `json:"resume" gorm:"type:varchar(255);index"`
+	// 職務経歴書
+	CurriculumVitae string `json:"curriculum_vitae" gorm:"type:varchar(255);index"`
+	// Google Meet URL
+	GoogleMeetURL string `json:"google_meet_url" gorm:"type:text"`
+	// 希望面接日時
+	DesiredAt time.Time `json:"desired_at"`
+	// 面接官
+	Users string `json:"users" gorm:"type:text"`
+	// カレンダー用ハッシュキー
+	CalendarHashKey string `json:"calendar_hash_key" gorm:"type:text"`
+	// 企業ID
+	CompanyID uint `json:"company_id" gorm:"index"`
+	// 登録日時
+	CreatedAt time.Time `json:"created_at"`
+	// 更新日時
+	UpdatedAt time.Time `json:"updated_at"`
+	// サイト(外部キー)
+	Site Site `gorm:"foreignKey:site_id;references:id"`
+	// ステータス(外部キー)
+	ApplicantStatus ApplicantStatus `gorm:"foreignKey:status;references:id"`
+	// スケジュール(外部キー)
+	Schedule UserSchedule `gorm:"foreignKey:calendar_hash_key;references:hash_key"`
+	// 企業(外部キー)
+	Company Company `gorm:"foreignKey:company_id;references:id"`
 }
 
-type ApplicantSearch struct {
-	Code            string `json:"code"`
-	StartCellRow    int    `json:"start_cell_row"`
-	EndCellRow      int    `json:"end_cell_row"`
-	StartCellColumn string `json:"start_cell_column"`
-	EndCellColumn   string `json:"end_cell_column"`
+func (t Applicant) TableName() string {
+	return "t_applicant"
 }
 
 type GetOauthURLResponse struct {
@@ -35,49 +73,6 @@ type ApplicantsDownload struct {
 // 応募者ダウンロード Response
 type ApplicantsDownloadResponse struct {
 	Applicants []ApplicantWith `json:"applicants"`
-}
-
-type Applicant struct {
-	// ID
-	ID string `json:"id" gorm:"primaryKey;type:varchar(255)"`
-	// ハッシュキー
-	HashKey string `json:"hash_key" gorm:"unique;type:text"`
-	// サイトID
-	SiteID uint `json:"site_id" gorm:"index"`
-	// ステータス
-	Status uint `json:"status" gorm:"index"`
-	// 氏名
-	Name string `json:"name" gorm:"type:varchar(50);index"`
-	// メールアドレス
-	Email string `json:"email" gorm:"type:varchar(255);check:email ~ '^[a-zA-Z0-9_+-]+(\\.[a-zA-Z0-9_+-]+)*@([a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]*\\.)+[a-zA-Z]{2,}$';index"`
-	// TEL
-	Tel string `json:"tel" gorm:"type:varchar(20);check:tel ~ '^[0-9]{0,20}$'"`
-	// 年齢
-	Age int `json:"age" gorm:"check:(age >= 18 AND age <= 100) OR age = -1;index"`
-	// 履歴書
-	Resume string `json:"resume" gorm:"type:varchar(255);index"`
-	// 職務経歴書
-	CurriculumVitae string `json:"curriculum_vitae" gorm:"type:varchar(255);index"`
-	// Google Meet URL
-	GoogleMeetURL string `json:"google_meet_url" gorm:"type:text"`
-	// 希望面接日時
-	DesiredAt time.Time `json:"desired_at"`
-	// 登録日時
-	CreatedAt time.Time `json:"created_at"`
-	// 更新日時
-	UpdatedAt time.Time `json:"updated_at"`
-	// 面接官
-	Users string `json:"users" gorm:"type:text"`
-	// カレンダー用ハッシュキー
-	CalendarHashKey string `json:"calendar_hash_key" gorm:"type:text"`
-	// サイト(外部キー)
-	Site Site `gorm:"foreignKey:site_id;references:id"`
-	// ステータス(外部キー)
-	ApplicantStatus ApplicantStatus `gorm:"foreignKey:status;references:id"`
-}
-
-func (t Applicant) TableName() string {
-	return "t_applicant"
 }
 
 type ApplicantWith struct {
