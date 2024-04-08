@@ -143,7 +143,7 @@ func (s *ApplicantService) Download(d *model.ApplicantsDownload) *model.ErrorRes
 			}
 
 			m := model.Applicant{
-				ID:        values[enum.RECRUIT_ID],
+				OuterID:   values[enum.RECRUIT_ID],
 				HashKey:   *hashKey,
 				SiteID:    uint(enum.RECRUIT),
 				Status:    uint(enum.SCHEDULE_UNANSWERED),
@@ -156,7 +156,7 @@ func (s *ApplicantService) Download(d *model.ApplicantsDownload) *model.ErrorRes
 			}
 
 			// STEP2-1 重複チェック
-			count, err := s.r.CountByPrimaryKey(&m.ID)
+			count, err := s.r.CountByPrimaryKey(&m.OuterID)
 			if err != nil {
 				log.Printf("%v", err)
 				return &model.ErrorResponse{
