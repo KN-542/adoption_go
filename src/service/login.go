@@ -38,7 +38,7 @@ type ILoginService interface {
 	// セッション存在確認
 	SessionConfirm(req *model.User) *model.ErrorResponse
 	// ログアウト
-	Logout(req *model.User) (*http.Cookie, *model.ErrorResponse)
+	Logout(req *model.User) (*http.Cookie, *http.Cookie, *model.ErrorResponse)
 	// ログイン(応募者)
 	LoginApplicant(req *model.Applicant) (*model.Applicant, *model.ErrorResponse)
 	// MFA 認証コード生成(応募者)
@@ -437,11 +437,11 @@ func (l *LoginService) SessionConfirm(req *model.User) *model.ErrorResponse {
 }
 
 // ログアウト
-func (l *LoginService) Logout(req *model.User) (*http.Cookie, *model.ErrorResponse) {
+func (l *LoginService) Logout(req *model.User) (*http.Cookie, *http.Cookie, *model.ErrorResponse) {
 	// バリデーション
 	if err := l.v.HashKeyValidate(req); err != nil {
 		log.Printf("%v", err)
-		return nil, &model.ErrorResponse{
+		return nil, nil, &model.ErrorResponse{
 			Status: http.StatusBadRequest,
 			Code:   static.CODE_BAD_REQUEST,
 		}
@@ -450,7 +450,7 @@ func (l *LoginService) Logout(req *model.User) (*http.Cookie, *model.ErrorRespon
 	// Redis破棄
 	ctx := context.Background()
 	if err := l.redis.Delete(ctx, req.HashKey); err != nil {
-		return nil, &model.ErrorResponse{
+		return nil, nil, &model.ErrorResponse{
 			Status: http.StatusInternalServerError,
 		}
 	}
@@ -465,8 +465,17 @@ func (l *LoginService) Logout(req *model.User) (*http.Cookie, *model.ErrorRespon
 		SameSite: http.SameSiteDefaultMode,
 		Path:     "/",
 	}
+	cookie2 := http.Cookie{
+		Name:     "jwt_token2",
+		Value:    "",
+		Expires:  time.Unix(0, 0),
+		HttpOnly: true,
+		Secure:   false,
+		SameSite: http.SameSiteDefaultMode,
+		Path:     "/",
+	}
 
-	return &cookie, nil
+	return &cookie, &cookie2, nil
 }
 
 // ログイン(応募者)
