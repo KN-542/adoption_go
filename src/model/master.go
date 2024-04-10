@@ -67,6 +67,17 @@ type CalendarFreqStatus struct {
 	NameEn string `json:"name_en" gorm:"unique;not null;type:varchar(10)"`
 }
 
+/*
+	m_apply_variable
+	適用変数種別マスタ
+*/
+type ApplyVariable struct {
+	// ID
+	ID uint `json:"id" gorm:"primaryKey"`
+	// 種別名
+	Name string `json:"name" gorm:"unique;not null;type:varchar(20)"`
+}
+
 func (m Company) TableName() string {
 	return "m_company"
 }
@@ -81,6 +92,9 @@ func (m ApplicantStatus) TableName() string {
 }
 func (m CalendarFreqStatus) TableName() string {
 	return "m_calendar_freq_status"
+}
+func (m ApplyVariable) TableName() string {
+	return "m_apply_variable"
 }
 
 type Sites struct {
