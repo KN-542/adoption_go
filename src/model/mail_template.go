@@ -10,7 +10,7 @@ type MailTemplate struct {
 	// ID
 	ID uint64 `json:"id" gorm:"primaryKey;AUTO_INCREMENT"`
 	// ハッシュキー
-	HashKey string `json:"hash_key" gorm:"not null;unique;check:hash_key <> '';type:text"`
+	HashKey string `json:"hash_key" gorm:"not null;unique;check:hash_key <> '';type:text;index"`
 	// メールテンプレート名
 	Title string `json:"title" gorm:"not null;unique;check:title <> '';type:varchar(50)"`
 	// 件名
@@ -41,7 +41,7 @@ type Variable struct {
 	// ID
 	ID uint64 `json:"id" gorm:"primaryKey;AUTO_INCREMENT"`
 	// ハッシュキー
-	HashKey string `json:"hash_key" gorm:"not null;unique;check:hash_key <> '';type:text"`
+	HashKey string `json:"hash_key" gorm:"not null;unique;check:hash_key <> '';type:text;index"`
 	// 変数タイトル
 	Title string `json:"title" gorm:"not null;unique;check:title <> '';type:varchar(25)"`
 	// 変数格納Json名
@@ -70,7 +70,7 @@ type MailPreview struct {
 	// 変数ID
 	VariableID uint `json:"variable_id" gorm:"primaryKey"`
 	// ハッシュキー
-	HashKey string `json:"hash_key" gorm:"not null;unique;check:hash_key <> '';type:text"`
+	HashKey string `json:"hash_key" gorm:"not null;unique;check:hash_key <> '';type:text;index"`
 	// メールプレビュー名
 	Title string `json:"title" gorm:"not null;unique;check:title <> '';type:varchar(50)"`
 	// 説明
