@@ -5,6 +5,7 @@ import (
 	"api/src/model"
 	"api/src/model/enum"
 	"api/src/repository"
+	"flag"
 	"fmt"
 	"log"
 
@@ -14,153 +15,170 @@ import (
 func main() {
 	dbConn := infra.NewDB()
 
-	dbConn.AutoMigrate(
-		&model.Role{},
-		&model.Site{},
-		&model.ApplicantStatus{},
-		&model.CalendarFreqStatus{},
-		&model.User{},
-		&model.UserGroup{},
-		&model.UserSchedule{},
-		&model.Applicant{},
-	)
+	migrate := flag.Bool("migrate", false, "Set to true to run migrations")
+	drop := flag.Bool("drop", false, "Set to true to drop all tables")
+	flag.Parse()
 
-	/*
-		論理名追加
-	*/
+	if *migrate {
+		dbConn.AutoMigrate(
+			&model.Role{},
+			&model.Site{},
+			&model.ApplicantStatus{},
+			&model.CalendarFreqStatus{},
+			&model.User{},
+			&model.UserGroup{},
+			&model.UserSchedule{},
+			&model.Applicant{},
+		)
 
-	// m_role
-	if err := AddTableComment(dbConn, "m_role", "ロールマスタ"); err != nil {
-		log.Println(err)
-	}
-	mRole := map[string]string{
-		"id":      "ID",
-		"name_ja": "ロール名_日本語",
-	}
-	if err := AddColumnComments(dbConn, "m_role", mRole); err != nil {
-		log.Println(err)
-	}
+		/*
+			論理名追加
+		*/
 
-	// m_site
-	if err := AddTableComment(dbConn, "m_site", "媒体マスタ"); err != nil {
-		log.Println(err)
-	}
-	mSite := map[string]string{
-		"id":           "ID",
-		"site_name_ja": "媒体名_日本語",
-	}
-	if err := AddColumnComments(dbConn, "m_site", mSite); err != nil {
-		log.Println(err)
-	}
+		// m_role
+		if err := AddTableComment(dbConn, "m_role", "ロールマスタ"); err != nil {
+			log.Println(err)
+		}
+		mRole := map[string]string{
+			"id":      "ID",
+			"name_ja": "ロール名_日本語",
+		}
+		if err := AddColumnComments(dbConn, "m_role", mRole); err != nil {
+			log.Println(err)
+		}
 
-	// m_applicant_status
-	if err := AddTableComment(dbConn, "m_applicant_status", "選考状況マスタ"); err != nil {
-		log.Println(err)
-	}
-	mApplicantStatus := map[string]string{
-		"id":             "ID",
-		"status_name_ja": "ステータス名_日本語",
-	}
-	if err := AddColumnComments(dbConn, "m_applicant_status", mApplicantStatus); err != nil {
-		log.Println(err)
-	}
+		// m_site
+		if err := AddTableComment(dbConn, "m_site", "媒体マスタ"); err != nil {
+			log.Println(err)
+		}
+		mSite := map[string]string{
+			"id":           "ID",
+			"site_name_ja": "媒体名_日本語",
+		}
+		if err := AddColumnComments(dbConn, "m_site", mSite); err != nil {
+			log.Println(err)
+		}
 
-	// m_calendar_freq_status
-	if err := AddTableComment(dbConn, "m_calendar_freq_status", "予定頻度マスタ"); err != nil {
-		log.Println(err)
-	}
-	mCalendarFreqStatus := map[string]string{
-		"id":      "ID",
-		"freq":    "頻度",
-		"name_ja": "名前_日本語",
-	}
-	if err := AddColumnComments(dbConn, "m_calendar_freq_status", mCalendarFreqStatus); err != nil {
-		log.Println(err)
-	}
+		// m_applicant_status
+		if err := AddTableComment(dbConn, "m_applicant_status", "選考状況マスタ"); err != nil {
+			log.Println(err)
+		}
+		mApplicantStatus := map[string]string{
+			"id":             "ID",
+			"status_name_ja": "ステータス名_日本語",
+		}
+		if err := AddColumnComments(dbConn, "m_applicant_status", mApplicantStatus); err != nil {
+			log.Println(err)
+		}
 
-	// t_user
-	if err := AddTableComment(dbConn, "t_user", "ユーザー"); err != nil {
-		log.Println(err)
-	}
-	user := map[string]string{
-		"id":            "ID",
-		"hash_key":      "ハッシュキー",
-		"name":          "氏名",
-		"email":         "メールアドレス",
-		"password":      "パスワード(ハッシュ化)",
-		"init_password": "初回パスワード(ハッシュ化)",
-		"role_id":       "ロールID",
-		"created_at":    "登録日時",
-		"updated_at":    "更新日時",
-	}
-	if err := AddColumnComments(dbConn, "t_user", user); err != nil {
-		log.Println(err)
-	}
+		// m_calendar_freq_status
+		if err := AddTableComment(dbConn, "m_calendar_freq_status", "予定頻度マスタ"); err != nil {
+			log.Println(err)
+		}
+		mCalendarFreqStatus := map[string]string{
+			"id":      "ID",
+			"freq":    "頻度",
+			"name_ja": "名前_日本語",
+		}
+		if err := AddColumnComments(dbConn, "m_calendar_freq_status", mCalendarFreqStatus); err != nil {
+			log.Println(err)
+		}
 
-	// t_user_group
-	if err := AddTableComment(dbConn, "t_user_group", "ユーザーグループ"); err != nil {
-		log.Println(err)
-	}
-	userGroup := map[string]string{
-		"id":         "ID",
-		"hash_key":   "ハッシュキー",
-		"name":       "グループ名",
-		"users":      "所属ユーザー",
-		"created_at": "登録日時",
-		"updated_at": "更新日時",
-	}
-	if err := AddColumnComments(dbConn, "t_user_group", userGroup); err != nil {
-		log.Println(err)
-	}
+		// t_user
+		if err := AddTableComment(dbConn, "t_user", "ユーザー"); err != nil {
+			log.Println(err)
+		}
+		user := map[string]string{
+			"id":            "ID",
+			"hash_key":      "ハッシュキー",
+			"name":          "氏名",
+			"email":         "メールアドレス",
+			"password":      "パスワード(ハッシュ化)",
+			"init_password": "初回パスワード(ハッシュ化)",
+			"role_id":       "ロールID",
+			"created_at":    "登録日時",
+			"updated_at":    "更新日時",
+		}
+		if err := AddColumnComments(dbConn, "t_user", user); err != nil {
+			log.Println(err)
+		}
 
-	// t_user_schedule
-	if err := AddTableComment(dbConn, "t_user_schedule", "ユーザー予定"); err != nil {
-		log.Println(err)
-	}
-	userSchedule := map[string]string{
-		"id":             "ID",
-		"hash_key":       "ハッシュキー",
-		"user_hash_keys": "ハッシュキー(ユーザー)",
-		"title":          "タイトル",
-		"freq_id":        "頻度ID",
-		"start":          "開始時刻",
-		"end":            "終了時刻",
-		"created_at":     "登録日時",
-		"updated_at":     "更新日時",
-	}
-	if err := AddColumnComments(dbConn, "t_user_schedule", userSchedule); err != nil {
-		log.Println(err)
-	}
+		// t_user_group
+		if err := AddTableComment(dbConn, "t_user_group", "ユーザーグループ"); err != nil {
+			log.Println(err)
+		}
+		userGroup := map[string]string{
+			"id":         "ID",
+			"hash_key":   "ハッシュキー",
+			"name":       "グループ名",
+			"users":      "所属ユーザー",
+			"created_at": "登録日時",
+			"updated_at": "更新日時",
+		}
+		if err := AddColumnComments(dbConn, "t_user_group", userGroup); err != nil {
+			log.Println(err)
+		}
 
-	// t_applicant
-	if err := AddTableComment(dbConn, "t_applicant", "応募者"); err != nil {
-		log.Println(err)
-	}
-	applicant := map[string]string{
-		"id":               "ID",
-		"hash_key":         "ハッシュキー",
-		"site_id":          "サイトID",
-		"status":           "ステータス",
-		"name":             "氏名",
-		"email":            "メールアドレス",
-		"tel":              "TEL",
-		"age":              "年齢",
-		"resume":           "履歴書",
-		"curriculum_vitae": "職務経歴書",
-		"google_meet_url":  "Google Meet URL",
-		"desired_at":       "希望面接日時",
-		"created_at":       "登録日時",
-		"updated_at":       "更新日時",
-	}
-	if err := AddColumnComments(dbConn, "t_applicant", applicant); err != nil {
-		log.Println(err)
-	}
+		// t_user_schedule
+		if err := AddTableComment(dbConn, "t_user_schedule", "ユーザー予定"); err != nil {
+			log.Println(err)
+		}
+		userSchedule := map[string]string{
+			"id":             "ID",
+			"hash_key":       "ハッシュキー",
+			"user_hash_keys": "ハッシュキー(ユーザー)",
+			"title":          "タイトル",
+			"freq_id":        "頻度ID",
+			"start":          "開始時刻",
+			"end":            "終了時刻",
+			"created_at":     "登録日時",
+			"updated_at":     "更新日時",
+		}
+		if err := AddColumnComments(dbConn, "t_user_schedule", userSchedule); err != nil {
+			log.Println(err)
+		}
 
-	// 初期マスタデータ
-	CreateData(dbConn)
+		// t_applicant
+		if err := AddTableComment(dbConn, "t_applicant", "応募者"); err != nil {
+			log.Println(err)
+		}
+		applicant := map[string]string{
+			"id":               "ID",
+			"hash_key":         "ハッシュキー",
+			"site_id":          "サイトID",
+			"status":           "ステータス",
+			"name":             "氏名",
+			"email":            "メールアドレス",
+			"tel":              "TEL",
+			"age":              "年齢",
+			"resume":           "履歴書",
+			"curriculum_vitae": "職務経歴書",
+			"google_meet_url":  "Google Meet URL",
+			"desired_at":       "希望面接日時",
+			"created_at":       "登録日時",
+			"updated_at":       "更新日時",
+		}
+		if err := AddColumnComments(dbConn, "t_applicant", applicant); err != nil {
+			log.Println(err)
+		}
 
-	defer fmt.Println("Successfully Migrated")
-	defer infra.CloseDB(dbConn)
+		// 初期マスタデータ
+		CreateData(dbConn)
+
+		defer fmt.Println("Successfully Migrated")
+		defer infra.CloseDB(dbConn)
+	} else if *drop {
+		dbConn.Migrator().DropTable(
+			&model.Role{},
+			&model.Site{},
+			&model.ApplicantStatus{},
+			&model.CalendarFreqStatus{},
+			&model.User{},
+			&model.UserGroup{},
+			&model.UserSchedule{},
+			&model.Applicant{},
+		)
+	}
 }
 
 // 論理名追加
