@@ -18,7 +18,6 @@ func NewRouter(
 	// CORSミドルウェアの設定。認証情報を含むリクエストを許可
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins: []string{
-			os.Getenv("BATCH_URL"),
 			os.Getenv("FE_CSR_URL"),
 			os.Getenv("FE_SSG_URL"),
 			os.Getenv("FE_APPLICANT_CSR_URL"),
