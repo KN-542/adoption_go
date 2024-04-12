@@ -12,7 +12,7 @@ type Applicant struct {
 	// 媒体側ID
 	OuterID string `json:"outer_id" gorm:"not null;unique;check:outer_id <> '';type:varchar(255)"`
 	// ハッシュキー
-	HashKey string `json:"hash_key" gorm:"not null;unique;check:hash_key <> '';type:text"`
+	HashKey string `json:"hash_key" gorm:"not null;unique;check:hash_key <> '';type:text;index"`
 	// サイトID
 	SiteID uint `json:"site_id" gorm:"index"`
 	// ステータス

@@ -10,9 +10,9 @@ type User struct {
 	// ID
 	ID uint64 `json:"id" gorm:"primaryKey;AUTO_INCREMENT"`
 	// ハッシュキー
-	HashKey string `json:"hash_key" gorm:"unique;not null;type:text;check:hash_key <> ''"`
+	HashKey string `json:"hash_key" gorm:"unique;not null;type:text;check:hash_key <> '';index"`
 	// 氏名
-	Name string `json:"name" gorm:"unique;not null;check:name <> ''type:varchar(30);;index"`
+	Name string `json:"name" gorm:"unique;not null;check:name <> ''type:varchar(30);index"`
 	// メールアドレス
 	Email string `json:"email" gorm:"unique;not null;type:varchar(50);check:email ~ '^[a-zA-Z0-9_+-]+(\\.[a-zA-Z0-9_+-]+)*@([a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]*\\.)+[a-zA-Z]{2,}$';index"`
 	// パスワード(ハッシュ化)
@@ -43,7 +43,7 @@ type UserGroup struct {
 	// ID
 	ID uint64 `json:"id" gorm:"primaryKey;AUTO_INCREMENT"`
 	// ハッシュキー
-	HashKey string `json:"hash_key" gorm:"not null;unique;check:hash_key <> '';type:text"`
+	HashKey string `json:"hash_key" gorm:"not null;unique;check:hash_key <> '';type:text;index"`
 	// グループ名
 	Name string `json:"name" gorm:"not null;unique;check:name <> '';type:varchar(30);index"`
 	// 所属ユーザー
@@ -66,7 +66,7 @@ type UserSchedule struct {
 	// ID
 	ID uint64 `json:"id" gorm:"primaryKey;AUTO_INCREMENT"`
 	// ハッシュキー
-	HashKey string `json:"hash_key" gorm:"not null;unique;check:hash_key <> '';type:text"`
+	HashKey string `json:"hash_key" gorm:"not null;unique;check:hash_key <> '';type:text;index"`
 	// ハッシュキー(ユーザー)
 	UserHashKeys string `json:"user_hash_keys" gorm:"not null;type:text;index"`
 	// タイトル

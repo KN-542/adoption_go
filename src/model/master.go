@@ -78,6 +78,41 @@ type ApplyVariable struct {
 	Name string `json:"name" gorm:"unique;not null;type:varchar(20)"`
 }
 
+/*
+	m_view_role_operation
+	画面操作ロールマスタ
+*/
+type ViewRoleOperation struct {
+	// ID
+	ID uint `json:"id" gorm:"primaryKey"`
+	// 操作名
+	Name string `json:"name" gorm:"unique;not null;type:varchar(30)"`
+	// 操作ロール
+	Roles string `json:"roles" gorm:"type:text"`
+}
+
+/*
+	m_operation_log_event
+	操作ログイベントマスタ
+*/
+type OperationLogEvent struct {
+	// ID
+	ID uint `json:"id" gorm:"primaryKey"`
+	// イベント内容
+	Event string `json:"event" gorm:"unique;not null;type:text"`
+}
+
+/*
+	m_notice
+	通知マスタ
+*/
+type Notice struct {
+	// ID
+	ID uint `json:"id" gorm:"primaryKey"`
+	// 通知内容
+	Notice string `json:"notice" gorm:"unique;not null;type:text"`
+}
+
 func (m Company) TableName() string {
 	return "m_company"
 }
@@ -95,6 +130,15 @@ func (m CalendarFreqStatus) TableName() string {
 }
 func (m ApplyVariable) TableName() string {
 	return "m_apply_variable"
+}
+func (m ViewRoleOperation) TableName() string {
+	return "m_view_role_operation"
+}
+func (m OperationLogEvent) TableName() string {
+	return "m_operation_log_event"
+}
+func (m Notice) TableName() string {
+	return "m_notice"
 }
 
 type Sites struct {
