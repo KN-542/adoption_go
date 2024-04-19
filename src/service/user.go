@@ -28,7 +28,7 @@ type IUserService interface {
 	// 検索(グループ)
 	SearchGroups() (*model.UserGroupsResponse, *model.ErrorResponse)
 	// グループ登録
-	CreateGroup(req *model.UserGroup) *model.ErrorResponse
+	CreateGroup(req *model.UserGroupRequest) *model.ErrorResponse
 	// スケジュール登録種別一覧
 	ListScheduleType() (*model.CalendarsFreqStatus, *model.ErrorResponse)
 	// スケジュール登録
@@ -124,14 +124,14 @@ func (u *UserService) Create(req *model.User) (*model.UserResponse, *model.Error
 
 	// 登録
 	user := model.User{
-		HashKey:      *hashKey,
+		AbstractTransactionModel: model.AbstractTransactionModel{
+			HashKey: *hashKey,
+		},
 		Name:         req.Name,
 		Email:        req.Email,
 		Password:     *hashPassword,
 		InitPassword: *hashPassword,
 		RoleID:       req.RoleID,
-		CreatedAt:    time.Now(),
-		UpdatedAt:    time.Now(),
 	}
 
 	if err := u.r.Insert(tx, &user); err != nil {
@@ -230,7 +230,7 @@ func (u *UserService) SearchGroups() (*model.UserGroupsResponse, *model.ErrorRes
 }
 
 // グループ登録
-func (u *UserService) CreateGroup(req *model.UserGroup) *model.ErrorResponse {
+func (u *UserService) CreateGroup(req *model.UserGroupRequest) *model.ErrorResponse {
 	// バリデーション
 	if err := u.v.CreateGroupValidate(req); err != nil {
 		log.Printf("%v", err)
@@ -241,20 +241,12 @@ func (u *UserService) CreateGroup(req *model.UserGroup) *model.ErrorResponse {
 	}
 
 	// ユーザー存在確認
-	users, err := u.r.ConfirmUserByHashKeys(strings.Split(req.Users, ","))
+	users, err := u.r.GetUserBasicByHashKeys(strings.Split(req.Users, ","))
 	if err != nil {
-		if err != nil {
-			return &model.ErrorResponse{
-				Status: http.StatusInternalServerError,
-			}
+		return &model.ErrorResponse{
+			Status: http.StatusInternalServerError,
 		}
 	}
-
-	var l []string
-	for _, row := range users {
-		l = append(l, row.HashKey)
-	}
-	req.Users = strings.Join(l, ",")
 
 	// ハッシュキー生成
 	_, hashKey, err := GenerateHash(1, 25)
@@ -274,13 +266,28 @@ func (u *UserService) CreateGroup(req *model.UserGroup) *model.ErrorResponse {
 
 	// グループ登録
 	req.HashKey = *hashKey
-	if err := u.r.InsertGroup(tx, req); err != nil {
+	id, err := u.r.InsertGroup(tx, &req.UserGroup)
+	if err != nil {
 		if err := u.d.TxRollback(tx); err != nil {
 			return &model.ErrorResponse{
 				Status: http.StatusInternalServerError,
 			}
 		}
-		if err != nil {
+		return &model.ErrorResponse{
+			Status: http.StatusInternalServerError,
+		}
+	}
+	for _, row := range users {
+		// グループ紐づけ登録
+		if err := u.r.InsertGroupAssociation(tx, &model.UserGroupAssociation{
+			UserGroupID: *id,
+			UserID:      row.ID,
+		}); err != nil {
+			if err := u.d.TxRollback(tx); err != nil {
+				return &model.ErrorResponse{
+					Status: http.StatusInternalServerError,
+				}
+			}
 			return &model.ErrorResponse{
 				Status: http.StatusInternalServerError,
 			}
@@ -339,7 +346,9 @@ func (u *UserService) CreateSchedule(req *model.UserScheduleRequest) (*string, *
 
 	// スケジュール登録
 	if err := u.r.InsertSchedule(tx, &model.UserSchedule{
-		HashKey:      *hashKey,
+		AbstractTransactionModel: model.AbstractTransactionModel{
+			HashKey: *hashKey,
+		},
 		UserHashKeys: req.UserHashKeys,
 		InterviewFlg: req.InterviewFlg,
 		FreqID:       req.FreqID,
@@ -377,9 +386,11 @@ func (u *UserService) UpdateSchedule(req *model.UserScheduleRequest) *model.Erro
 
 	// スケジュール更新
 	if err := u.r.UpdateSchedule(tx, &model.UserSchedule{
-		HashKey:      req.HashKey,
+		AbstractTransactionModel: model.AbstractTransactionModel{
+			HashKey:   req.HashKey,
+			UpdatedAt: time.Now(),
+		},
 		UserHashKeys: req.UserHashKeys,
-		UpdatedAt:    time.Now(),
 	}); err != nil {
 		if err := u.d.TxRollback(tx); err != nil {
 			return &model.ErrorResponse{
@@ -393,8 +404,10 @@ func (u *UserService) UpdateSchedule(req *model.UserScheduleRequest) *model.Erro
 
 	// 応募者側更新
 	if err := u.ra.UpdateDesiredAt(tx, &model.Applicant{
-		HashKey: req.ApplicantHashKey,
-		Users:   req.UserHashKeys,
+		AbstractTransactionModel: model.AbstractTransactionModel{
+			HashKey: req.ApplicantHashKey,
+		},
+		Users: req.UserHashKeys,
 	}); err != nil {
 		if err := u.d.TxRollback(tx); err != nil {
 			return &model.ErrorResponse{
@@ -437,7 +450,9 @@ func (u *UserService) Schedules() (*model.UserSchedulesResponse, *model.ErrorRes
 			// なしの場合
 			if schedule.FreqID == uint(enum.FREQ_NONE) {
 				if err := u.r.DeleteSchedule(tx, &model.UserSchedule{
-					HashKey: schedule.HashKey,
+					AbstractTransactionModel: model.AbstractTransactionModel{
+						HashKey: schedule.HashKey,
+					},
 				}); err != nil {
 					if err := u.d.TxRollback(tx); err != nil {
 						return nil, &model.ErrorResponse{
@@ -469,10 +484,12 @@ func (u *UserService) Schedules() (*model.UserSchedulesResponse, *model.ErrorRes
 				}
 
 				if err := u.r.UpdatePastSchedule(tx, &model.UserSchedule{
-					HashKey:   schedule.HashKey,
-					Start:     s,
-					End:       e,
-					UpdatedAt: time.Now(),
+					AbstractTransactionModel: model.AbstractTransactionModel{
+						HashKey:   schedule.HashKey,
+						UpdatedAt: time.Now(),
+					},
+					Start: s,
+					End:   e,
 				}); err != nil {
 					if err := u.d.TxRollback(tx); err != nil {
 						return nil, &model.ErrorResponse{

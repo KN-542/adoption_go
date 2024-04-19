@@ -320,7 +320,11 @@ func (l *LoginService) UserCheck(req *model.User) (*model.UserResponse, *model.E
 		}
 	}
 
-	res, err := l.login.Get(&model.User{HashKey: req.HashKey})
+	res, err := l.login.Get(&model.User{
+		AbstractTransactionModel: model.AbstractTransactionModel{
+			HashKey: req.HashKey,
+		},
+	})
 	if err != nil {
 		return nil, &model.ErrorResponse{
 			Status: http.StatusInternalServerError,

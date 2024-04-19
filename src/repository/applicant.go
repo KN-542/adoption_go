@@ -126,7 +126,9 @@ func (a *ApplicantRepository) GetByHashKey(m *model.Applicant) (*model.Applicant
 	var res model.Applicant
 	if err := a.db.Where(
 		&model.Applicant{
-			HashKey: m.HashKey,
+			AbstractTransactionModel: model.AbstractTransactionModel{
+				HashKey: m.HashKey,
+			},
 		},
 	).First(&res).Error; err != nil {
 		log.Printf("%v", err)
@@ -140,11 +142,15 @@ func (a *ApplicantRepository) GetByHashKey(m *model.Applicant) (*model.Applicant
 func (a *ApplicantRepository) UpdateGoogleMeet(tx *gorm.DB, m *model.Applicant) error {
 	applicant := model.Applicant{
 		GoogleMeetURL: m.GoogleMeetURL,
-		UpdatedAt:     time.Now(),
+		AbstractTransactionModel: model.AbstractTransactionModel{
+			UpdatedAt: time.Now(),
+		},
 	}
 	if err := tx.Model(&model.Applicant{}).Where(
 		&model.Applicant{
-			HashKey: m.HashKey,
+			AbstractTransactionModel: model.AbstractTransactionModel{
+				HashKey: m.HashKey,
+			},
 		},
 	).Updates(applicant).Error; err != nil {
 		log.Printf("%v", err)
@@ -159,11 +165,15 @@ func (a *ApplicantRepository) UpdateDocument(tx *gorm.DB, m *model.Applicant) er
 	applicant := model.Applicant{
 		Resume:          m.Resume,
 		CurriculumVitae: m.CurriculumVitae,
-		UpdatedAt:       time.Now(),
+		AbstractTransactionModel: model.AbstractTransactionModel{
+			UpdatedAt: time.Now(),
+		},
 	}
 	if err := tx.Model(&model.Applicant{}).Where(
 		&model.Applicant{
-			HashKey: m.HashKey,
+			AbstractTransactionModel: model.AbstractTransactionModel{
+				HashKey: m.HashKey,
+			},
 		},
 	).Updates(applicant).Error; err != nil {
 		log.Printf("%v", err)
@@ -176,14 +186,18 @@ func (a *ApplicantRepository) UpdateDocument(tx *gorm.DB, m *model.Applicant) er
 // 面接希望日更新
 func (a *ApplicantRepository) UpdateDesiredAt(tx *gorm.DB, m *model.Applicant) error {
 	applicant := model.Applicant{
-		DesiredAt:       m.DesiredAt,
-		CalendarHashKey: m.CalendarHashKey,
-		Users:           m.Users,
-		UpdatedAt:       time.Now(),
+		DesiredAt:  m.DesiredAt,
+		CalendarID: m.CalendarID,
+		Users:      m.Users,
+		AbstractTransactionModel: model.AbstractTransactionModel{
+			UpdatedAt: time.Now(),
+		},
 	}
 	if err := tx.Model(&model.Applicant{}).Where(
 		&model.Applicant{
-			HashKey: m.HashKey,
+			AbstractTransactionModel: model.AbstractTransactionModel{
+				HashKey: m.HashKey,
+			},
 		},
 	).Updates(applicant).Error; err != nil {
 		log.Printf("%v", err)
@@ -193,7 +207,9 @@ func (a *ApplicantRepository) UpdateDesiredAt(tx *gorm.DB, m *model.Applicant) e
 	if applicant.Users == "" {
 		if err := tx.Model(&model.Applicant{}).Where(
 			&model.Applicant{
-				HashKey: m.HashKey,
+				AbstractTransactionModel: model.AbstractTransactionModel{
+					HashKey: m.HashKey,
+				},
 			},
 		).Update("users", "").Error; err != nil {
 			log.Printf("%v", err)

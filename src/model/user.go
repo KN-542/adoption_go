@@ -7,12 +7,9 @@ import "time"
 	ユーザー
 */
 type User struct {
-	// ID
-	ID uint64 `json:"id" gorm:"primaryKey;AUTO_INCREMENT"`
-	// ハッシュキー
-	HashKey string `json:"hash_key" gorm:"unique;not null;type:text;check:hash_key <> '';index"`
+	AbstractTransactionModel
 	// 氏名
-	Name string `json:"name" gorm:"unique;not null;check:name <> ''type:varchar(30);index"`
+	Name string `json:"name" gorm:"unique;not null;check:name <> '';type:varchar(30);index"`
 	// メールアドレス
 	Email string `json:"email" gorm:"unique;not null;type:varchar(50);check:email ~ '^[a-zA-Z0-9_+-]+(\\.[a-zA-Z0-9_+-]+)*@([a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]*\\.)+[a-zA-Z]{2,}$';index"`
 	// パスワード(ハッシュ化)
@@ -23,16 +20,8 @@ type User struct {
 	RoleID uint `json:"role_id"`
 	// リフレッシュトークン
 	RefreshToken string `json:"refresh_token" gorm:"type:text"`
-	// 企業ID
-	CompanyID uint `json:"company_id" gorm:"index"`
-	// 登録日時
-	CreatedAt time.Time `json:"created_at"`
-	// 更新日時
-	UpdatedAt time.Time `json:"updated_at"`
 	// ロール(外部キー)
 	Role CustomRole `gorm:"foreignKey:role_id;references:id"`
-	// 企業(外部キー)
-	Company Company `gorm:"foreignKey:company_id;references:id"`
 }
 
 /*
@@ -40,22 +29,24 @@ type User struct {
 	ユーザーグループ
 */
 type UserGroup struct {
-	// ID
-	ID uint64 `json:"id" gorm:"primaryKey;AUTO_INCREMENT"`
-	// ハッシュキー
-	HashKey string `json:"hash_key" gorm:"not null;unique;check:hash_key <> '';type:text;index"`
+	AbstractTransactionModel
 	// グループ名
 	Name string `json:"name" gorm:"not null;unique;check:name <> '';type:varchar(30);index"`
-	// 所属ユーザー
-	Users string `json:"users" gorm:"type:text;index"`
-	// 企業ID
-	CompanyID uint `json:"company_id" gorm:"index"`
-	// 登録日時
-	CreatedAt time.Time `json:"created_at"`
-	// 更新日時
-	UpdatedAt time.Time `json:"updated_at"`
-	// 企業(外部キー)
-	Company Company `gorm:"foreignKey:company_id;references:id"`
+}
+
+/*
+	t_user_group_association
+	ユーザーグループ紐づけ
+*/
+type UserGroupAssociation struct {
+	// ユーザーグループID
+	UserGroupID uint `json:"user_group_id" gorm:"primaryKey"`
+	// ユーザーID
+	UserID uint `json:"user_id" gorm:"primaryKey"`
+	// ユーザーグループ
+	UserGroup UserGroup `gorm:"foreignKey:user_group_id;references:id"`
+	// ユーザー(外部キー)
+	User User `gorm:"foreignKey:user_id;references:id"`
 }
 
 /*
@@ -63,10 +54,7 @@ type UserGroup struct {
 	ユーザー予定
 */
 type UserSchedule struct {
-	// ID
-	ID uint64 `json:"id" gorm:"primaryKey;AUTO_INCREMENT"`
-	// ハッシュキー
-	HashKey string `json:"hash_key" gorm:"not null;unique;check:hash_key <> '';type:text;index"`
+	AbstractTransactionModel
 	// ハッシュキー(ユーザー)
 	UserHashKeys string `json:"user_hash_keys" gorm:"not null;type:text;index"`
 	// タイトル
@@ -79,16 +67,8 @@ type UserSchedule struct {
 	Start time.Time `json:"start" gorm:"not null"`
 	// 終了時刻
 	End time.Time `json:"end" gorm:"not null"`
-	// 企業ID
-	CompanyID uint `json:"company_id" gorm:"index"`
-	// 登録日時
-	CreatedAt time.Time `json:"created_at"`
-	// 更新日時
-	UpdatedAt time.Time `json:"updated_at"`
 	// 頻度(外部キー)
 	CalendarFreqStatus CalendarFreqStatus `gorm:"foreignKey:freq_id;references:id"`
-	// 企業(外部キー)
-	Company Company `gorm:"foreignKey:company_id;references:id"`
 }
 
 func (t User) TableName() string {
@@ -97,8 +77,18 @@ func (t User) TableName() string {
 func (t UserGroup) TableName() string {
 	return "t_user_group"
 }
+func (t UserGroupAssociation) TableName() string {
+	return "t_user_group_association"
+}
 func (t UserSchedule) TableName() string {
 	return "t_user_schedule"
+}
+
+// ユーザーグループ登録 Request
+type UserGroupRequest struct {
+	UserGroup
+	// 所属ユーザー
+	Users string `json:"users"`
 }
 
 // ユーザー予定 Request

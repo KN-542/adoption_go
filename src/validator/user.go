@@ -11,7 +11,7 @@ import (
 
 type IUserValidator interface {
 	CreateValidate(u *model.User) error
-	CreateGroupValidate(u *model.UserGroup) error
+	CreateGroupValidate(u *model.UserGroupRequest) error
 	CreateScheduleValidate(u *model.UserScheduleRequest) error
 	LoginValidate(u *model.User) error
 	MFAValidate(u *model.UserMFA) error
@@ -48,7 +48,7 @@ func (v *userValidator) CreateValidate(u *model.User) error {
 		),
 	)
 }
-func (v *userValidator) CreateGroupValidate(u *model.UserGroup) error {
+func (v *userValidator) CreateGroupValidate(u *model.UserGroupRequest) error {
 	return validation.ValidateStruct(
 		u,
 		validation.Field(
