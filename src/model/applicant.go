@@ -7,12 +7,9 @@ import "time"
 	応募者
 */
 type Applicant struct {
-	// ID
-	ID uint64 `json:"id" gorm:"primaryKey;AUTO_INCREMENT"`
+	AbstractTransactionModel
 	// 媒体側ID
 	OuterID string `json:"outer_id" gorm:"not null;unique;check:outer_id <> '';type:varchar(255)"`
-	// ハッシュキー
-	HashKey string `json:"hash_key" gorm:"not null;unique;check:hash_key <> '';type:text;index"`
 	// サイトID
 	SiteID uint `json:"site_id" gorm:"index"`
 	// ステータス
@@ -35,22 +32,14 @@ type Applicant struct {
 	DesiredAt time.Time `json:"desired_at"`
 	// 面接官
 	Users string `json:"users" gorm:"type:text"`
-	// カレンダー用ハッシュキー
-	CalendarHashKey string `json:"calendar_hash_key" gorm:"type:text"`
-	// 企業ID
-	CompanyID uint `json:"company_id" gorm:"index"`
-	// 登録日時
-	CreatedAt time.Time `json:"created_at"`
-	// 更新日時
-	UpdatedAt time.Time `json:"updated_at"`
+	// カレンダーID
+	CalendarID uint `json:"calendar_id"`
 	// サイト(外部キー)
 	Site Site `gorm:"foreignKey:site_id;references:id"`
 	// ステータス(外部キー)
 	ApplicantStatus ApplicantStatus `gorm:"foreignKey:status;references:id"`
 	// スケジュール(外部キー)
-	Schedule UserSchedule `gorm:"foreignKey:calendar_hash_key;references:hash_key"`
-	// 企業(外部キー)
-	Company Company `gorm:"foreignKey:company_id;references:id"`
+	Schedule UserSchedule `gorm:"foreignKey:calendar_id;references:id"`
 }
 
 func (t Applicant) TableName() string {

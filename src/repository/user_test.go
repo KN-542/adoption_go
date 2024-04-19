@@ -23,15 +23,17 @@ func TestUserRepository_Insert(t *testing.T) {
 		{
 			"ok",
 			args{&model.User{
-				HashKey:      "abc",
+				AbstractTransactionModel: model.AbstractTransactionModel{
+					HashKey:   "abc",
+					CreatedAt: time.Date(2024, time.January, 1, 0, 0, 0, 0, time.UTC),
+					UpdatedAt: time.Date(2024, time.January, 2, 0, 0, 0, 0, time.UTC),
+				},
 				Name:         "taro",
 				Email:        "taro@au.com",
 				Password:     "root",
 				InitPassword: "root",
 				RoleID:       1,
 				RefreshToken: "token",
-				CreatedAt:    time.Date(2024, time.January, 1, 0, 0, 0, 0, time.UTC),
-				UpdatedAt:    time.Date(2024, time.January, 2, 0, 0, 0, 0, time.UTC),
 			}},
 			false,
 		},
@@ -51,7 +53,9 @@ func TestUserRepository_Insert(t *testing.T) {
 		{
 			"ng_name",
 			args{&model.User{
-				HashKey:      "abc",
+				AbstractTransactionModel: model.AbstractTransactionModel{
+					HashKey: "abc",
+				},
 				Email:        "taro@au.com",
 				Password:     "root",
 				InitPassword: "root",
@@ -63,7 +67,9 @@ func TestUserRepository_Insert(t *testing.T) {
 		{
 			"ng_email",
 			args{&model.User{
-				HashKey:      "abc",
+				AbstractTransactionModel: model.AbstractTransactionModel{
+					HashKey: "abc",
+				},
 				Name:         "taro",
 				Password:     "root",
 				InitPassword: "root",
@@ -75,7 +81,9 @@ func TestUserRepository_Insert(t *testing.T) {
 		{
 			"ng_password",
 			args{&model.User{
-				HashKey:  "abc",
+				AbstractTransactionModel: model.AbstractTransactionModel{
+					HashKey: "abc",
+				},
 				Name:     "taro",
 				Email:    "taro@au.com",
 				Password: "root",
@@ -87,7 +95,9 @@ func TestUserRepository_Insert(t *testing.T) {
 		{
 			"ng_init_password",
 			args{&model.User{
-				HashKey:      "abc",
+				AbstractTransactionModel: model.AbstractTransactionModel{
+					HashKey: "abc",
+				},
 				Name:         "taro",
 				Email:        "taro@au.com",
 				InitPassword: "root",
@@ -99,7 +109,9 @@ func TestUserRepository_Insert(t *testing.T) {
 		{
 			"ng_role_id",
 			args{&model.User{
-				HashKey:      "abc",
+				AbstractTransactionModel: model.AbstractTransactionModel{
+					HashKey: "abc",
+				},
 				Name:         "taro",
 				Email:        "taro@au.com",
 				Password:     "root",
@@ -205,18 +217,22 @@ func TestUserRepository_Get(t *testing.T) {
 		{
 			"ok",
 			args{&model.User{
-				HashKey: "abc",
+				AbstractTransactionModel: model.AbstractTransactionModel{
+					HashKey: "abc",
+				},
 			}},
 			&model.User{
-				HashKey:      "abc",
+				AbstractTransactionModel: model.AbstractTransactionModel{
+					HashKey:   "abc",
+					CreatedAt: time.Date(2024, time.January, 1, 0, 0, 0, 0, time.UTC),
+					UpdatedAt: time.Date(2024, time.January, 2, 0, 0, 0, 0, time.UTC),
+				},
 				Name:         "taro",
 				Email:        "taro@au.com",
 				Password:     "root",
 				InitPassword: "root",
 				RoleID:       1,
 				RefreshToken: "token",
-				CreatedAt:    time.Date(2024, time.January, 1, 0, 0, 0, 0, time.UTC),
-				UpdatedAt:    time.Date(2024, time.January, 2, 0, 0, 0, 0, time.UTC),
 			},
 			false,
 		},
@@ -224,18 +240,22 @@ func TestUserRepository_Get(t *testing.T) {
 		{
 			"ng_0",
 			args{&model.User{
-				HashKey: "ng_ab",
+				AbstractTransactionModel: model.AbstractTransactionModel{
+					HashKey: "ng_ab",
+				},
 			}},
 			&model.User{
-				HashKey:      "ng_abc",
+				AbstractTransactionModel: model.AbstractTransactionModel{
+					HashKey:   "ng_abc",
+					CreatedAt: time.Date(2024, time.January, 1, 0, 0, 0, 0, time.UTC),
+					UpdatedAt: time.Date(2024, time.January, 2, 0, 0, 0, 0, time.UTC),
+				},
 				Name:         "taro",
 				Email:        "taro@au.com",
 				Password:     "root",
 				InitPassword: "root",
 				RoleID:       1,
 				RefreshToken: "token",
-				CreatedAt:    time.Date(2024, time.January, 1, 0, 0, 0, 0, time.UTC),
-				UpdatedAt:    time.Date(2024, time.January, 2, 0, 0, 0, 0, time.UTC),
 			},
 			true,
 		},
@@ -611,7 +631,8 @@ func TestUserRepository_InsertGroup(t *testing.T) {
 			u := &UserRepository{
 				db: tt.fields.db,
 			}
-			if err := u.InsertGroup(tt.args.tx, tt.args.m); (err != nil) != tt.wantErr {
+			_, err := u.InsertGroup(tt.args.tx, tt.args.m)
+			if (err != nil) != tt.wantErr {
 				t.Errorf("UserRepository.InsertGroup() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})

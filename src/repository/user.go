@@ -20,6 +20,10 @@ type IUserRepository interface {
 	Update(tx *gorm.DB, m *model.User) error
 	// 削除
 	Delete(tx *gorm.DB, m *model.User) error
+	// ユーザーグループ紐づけ登録
+	InsertGroupAssociation(tx *gorm.DB, m *model.UserGroupAssociation) error
+	// ユーザー基本情報取得
+	GetUserBasicByHashKeys(hashKeys []string) ([]model.CommonModel, error)
 	// ユーザー存在確認
 	ConfirmUserByHashKeys(hashKeys []string) ([]model.UserResponse, error)
 	// ログイン認証
@@ -35,13 +39,15 @@ type IUserRepository interface {
 	// 検索(ユーザーグループ)
 	SearchGroup() ([]model.UserGroupResponse, error)
 	// グループ登録
-	InsertGroup(tx *gorm.DB, m *model.UserGroup) error
+	InsertGroup(tx *gorm.DB, m *model.UserGroup) (*uint, error)
 	// スケジュール登録
 	InsertSchedule(tx *gorm.DB, m *model.UserSchedule) error
 	// スケジュール更新
 	UpdateSchedule(tx *gorm.DB, m *model.UserSchedule) error
 	// スケジュール一覧
 	ListSchedule() ([]model.UserScheduleResponse, error)
+	// スケジュール取得
+	GetSchedule(m *model.UserSchedule) (*model.UserSchedule, error)
 	// スケジュール削除
 	DeleteSchedule(tx *gorm.DB, m *model.UserSchedule) error
 	// 過去のスケジュールを更新
@@ -85,7 +91,9 @@ func (u *UserRepository) Get(m *model.User) (*model.User, error) {
 	var res model.User
 	if err := u.db.Where(
 		&model.User{
-			HashKey: m.HashKey,
+			AbstractTransactionModel: model.AbstractTransactionModel{
+				HashKey: m.HashKey,
+			},
 		},
 	).First(&res).Error; err != nil {
 		log.Printf("%v", err)
@@ -103,11 +111,15 @@ func (u *UserRepository) Update(tx *gorm.DB, m *model.User) error {
 		Password:     m.Password,
 		RoleID:       m.RoleID,
 		RefreshToken: m.RefreshToken,
-		UpdatedAt:    m.UpdatedAt,
+		AbstractTransactionModel: model.AbstractTransactionModel{
+			UpdatedAt: m.UpdatedAt,
+		},
 	}
 	if err := tx.Model(&model.User{}).Where(
 		&model.User{
-			HashKey: m.HashKey,
+			AbstractTransactionModel: model.AbstractTransactionModel{
+				HashKey: m.HashKey,
+			},
 		},
 	).Updates(user).Error; err != nil {
 		log.Printf("%v", err)
@@ -120,12 +132,42 @@ func (u *UserRepository) Update(tx *gorm.DB, m *model.User) error {
 // 削除
 func (u *UserRepository) Delete(tx *gorm.DB, m *model.User) error {
 	if err := tx.Where(&model.User{
-		HashKey: m.HashKey,
+		AbstractTransactionModel: model.AbstractTransactionModel{
+			HashKey: m.HashKey,
+		},
 	}).Delete(&model.User{}).Error; err != nil {
 		log.Printf("%v", err)
 		return err
 	}
 	return nil
+}
+
+// ユーザーグループ紐づけ登録
+func (u *UserRepository) InsertGroupAssociation(tx *gorm.DB, m *model.UserGroupAssociation) error {
+	if err := tx.Create(m).Error; err != nil {
+		log.Printf("%v", err)
+		return err
+	}
+	return nil
+}
+
+// ユーザー基本情報取得
+func (u *UserRepository) GetUserBasicByHashKeys(hashKeys []string) ([]model.CommonModel, error) {
+	if len(hashKeys) == 0 {
+		return nil, nil
+	}
+	var l []model.CommonModel
+
+	query := u.db.Model(&model.User{}).
+		Select("t_user.id, t_user.hash_key")
+
+	query = query.Where("t_user.hash_key IN ?", hashKeys)
+
+	if err := query.Find(&l).Error; err != nil {
+		log.Printf("%v", err)
+		return nil, err
+	}
+	return l, nil
 }
 
 // ユーザー存在確認
@@ -167,7 +209,9 @@ func (u *UserRepository) PasswordChange(tx *gorm.DB, m *model.User) error {
 	user := model.User{Password: m.Password}
 	if err := tx.Model(&model.User{}).Where(
 		&model.User{
-			HashKey: m.HashKey,
+			AbstractTransactionModel: model.AbstractTransactionModel{
+				HashKey: m.HashKey,
+			},
 		},
 	).Updates(user).Error; err != nil {
 		log.Printf("%v", err)
@@ -182,7 +226,9 @@ func (u *UserRepository) ConfirmInitPassword(m *model.User) (*int8, error) {
 	var confirm model.User
 	if err := u.db.Where(
 		&model.User{
-			HashKey: m.HashKey,
+			AbstractTransactionModel: model.AbstractTransactionModel{
+				HashKey: m.HashKey,
+			},
 		},
 	).First(&confirm).Error; err != nil {
 		log.Printf("%v", err)
@@ -202,7 +248,9 @@ func (u *UserRepository) ConfirmInitPassword2(m *model.User) (*string, error) {
 	var confirm model.User
 	if err := u.db.Where(
 		&model.User{
-			HashKey: m.HashKey,
+			AbstractTransactionModel: model.AbstractTransactionModel{
+				HashKey: m.HashKey,
+			},
 		},
 	).First(&confirm).Error; err != nil {
 		log.Printf("%v", err)
@@ -247,12 +295,14 @@ func (u *UserRepository) SearchGroup() ([]model.UserGroupResponse, error) {
 }
 
 // グループ登録
-func (u *UserRepository) InsertGroup(tx *gorm.DB, m *model.UserGroup) error {
+func (u *UserRepository) InsertGroup(tx *gorm.DB, m *model.UserGroup) (*uint, error) {
 	if err := tx.Create(m).Error; err != nil {
 		log.Printf("%v", err)
-		return err
+		return nil, err
 	}
-	return nil
+
+	id := uint(m.ID)
+	return &id, nil
 }
 
 // スケジュール登録
@@ -268,7 +318,9 @@ func (u *UserRepository) InsertSchedule(tx *gorm.DB, m *model.UserSchedule) erro
 func (u *UserRepository) UpdateSchedule(tx *gorm.DB, m *model.UserSchedule) error {
 	if err := tx.Model(&model.UserSchedule{}).Where(
 		&model.UserSchedule{
-			HashKey: m.HashKey,
+			AbstractTransactionModel: model.AbstractTransactionModel{
+				HashKey: m.HashKey,
+			},
 		},
 	).Updates(m).Error; err != nil {
 		log.Printf("%v", err)
@@ -279,7 +331,9 @@ func (u *UserRepository) UpdateSchedule(tx *gorm.DB, m *model.UserSchedule) erro
 
 		if err := tx.Model(&model.UserSchedule{}).Where(
 			&model.UserSchedule{
-				HashKey: m.HashKey,
+				AbstractTransactionModel: model.AbstractTransactionModel{
+					HashKey: m.HashKey,
+				},
 			},
 		).Update("user_hash_keys", "").Error; err != nil {
 			log.Printf("%v", err)
@@ -305,6 +359,23 @@ func (u *UserRepository) ListSchedule() ([]model.UserScheduleResponse, error) {
 	return res, nil
 }
 
+// スケジュール取得
+func (u *UserRepository) GetSchedule(m *model.UserSchedule) (*model.UserSchedule, error) {
+	var res model.UserSchedule
+	if err := u.db.Where(
+		&model.UserSchedule{
+			AbstractTransactionModel: model.AbstractTransactionModel{
+				HashKey: m.HashKey,
+			},
+		},
+	).First(&res).Error; err != nil {
+		log.Printf("%v", err)
+		return nil, err
+	}
+
+	return &res, nil
+}
+
 // スケジュール削除
 func (u *UserRepository) DeleteSchedule(tx *gorm.DB, m *model.UserSchedule) error {
 	if err := tx.Where(m).Delete(&model.UserSchedule{}).Error; err != nil {
@@ -317,13 +388,17 @@ func (u *UserRepository) DeleteSchedule(tx *gorm.DB, m *model.UserSchedule) erro
 // 過去のスケジュールを更新
 func (u *UserRepository) UpdatePastSchedule(tx *gorm.DB, m *model.UserSchedule) error {
 	schedule := model.UserSchedule{
-		Start:     m.Start,
-		End:       m.End,
-		UpdatedAt: m.UpdatedAt,
+		Start: m.Start,
+		End:   m.End,
+		AbstractTransactionModel: model.AbstractTransactionModel{
+			UpdatedAt: m.UpdatedAt,
+		},
 	}
 	if err := tx.Model(&model.UserSchedule{}).Where(
 		&model.UserSchedule{
-			HashKey: m.HashKey,
+			AbstractTransactionModel: model.AbstractTransactionModel{
+				HashKey: m.HashKey,
+			},
 		},
 	).Updates(schedule).Error; err != nil {
 		log.Printf("%v", err)

@@ -77,7 +77,11 @@ func (c *LoginController) Login(e echo.Context) error {
 	}
 
 	// パスワード変更 必要性
-	passChangeFlg, err := c.s.PasswordChangeCheck(&model.User{HashKey: user.HashKey})
+	passChangeFlg, err := c.s.PasswordChangeCheck(&model.User{
+		AbstractTransactionModel: model.AbstractTransactionModel{
+			HashKey: user.HashKey,
+		},
+	})
 	if err != nil {
 		return e.JSON(err.Status, model.ErrorConvert(*err))
 	}
@@ -134,7 +138,11 @@ func (c *LoginController) MFA(e echo.Context) error {
 	}
 
 	// パスワード変更 必要性
-	passChangeFlg, err := c.s.PasswordChangeCheck(&model.User{HashKey: req.HashKey})
+	passChangeFlg, err := c.s.PasswordChangeCheck(&model.User{
+		AbstractTransactionModel: model.AbstractTransactionModel{
+			HashKey: req.HashKey,
+		},
+	})
 	if err != nil {
 		return e.JSON(err.Status, model.ErrorConvert(*err))
 	}
@@ -307,7 +315,11 @@ func (c *LoginController) MFAApplicant(e echo.Context) error {
 	}
 
 	// S3 Name Redisに登録
-	if err := c.s.S3NamePreInsert(&model.Applicant{HashKey: req.HashKey}); err != nil {
+	if err := c.s.S3NamePreInsert(&model.Applicant{
+		AbstractTransactionModel: model.AbstractTransactionModel{
+			HashKey: req.HashKey,
+		},
+	}); err != nil {
 		return e.JSON(err.Status, model.ErrorConvert(*err))
 	}
 

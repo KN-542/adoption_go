@@ -88,7 +88,7 @@ func (c *UserController) SearchGroups(e echo.Context) error {
 
 // グループ登録
 func (c *UserController) InsertGroup(e echo.Context) error {
-	req := model.UserGroup{}
+	req := model.UserGroupRequest{}
 	if err := e.Bind(&req); err != nil {
 		log.Printf("%v", err)
 		return e.JSON(http.StatusBadRequest, fmt.Errorf(static.MESSAGE_BAD_REQUEST))

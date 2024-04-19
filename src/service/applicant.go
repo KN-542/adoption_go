@@ -74,7 +74,9 @@ func (s *ApplicantService) GetOauthURL(req *model.ApplicantAndUser) (*model.GetO
 		}
 	}
 	if err := s.v.HashKeyValidate(&model.Applicant{
-		HashKey: req.UserHashKey,
+		AbstractTransactionModel: model.AbstractTransactionModel{
+			HashKey: req.UserHashKey,
+		},
 	}); err != nil {
 		log.Printf("%v", err)
 		return nil, &model.ErrorResponse{
@@ -124,13 +126,13 @@ func (s *ApplicantService) Download(d *model.ApplicantsDownload) *model.ErrorRes
 	if d.Site == int(enum.RECRUIT) {
 		for _, values := range d.Values {
 			_, size := utf8.DecodeLastRuneInString(values[enum.RECRUIT_AGE])
-			age, err := strconv.ParseInt(
+			_, err := strconv.ParseInt(
 				values[enum.RECRUIT_AGE][:len(values[enum.RECRUIT_AGE])-size],
 				10,
 				64,
 			)
 			if err != nil {
-				age = -1
+				// TODO
 			}
 
 			// ハッシュキー生成
@@ -143,16 +145,16 @@ func (s *ApplicantService) Download(d *model.ApplicantsDownload) *model.ErrorRes
 			}
 
 			m := model.Applicant{
-				OuterID:   values[enum.RECRUIT_ID],
-				HashKey:   *hashKey,
-				SiteID:    uint(enum.RECRUIT),
-				Status:    uint(enum.SCHEDULE_UNANSWERED),
-				Name:      values[enum.RECRUIT_NAME],
-				Email:     values[enum.RECRUIT_EMAIL],
-				Tel:       values[enum.RECRUIT_TEL],
-				Age:       int(age),
-				CreatedAt: time.Now(),
-				UpdatedAt: time.Now(),
+				OuterID: values[enum.RECRUIT_ID],
+				AbstractTransactionModel: model.AbstractTransactionModel{
+					HashKey:   *hashKey,
+					CreatedAt: time.Now(),
+					UpdatedAt: time.Now(),
+				},
+				SiteID: uint(enum.RECRUIT),
+				Status: uint(enum.SCHEDULE_UNANSWERED),
+				Name:   values[enum.RECRUIT_NAME],
+				Email:  values[enum.RECRUIT_EMAIL],
 			}
 
 			// STEP2-1 重複チェック
@@ -208,7 +210,9 @@ func (s *ApplicantService) Get(req *model.Applicant) (*model.Applicant, *model.E
 
 	// 応募者情報取得
 	applicant, err := s.r.GetByHashKey(&model.Applicant{
-		HashKey: req.HashKey,
+		AbstractTransactionModel: model.AbstractTransactionModel{
+			HashKey: req.HashKey,
+		},
 	})
 	if err != nil {
 		return nil, &model.ErrorResponse{
@@ -244,7 +248,9 @@ func (s *ApplicantService) Search(req *model.ApplicantSearchRequest) (*model.App
 			list := strings.Split(row.Users, ",")
 			for _, l := range list {
 				user, err := s.u.Get(&model.User{
-					HashKey: l,
+					AbstractTransactionModel: model.AbstractTransactionModel{
+						HashKey: l,
+					},
 				})
 				if err != nil {
 					log.Printf("%v", err)
@@ -302,7 +308,9 @@ func (s *ApplicantService) S3Upload(req *model.FileUpload, fileHeader *multipart
 	// 書類登録状況更新
 	if req.NamePre == "resume" {
 		if err := s.r.UpdateDocument(tx, &model.Applicant{
-			HashKey:         req.HashKey,
+			AbstractTransactionModel: model.AbstractTransactionModel{
+				HashKey: req.HashKey,
+			},
 			Resume:          objName,
 			CurriculumVitae: "",
 		}); err != nil {
@@ -318,7 +326,9 @@ func (s *ApplicantService) S3Upload(req *model.FileUpload, fileHeader *multipart
 	}
 	if req.NamePre == "curriculum_vitae" {
 		if err := s.r.UpdateDocument(tx, &model.Applicant{
-			HashKey:         req.HashKey,
+			AbstractTransactionModel: model.AbstractTransactionModel{
+				HashKey: req.HashKey,
+			},
 			Resume:          "",
 			CurriculumVitae: objName,
 		}); err != nil {
@@ -355,7 +365,9 @@ func (s *ApplicantService) S3Download(req *model.FileDownload) ([]byte, *string,
 
 	// ファイル名取得
 	applicant, err := s.r.GetByHashKey(&model.Applicant{
-		HashKey: req.HashKey,
+		AbstractTransactionModel: model.AbstractTransactionModel{
+			HashKey: req.HashKey,
+		},
 	})
 	if err != nil {
 		log.Printf("%v", err)
@@ -400,6 +412,18 @@ func (s *ApplicantService) InsertDesiredAt(req *model.ApplicantDesired) *model.E
 		}
 	}
 
+	// カレンダーID取得
+	calendar, err := s.u.GetSchedule(&model.UserSchedule{
+		AbstractTransactionModel: model.AbstractTransactionModel{
+			HashKey: req.CalendarHashKey,
+		},
+	})
+	if err != nil {
+		return &model.ErrorResponse{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
 	tx, err := s.d.TxStart()
 	if err != nil {
 		return &model.ErrorResponse{
@@ -409,9 +433,11 @@ func (s *ApplicantService) InsertDesiredAt(req *model.ApplicantDesired) *model.E
 
 	// 面接希望日登録
 	if err := s.r.UpdateDesiredAt(tx, &model.Applicant{
-		HashKey:         req.HashKey,
-		DesiredAt:       req.DesiredAt,
-		CalendarHashKey: req.CalendarHashKey,
+		AbstractTransactionModel: model.AbstractTransactionModel{
+			HashKey: req.HashKey,
+		},
+		DesiredAt:  req.DesiredAt,
+		CalendarID: uint(calendar.ID),
 	}); err != nil {
 		if err := s.d.TxRollback(tx); err != nil {
 			return &model.ErrorResponse{
@@ -462,7 +488,9 @@ func (s *ApplicantService) GetSites() (*model.Sites, *model.ErrorResponse) {
 func (s *ApplicantService) GetGoogleMeetUrl(req *model.ApplicantAndUser) (*model.Applicant, *model.ErrorResponse) {
 	// バリデーション
 	if err := s.v.HashKeyValidate(&model.Applicant{
-		HashKey: req.UserHashKey,
+		AbstractTransactionModel: model.AbstractTransactionModel{
+			HashKey: req.UserHashKey,
+		},
 	}); err != nil {
 		log.Printf("%v", err)
 		return nil, &model.ErrorResponse{
@@ -481,7 +509,9 @@ func (s *ApplicantService) GetGoogleMeetUrl(req *model.ApplicantAndUser) (*model
 
 	// 応募者情報取得
 	applicant, err := s.r.GetByHashKey(&model.Applicant{
-		HashKey: *applicantHashKey,
+		AbstractTransactionModel: model.AbstractTransactionModel{
+			HashKey: *applicantHashKey,
+		},
 	})
 	if err != nil {
 		return nil, &model.ErrorResponse{
@@ -491,7 +521,9 @@ func (s *ApplicantService) GetGoogleMeetUrl(req *model.ApplicantAndUser) (*model
 
 	// ユーザー取得
 	user, err := s.u.Get(&model.User{
-		HashKey: req.UserHashKey,
+		AbstractTransactionModel: model.AbstractTransactionModel{
+			HashKey: req.UserHashKey,
+		},
 	})
 	if err != nil {
 		return nil, &model.ErrorResponse{
@@ -524,7 +556,9 @@ func (s *ApplicantService) GetGoogleMeetUrl(req *model.ApplicantAndUser) (*model
 	// Google Meet Url 格納
 	tx, err := s.d.TxStart()
 	if err := s.r.UpdateGoogleMeet(tx, &model.Applicant{
-		HashKey:       *applicantHashKey,
+		AbstractTransactionModel: model.AbstractTransactionModel{
+			HashKey: *applicantHashKey,
+		},
 		GoogleMeetURL: *googleMeetUrl,
 	}); err != nil {
 		if err := s.d.TxRollback(tx); err != nil {
