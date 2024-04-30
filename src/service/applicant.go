@@ -243,25 +243,22 @@ func (s *ApplicantService) Search(req *model.ApplicantSearchRequest) (*model.App
 	}
 
 	for i, row := range applicants {
-		if row.Users != "" {
-			var strList []string
-			list := strings.Split(row.Users, ",")
-			for _, l := range list {
-				user, err := s.u.Get(&model.User{
-					AbstractTransactionModel: model.AbstractTransactionModel{
-						HashKey: l,
-					},
-				})
-				if err != nil {
-					log.Printf("%v", err)
-					return nil, &model.ErrorResponse{
-						Status: http.StatusInternalServerError,
-					}
-				}
-				strList = append(strList, user.Name)
+		var list []string
+		user, err := s.u.GetUserScheduleAssociationByScheduleID(
+			&model.UserScheduleAssociation{
+				UserScheduleID: row.CalendarID,
+			},
+		)
+		if err != nil {
+			log.Printf("%v", err)
+			return nil, &model.ErrorResponse{
+				Status: http.StatusInternalServerError,
 			}
-			applicants[i].UserNames = strings.Join(strList, ",")
 		}
+		for _, r := range user {
+			list = append(list, r.Name)
+		}
+		applicants[i].UserNames = strings.Join(list, ",")
 	}
 
 	return &model.ApplicantsDownloadResponse{
@@ -436,7 +433,6 @@ func (s *ApplicantService) InsertDesiredAt(req *model.ApplicantDesired) *model.E
 		AbstractTransactionModel: model.AbstractTransactionModel{
 			HashKey: req.HashKey,
 		},
-		DesiredAt:  req.DesiredAt,
 		CalendarID: uint(calendar.ID),
 	}); err != nil {
 		if err := s.d.TxRollback(tx); err != nil {
@@ -507,8 +503,8 @@ func (s *ApplicantService) GetGoogleMeetUrl(req *model.ApplicantAndUser) (*model
 		}
 	}
 
-	// 応募者情報取得
-	applicant, err := s.r.GetByHashKey(&model.Applicant{
+	// 面接情報取得
+	schedule, err := s.r.GetDesiredAt(&model.Applicant{
 		AbstractTransactionModel: model.AbstractTransactionModel{
 			HashKey: *applicantHashKey,
 		},
@@ -543,8 +539,8 @@ func (s *ApplicantService) GetGoogleMeetUrl(req *model.ApplicantAndUser) (*model
 	googleMeetUrl, err := s.g.GetGoogleMeetUrl(
 		accessToken,
 		user.Name,
-		applicant.DesiredAt,
-		applicant.DesiredAt.Add(time.Hour),
+		schedule.Start,
+		schedule.End,
 	)
 	if err != nil {
 		log.Printf("%v", err)
@@ -553,8 +549,14 @@ func (s *ApplicantService) GetGoogleMeetUrl(req *model.ApplicantAndUser) (*model
 		}
 	}
 
-	// Google Meet Url 格納
 	tx, err := s.d.TxStart()
+	if err != nil {
+		return nil, &model.ErrorResponse{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// Google Meet Url 格納
 	if err := s.r.UpdateGoogleMeet(tx, &model.Applicant{
 		AbstractTransactionModel: model.AbstractTransactionModel{
 			HashKey: *applicantHashKey,

@@ -328,6 +328,14 @@ func (u *UserService) CreateSchedule(req *model.UserScheduleRequest) (*string, *
 		}
 	}
 
+	// ユーザー存在確認
+	users, err := u.r.GetUserBasicByHashKeys(strings.Split(req.UserHashKeys, ","))
+	if err != nil {
+		return nil, &model.ErrorResponse{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
 	// ハッシュキー生成
 	_, hashKey, err := GenerateHash(1, 25)
 	if err != nil {
@@ -345,17 +353,17 @@ func (u *UserService) CreateSchedule(req *model.UserScheduleRequest) (*string, *
 	}
 
 	// スケジュール登録
-	if err := u.r.InsertSchedule(tx, &model.UserSchedule{
+	id, err := u.r.InsertSchedule(tx, &model.UserSchedule{
 		AbstractTransactionModel: model.AbstractTransactionModel{
 			HashKey: *hashKey,
 		},
-		UserHashKeys: req.UserHashKeys,
 		InterviewFlg: req.InterviewFlg,
 		FreqID:       req.FreqID,
 		Start:        req.Start,
 		End:          req.End,
 		Title:        req.Title,
-	}); err != nil {
+	})
+	if err != nil {
 		if err := u.d.TxRollback(tx); err != nil {
 			return nil, &model.ErrorResponse{
 				Status: http.StatusInternalServerError,
@@ -363,6 +371,22 @@ func (u *UserService) CreateSchedule(req *model.UserScheduleRequest) (*string, *
 		}
 		return nil, &model.ErrorResponse{
 			Status: http.StatusInternalServerError,
+		}
+	}
+	for _, row := range users {
+		// スケジュール紐づけ登録
+		if err := u.r.InsertScheduleAssociation(tx, &model.UserScheduleAssociation{
+			UserScheduleID: *id,
+			UserID:         row.ID,
+		}); err != nil {
+			if err := u.d.TxRollback(tx); err != nil {
+				return nil, &model.ErrorResponse{
+					Status: http.StatusInternalServerError,
+				}
+			}
+			return nil, &model.ErrorResponse{
+				Status: http.StatusInternalServerError,
+			}
 		}
 	}
 
@@ -377,6 +401,14 @@ func (u *UserService) CreateSchedule(req *model.UserScheduleRequest) (*string, *
 
 // スケジュール更新
 func (u *UserService) UpdateSchedule(req *model.UserScheduleRequest) *model.ErrorResponse {
+	// ユーザー存在確認
+	users, err := u.r.GetUserBasicByHashKeys(strings.Split(req.UserHashKeys, ","))
+	if err != nil {
+		return &model.ErrorResponse{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
 	tx, err := u.d.TxStart()
 	if err != nil {
 		return &model.ErrorResponse{
@@ -385,12 +417,25 @@ func (u *UserService) UpdateSchedule(req *model.UserScheduleRequest) *model.Erro
 	}
 
 	// スケジュール更新
-	if err := u.r.UpdateSchedule(tx, &model.UserSchedule{
+	id, err := u.r.UpdateSchedule(tx, &model.UserSchedule{
 		AbstractTransactionModel: model.AbstractTransactionModel{
 			HashKey:   req.HashKey,
 			UpdatedAt: time.Now(),
 		},
-		UserHashKeys: req.UserHashKeys,
+	})
+	if err != nil {
+		if err := u.d.TxRollback(tx); err != nil {
+			return &model.ErrorResponse{
+				Status: http.StatusInternalServerError,
+			}
+		}
+		return &model.ErrorResponse{
+			Status: http.StatusInternalServerError,
+		}
+	}
+	// 問答無用で紐づけテーブルの該当スケジュールIDのレコード削除
+	if err := u.r.DeleteScheduleAssociation(tx, &model.UserScheduleAssociation{
+		UserScheduleID: *id,
 	}); err != nil {
 		if err := u.d.TxRollback(tx); err != nil {
 			return &model.ErrorResponse{
@@ -401,21 +446,20 @@ func (u *UserService) UpdateSchedule(req *model.UserScheduleRequest) *model.Erro
 			Status: http.StatusInternalServerError,
 		}
 	}
-
-	// 応募者側更新
-	if err := u.ra.UpdateDesiredAt(tx, &model.Applicant{
-		AbstractTransactionModel: model.AbstractTransactionModel{
-			HashKey: req.ApplicantHashKey,
-		},
-		Users: req.UserHashKeys,
-	}); err != nil {
-		if err := u.d.TxRollback(tx); err != nil {
+	for _, row := range users {
+		// スケジュール紐づけ登録
+		if err := u.r.InsertScheduleAssociation(tx, &model.UserScheduleAssociation{
+			UserScheduleID: *id,
+			UserID:         row.ID,
+		}); err != nil {
+			if err := u.d.TxRollback(tx); err != nil {
+				return &model.ErrorResponse{
+					Status: http.StatusInternalServerError,
+				}
+			}
 			return &model.ErrorResponse{
 				Status: http.StatusInternalServerError,
 			}
-		}
-		return &model.ErrorResponse{
-			Status: http.StatusInternalServerError,
 		}
 	}
 

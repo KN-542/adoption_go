@@ -71,18 +71,6 @@ type ApplyVariable struct {
 }
 
 /*
-m_view_role_operation
-画面操作ロールマスタ
-*/
-type ViewRoleOperation struct {
-	AbstractMasterModel
-	// 操作名
-	Name string `json:"name" gorm:"unique;not null;type:varchar(30)"`
-	// 操作ロール
-	Roles string `json:"roles" gorm:"type:text"`
-}
-
-/*
 m_operation_log_event
 操作ログイベントマスタ
 */
@@ -99,7 +87,7 @@ m_notice
 type NoticeType struct {
 	AbstractMasterModel
 	// 通知内容
-	NoticeType string `json:"notice" gorm:"unique;not null;type:text"`
+	Notice string `json:"notice" gorm:"unique;not null;type:text"`
 }
 
 /*
@@ -151,9 +139,6 @@ func (m CalendarFreqStatus) TableName() string {
 }
 func (m ApplyVariable) TableName() string {
 	return "m_apply_variable"
-}
-func (m ViewRoleOperation) TableName() string {
-	return "m_view_role_operation"
 }
 func (m OperationLogEvent) TableName() string {
 	return "m_operation_log_event"

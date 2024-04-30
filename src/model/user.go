@@ -43,7 +43,7 @@ type UserGroupAssociation struct {
 	UserGroupID uint `json:"user_group_id" gorm:"primaryKey"`
 	// ユーザーID
 	UserID uint `json:"user_id" gorm:"primaryKey"`
-	// ユーザーグループ
+	// ユーザーグループ(外部キー)
 	UserGroup UserGroup `gorm:"foreignKey:user_group_id;references:id"`
 	// ユーザー(外部キー)
 	User User `gorm:"foreignKey:user_id;references:id"`
@@ -55,8 +55,6 @@ type UserGroupAssociation struct {
 */
 type UserSchedule struct {
 	AbstractTransactionModel
-	// ハッシュキー(ユーザー)
-	UserHashKeys string `json:"user_hash_keys" gorm:"not null;type:text;index"`
 	// タイトル
 	Title string `json:"title" gorm:"not null;check:title <> '';type:varchar(30)"`
 	// 頻度ID
@@ -71,6 +69,21 @@ type UserSchedule struct {
 	CalendarFreqStatus CalendarFreqStatus `gorm:"foreignKey:freq_id;references:id"`
 }
 
+/*
+	t_user_schedule_association
+	ユーザー予定紐づけ
+*/
+type UserScheduleAssociation struct {
+	// ユーザー予定ID
+	UserScheduleID uint `json:"user_schedule_id" gorm:"primaryKey"`
+	// ユーザーID
+	UserID uint `json:"user_id" gorm:"primaryKey"`
+	// ユーザー予定(外部キー)
+	UserSchedule UserSchedule `gorm:"foreignKey:user_schedule_id;references:id"`
+	// ユーザー(外部キー)
+	User User `gorm:"foreignKey:user_id;references:id"`
+}
+
 func (t User) TableName() string {
 	return "t_user"
 }
@@ -83,12 +96,22 @@ func (t UserGroupAssociation) TableName() string {
 func (t UserSchedule) TableName() string {
 	return "t_user_schedule"
 }
+func (t UserScheduleAssociation) TableName() string {
+	return "t_user_schedule_association"
+}
 
 // ユーザーグループ登録 Request
 type UserGroupRequest struct {
 	UserGroup
 	// 所属ユーザー
 	Users string `json:"users"`
+}
+
+// ユーザー予定登録 Request
+type UserScheduleCreateRequest struct {
+	UserSchedule
+	// ハッシュキー(ユーザー)
+	UserHashKeys string `json:"user_hash_keys"`
 }
 
 // ユーザー予定 Request
@@ -218,6 +241,12 @@ type ReserveOfGroup struct {
 	HashKey string `json:"hash_key"`
 	// 面接可能人数
 	Count uint `json:"count"`
+}
+
+type UserScheduleAssociationWithName struct {
+	UserScheduleAssociation
+	// 氏名
+	Name string `json:"name"`
 }
 
 func ConvertUsers(u *[]User) *[]UserResponse {

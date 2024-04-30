@@ -660,7 +660,7 @@ func TestUserRepository_InsertSchedule(t *testing.T) {
 			u := &UserRepository{
 				db: tt.fields.db,
 			}
-			if err := u.InsertSchedule(tt.args.tx, tt.args.m); (err != nil) != tt.wantErr {
+			if _, err := u.InsertSchedule(tt.args.tx, tt.args.m); (err != nil) != tt.wantErr {
 				t.Errorf("UserRepository.InsertSchedule() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})

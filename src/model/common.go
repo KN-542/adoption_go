@@ -5,7 +5,7 @@ t_notice
 通知
 */
 type Notice struct {
-	AbstractMasterModel
+	AbstractTransactionModel
 	// 種別
 	Type uint `json:"type"`
 	// 通知元ユーザーID
