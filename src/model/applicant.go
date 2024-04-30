@@ -28,10 +28,6 @@ type Applicant struct {
 	CurriculumVitae string `json:"curriculum_vitae" gorm:"type:varchar(255);index"`
 	// Google Meet URL
 	GoogleMeetURL string `json:"google_meet_url" gorm:"type:text"`
-	// 希望面接日時
-	DesiredAt time.Time `json:"desired_at"`
-	// 面接官
-	Users string `json:"users" gorm:"type:text"`
 	// カレンダーID
 	CalendarID uint `json:"calendar_id"`
 	// サイト(外部キー)
@@ -66,9 +62,10 @@ type ApplicantsDownloadResponse struct {
 
 type ApplicantWith struct {
 	Applicant
-	StatusNameJa string `json:"status_name_ja"`
-	SiteNameJa   string `json:"site_name_ja"`
-	UserNames    string `json:"user_names"`
+	StatusNameJa string    `json:"status_name_ja"`
+	SiteNameJa   string    `json:"site_name_ja"`
+	UserNames    string    `json:"user_names"`
+	Start        time.Time `json:"start"`
 }
 
 type ApplicantSearchRequest struct {

@@ -22,6 +22,12 @@ type IUserRepository interface {
 	Delete(tx *gorm.DB, m *model.User) error
 	// ユーザーグループ紐づけ登録
 	InsertGroupAssociation(tx *gorm.DB, m *model.UserGroupAssociation) error
+	// ユーザー予定紐づけ登録
+	InsertScheduleAssociation(tx *gorm.DB, m *model.UserScheduleAssociation) error
+	// ユーザー予定紐づけ削除
+	DeleteScheduleAssociation(tx *gorm.DB, m *model.UserScheduleAssociation) error
+	// ユーザー予定紐づけ取得_ユーザー予定ID
+	GetUserScheduleAssociationByScheduleID(m *model.UserScheduleAssociation) ([]model.UserScheduleAssociationWithName, error)
 	// ユーザー基本情報取得
 	GetUserBasicByHashKeys(hashKeys []string) ([]model.CommonModel, error)
 	// ユーザー存在確認
@@ -41,9 +47,9 @@ type IUserRepository interface {
 	// グループ登録
 	InsertGroup(tx *gorm.DB, m *model.UserGroup) (*uint, error)
 	// スケジュール登録
-	InsertSchedule(tx *gorm.DB, m *model.UserSchedule) error
+	InsertSchedule(tx *gorm.DB, m *model.UserSchedule) (*uint, error)
 	// スケジュール更新
-	UpdateSchedule(tx *gorm.DB, m *model.UserSchedule) error
+	UpdateSchedule(tx *gorm.DB, m *model.UserSchedule) (*uint, error)
 	// スケジュール一覧
 	ListSchedule() ([]model.UserScheduleResponse, error)
 	// スケジュール取得
@@ -149,6 +155,44 @@ func (u *UserRepository) InsertGroupAssociation(tx *gorm.DB, m *model.UserGroupA
 		return err
 	}
 	return nil
+}
+
+// ユーザー予定紐づけ登録
+func (u *UserRepository) InsertScheduleAssociation(tx *gorm.DB, m *model.UserScheduleAssociation) error {
+	if err := tx.Create(m).Error; err != nil {
+		log.Printf("%v", err)
+		return err
+	}
+	return nil
+}
+
+// ユーザー予定紐づけ削除
+func (u *UserRepository) DeleteScheduleAssociation(tx *gorm.DB, m *model.UserScheduleAssociation) error {
+	if err := tx.Where(&model.UserScheduleAssociation{
+		UserScheduleID: m.UserScheduleID,
+	}).Delete(&model.User{}).Error; err != nil {
+		log.Printf("%v", err)
+		return err
+	}
+	return nil
+}
+
+// ユーザー予定紐づけ取得_ユーザー予定ID
+func (u *UserRepository) GetUserScheduleAssociationByScheduleID(m *model.UserScheduleAssociation) ([]model.UserScheduleAssociationWithName, error) {
+	var l []model.UserScheduleAssociationWithName
+	if err := u.db.Model(&model.UserScheduleAssociationWithName{}).
+		Select("t_user.name as name").
+		Joins("left join t_user on t_user_schedule_association.user_id = t_user.name").
+		Where(
+			&model.UserScheduleAssociation{
+				UserScheduleID: m.UserScheduleID,
+			},
+		).Find(&l).Error; err != nil {
+		log.Printf("%v", err)
+		return nil, err
+	}
+
+	return l, nil
 }
 
 // ユーザー基本情報取得
@@ -306,16 +350,18 @@ func (u *UserRepository) InsertGroup(tx *gorm.DB, m *model.UserGroup) (*uint, er
 }
 
 // スケジュール登録
-func (u *UserRepository) InsertSchedule(tx *gorm.DB, m *model.UserSchedule) error {
+func (u *UserRepository) InsertSchedule(tx *gorm.DB, m *model.UserSchedule) (*uint, error) {
 	if err := tx.Create(m).Error; err != nil {
 		log.Printf("%v", err)
-		return err
+		return nil, err
 	}
-	return nil
+
+	id := uint(m.ID)
+	return &id, nil
 }
 
 // スケジュール更新
-func (u *UserRepository) UpdateSchedule(tx *gorm.DB, m *model.UserSchedule) error {
+func (u *UserRepository) UpdateSchedule(tx *gorm.DB, m *model.UserSchedule) (*uint, error) {
 	if err := tx.Model(&model.UserSchedule{}).Where(
 		&model.UserSchedule{
 			AbstractTransactionModel: model.AbstractTransactionModel{
@@ -324,24 +370,11 @@ func (u *UserRepository) UpdateSchedule(tx *gorm.DB, m *model.UserSchedule) erro
 		},
 	).Updates(m).Error; err != nil {
 		log.Printf("%v", err)
-		return err
+		return nil, err
 	}
 
-	if m.UserHashKeys == "" {
-
-		if err := tx.Model(&model.UserSchedule{}).Where(
-			&model.UserSchedule{
-				AbstractTransactionModel: model.AbstractTransactionModel{
-					HashKey: m.HashKey,
-				},
-			},
-		).Update("user_hash_keys", "").Error; err != nil {
-			log.Printf("%v", err)
-			return err
-		}
-	}
-
-	return nil
+	id := uint(m.ID)
+	return &id, nil
 }
 
 // スケジュール一覧

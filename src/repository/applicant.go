@@ -21,6 +21,8 @@ type IApplicantRepository interface {
 	CountByPrimaryKey(key *string) (*int64, error)
 	// 応募者取得(ハッシュキー)
 	GetByHashKey(m *model.Applicant) (*model.Applicant, error)
+	// 面接希望日取得
+	GetDesiredAt(m *model.Applicant) (*model.UserSchedule, error)
 	// Google Meet Url 格納
 	UpdateGoogleMeet(tx *gorm.DB, m *model.Applicant) error
 	// 書類登録状況更新
@@ -52,9 +54,21 @@ func (a *ApplicantRepository) Search(m *model.ApplicantSearchRequest) ([]model.A
 	var applicants []model.ApplicantWith
 
 	query := a.db.Model(&model.Applicant{}).
-		Select("t_applicant.*, m_applicant_status.status_name_ja as status_name_ja, m_site.site_name_ja as site_name_ja").
+		Select(`
+			t_applicant.name,
+			t_applicant.email,
+			t_applicant.age,
+			t_applicant.resume,
+			t_applicant.curriculum_vitae,
+			t_applicant.google_meet_url,
+			t_applicant.calendar_id,
+			m_applicant_status.status_name_ja as status_name_ja,
+			m_site.site_name_ja as site_name_ja,
+			t_user_schedule.start as start
+		`).
 		Joins("left join m_applicant_status on t_applicant.status = m_applicant_status.id").
-		Joins("left join m_site on t_applicant.site_id = m_site.id")
+		Joins("left join m_site on t_applicant.site_id = m_site.id").
+		Joins("left join t_user_schedule on t_applicant.calendar_id = t_user_schedule.id")
 
 	if len(m.SiteIDList) > 0 {
 		query = query.Where("t_applicant.site_id IN ?", m.SiteIDList)
@@ -80,9 +94,6 @@ func (a *ApplicantRepository) Search(m *model.ApplicantSearchRequest) ([]model.A
 	}
 	if m.Email != "" {
 		query = query.Where("email LIKE ?", "%"+m.Email+"%")
-	}
-	if m.Users != "" {
-		query = query.Where("users LIKE ?", "%"+m.Users+"%")
 	}
 
 	if m.SortKey != "" {
@@ -138,6 +149,26 @@ func (a *ApplicantRepository) GetByHashKey(m *model.Applicant) (*model.Applicant
 	return &res, nil
 }
 
+// 面接希望日取得
+func (a *ApplicantRepository) GetDesiredAt(m *model.Applicant) (*model.UserSchedule, error) {
+	var l model.UserSchedule
+	if err := a.db.Model(&model.UserSchedule{}).
+		Select("t_user_schedule.start, t_user_schedule.end").
+		Joins("left join t_applicant on t_applicant.calendar_id = t_user_schedule.id").
+		Where(
+			&model.Applicant{
+				AbstractTransactionModel: model.AbstractTransactionModel{
+					HashKey: m.HashKey,
+				},
+			},
+		).First(&l).Error; err != nil {
+		log.Printf("%v", err)
+		return nil, err
+	}
+
+	return &l, nil
+}
+
 // Google Meet Url 格納
 func (a *ApplicantRepository) UpdateGoogleMeet(tx *gorm.DB, m *model.Applicant) error {
 	applicant := model.Applicant{
@@ -186,9 +217,7 @@ func (a *ApplicantRepository) UpdateDocument(tx *gorm.DB, m *model.Applicant) er
 // 面接希望日更新
 func (a *ApplicantRepository) UpdateDesiredAt(tx *gorm.DB, m *model.Applicant) error {
 	applicant := model.Applicant{
-		DesiredAt:  m.DesiredAt,
 		CalendarID: m.CalendarID,
-		Users:      m.Users,
 		AbstractTransactionModel: model.AbstractTransactionModel{
 			UpdatedAt: time.Now(),
 		},
@@ -202,19 +231,6 @@ func (a *ApplicantRepository) UpdateDesiredAt(tx *gorm.DB, m *model.Applicant) e
 	).Updates(applicant).Error; err != nil {
 		log.Printf("%v", err)
 		return err
-	}
-
-	if applicant.Users == "" {
-		if err := tx.Model(&model.Applicant{}).Where(
-			&model.Applicant{
-				AbstractTransactionModel: model.AbstractTransactionModel{
-					HashKey: m.HashKey,
-				},
-			},
-		).Update("users", "").Error; err != nil {
-			log.Printf("%v", err)
-			return err
-		}
 	}
 
 	return nil

@@ -28,7 +28,6 @@ func main() {
 			&model.ApplicantStatus{},
 			&model.CalendarFreqStatus{},
 			&model.ApplyVariable{},
-			&model.ViewRoleOperation{},
 			&model.OperationLogEvent{},
 			&model.NoticeType{},
 			&model.AnalysisTerm{},
@@ -41,6 +40,7 @@ func main() {
 			&model.UserGroup{},
 			&model.UserGroupAssociation{},
 			&model.UserSchedule{},
+			&model.UserScheduleAssociation{},
 			&model.Applicant{},
 			&model.MailTemplate{},
 			&model.Variable{},
@@ -131,19 +131,6 @@ func main() {
 			log.Println(err)
 		}
 
-		// m_view_role_operation
-		if err := AddTableComment(dbConn, "m_view_role_operation", "画面操作ロールマスタ"); err != nil {
-			log.Println(err)
-		}
-		mViewRoleOperation := map[string]string{
-			"id":    "ID",
-			"name":  "操作名",
-			"roles": "操作ロール",
-		}
-		if err := AddColumnComments(dbConn, "m_view_role_operation", mViewRoleOperation); err != nil {
-			log.Println(err)
-		}
-
 		// m_operation_log_event
 		if err := AddTableComment(dbConn, "m_operation_log_event", "操作ログイベントマスタ"); err != nil {
 			log.Println(err)
@@ -229,7 +216,6 @@ func main() {
 		role := map[string]string{
 			"id":         "ID",
 			"hash_key":   "ハッシュキー",
-			"roles":      "付与ロール",
 			"company_id": "企業ID",
 			"edit_flg":   "編集可能フラグ",
 			"delete_flg": "削除可能フラグ",
@@ -269,7 +255,6 @@ func main() {
 			"id":         "ID",
 			"hash_key":   "ハッシュキー",
 			"name":       "グループ名",
-			"users":      "所属ユーザー",
 			"company_id": "企業ID",
 			"created_at": "登録日時",
 			"updated_at": "更新日時",
@@ -295,19 +280,30 @@ func main() {
 			log.Println(err)
 		}
 		userSchedule := map[string]string{
-			"id":             "ID",
-			"hash_key":       "ハッシュキー",
-			"user_hash_keys": "ハッシュキー(ユーザー)",
-			"title":          "タイトル",
-			"freq_id":        "頻度ID",
-			"interview_flg":  "面接フラグ",
-			"company_id":     "企業ID",
-			"start":          "開始時刻",
-			"end":            "終了時刻",
-			"created_at":     "登録日時",
-			"updated_at":     "更新日時",
+			"id":            "ID",
+			"hash_key":      "ハッシュキー",
+			"title":         "タイトル",
+			"freq_id":       "頻度ID",
+			"interview_flg": "面接フラグ",
+			"company_id":    "企業ID",
+			"start":         "開始時刻",
+			"end":           "終了時刻",
+			"created_at":    "登録日時",
+			"updated_at":    "更新日時",
 		}
 		if err := AddColumnComments(dbConn, "t_user_schedule", userSchedule); err != nil {
+			log.Println(err)
+		}
+
+		// t_user_schedule_association
+		if err := AddTableComment(dbConn, "t_user_schedule_association", "ユーザー予定紐づけ"); err != nil {
+			log.Println(err)
+		}
+		userScheduleAssociation := map[string]string{
+			"user_schedule_id": "ユーザー予定ID",
+			"user_id":          "ユーザーID",
+		}
+		if err := AddColumnComments(dbConn, "t_user_schedule_association", userScheduleAssociation); err != nil {
 			log.Println(err)
 		}
 
@@ -328,8 +324,6 @@ func main() {
 			"resume":           "履歴書",
 			"curriculum_vitae": "職務経歴書",
 			"google_meet_url":  "Google Meet URL",
-			"desired_at":       "希望面接日時",
-			"users":            "面接官",
 			"calendar_id":      "カレンダーID",
 			"company_id":       "企業ID",
 			"created_at":       "登録日時",
@@ -461,7 +455,6 @@ func main() {
 			&model.ApplicantStatus{},
 			&model.CalendarFreqStatus{},
 			&model.ApplyVariable{},
-			&model.ViewRoleOperation{},
 			&model.OperationLogEvent{},
 			&model.NoticeType{},
 			&model.AnalysisTerm{},
@@ -474,6 +467,7 @@ func main() {
 			&model.UserGroup{},
 			&model.UserGroupAssociation{},
 			&model.UserSchedule{},
+			&model.UserScheduleAssociation{},
 			&model.Applicant{},
 			&model.MailTemplate{},
 			&model.Variable{},
