@@ -23,8 +23,8 @@ type AbstractTransactionModel struct {
 }
 
 type AbstractTransactionFlgModel struct {
-	// 編集可能フラグ
+	// 編集保護
 	EditFlg uint `json:"edit_flg"`
-	// 削除可能フラグ
+	// 削除保護
 	DeleteFlg uint `json:"delete_flg"`
 }

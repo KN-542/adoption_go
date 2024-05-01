@@ -29,9 +29,13 @@ m_role
 type Role struct {
 	AbstractMasterModel
 	// ロール名_日本語
-	NameJa string `json:"name_ja" gorm:"unique;not null;type:varchar(20)"`
+	NameJa string `json:"name_ja" gorm:"unique;not null;type:varchar(30)"`
 	// ロール名_英語
-	NameEn string `json:"name_en" gorm:"unique;not null;type:varchar(30)"`
+	NameEn string `json:"name_en" gorm:"unique;not null;type:varchar(50)"`
+	// ロール種別
+	RoleType uint `json:"role_type"`
+	// ログイン種別(外部キー)
+	LoginType LoginType `gorm:"foreignKey:role_type;references:id"`
 }
 
 /*

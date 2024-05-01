@@ -1,6 +1,9 @@
 package model
 
-import "time"
+import (
+	"fmt"
+	"time"
+)
 
 /*
 	t_applicant
@@ -39,7 +42,9 @@ type Applicant struct {
 }
 
 func (t Applicant) TableName() string {
-	return "t_applicant"
+	year := time.Now().Year()
+	month := time.Now().Month()
+    return fmt.Sprintf("t_applicant_%d_%02d", year, month)
 }
 
 type GetOauthURLResponse struct {

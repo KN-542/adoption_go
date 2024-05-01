@@ -9,19 +9,23 @@ import "time"
 type User struct {
 	AbstractTransactionModel
 	// 氏名
-	Name string `json:"name" gorm:"unique;not null;check:name <> '';type:varchar(30);index"`
+	Name string `json:"name" gorm:"unique;not null;check:name <> '';type:varchar(75);index"`
 	// メールアドレス
-	Email string `json:"email" gorm:"unique;not null;type:varchar(50);check:email ~ '^[a-zA-Z0-9_+-]+(\\.[a-zA-Z0-9_+-]+)*@([a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]*\\.)+[a-zA-Z]{2,}$';index"`
+	Email string `json:"email" gorm:"unique;not null;type:varchar(100);check:email ~ '^[a-zA-Z0-9_+-]+(\\.[a-zA-Z0-9_+-]+)*@([a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]*\\.)+[a-zA-Z]{2,}$';index"`
 	// パスワード(ハッシュ化)
 	Password string `json:"password" gorm:"not null;check:password <> ''"`
 	// 初回パスワード(ハッシュ化)
 	InitPassword string `json:"init_password" gorm:"not null;check:init_password <> ''"`
 	// ロールID
 	RoleID uint `json:"role_id"`
+	// ユーザー種別
+	UserType uint `json:"user_type"`
 	// リフレッシュトークン
 	RefreshToken string `json:"refresh_token" gorm:"type:text"`
 	// ロール(外部キー)
 	Role CustomRole `gorm:"foreignKey:role_id;references:id"`
+	// ログイン種別(外部キー)
+	LoginType LoginType `gorm:"foreignKey:user_type;references:id"`
 }
 
 /*

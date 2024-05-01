@@ -5,9 +5,12 @@ import (
 	"api/src/model"
 	"api/src/model/enum"
 	"api/src/repository"
+	"api/src/service"
 	"flag"
 	"fmt"
 	"log"
+	"os"
+	"time"
 
 	"gorm.io/gorm"
 )
@@ -36,6 +39,7 @@ func main() {
 			// t
 			&model.Company{},
 			&model.CustomRole{},
+			&model.RoleAssociation{},
 			&model.User{},
 			&model.UserGroup{},
 			&model.UserGroupAssociation{},
@@ -72,9 +76,10 @@ func main() {
 			log.Println(err)
 		}
 		mRole := map[string]string{
-			"id":      "ID",
-			"name_ja": "ロール名_日本語",
-			"name_en": "ロール名_英語",
+			"id":        "ID",
+			"name_ja":   "ロール名_日本語",
+			"name_en":   "ロール名_英語",
+			"role_type": "ロール種別",
 		}
 		if err := AddColumnComments(dbConn, "m_role", mRole); err != nil {
 			log.Println(err)
@@ -216,13 +221,26 @@ func main() {
 		role := map[string]string{
 			"id":         "ID",
 			"hash_key":   "ハッシュキー",
+			"name":       "ロール名",
 			"company_id": "企業ID",
-			"edit_flg":   "編集可能フラグ",
-			"delete_flg": "削除可能フラグ",
+			"edit_flg":   "編集保護",
+			"delete_flg": "削除保護",
 			"created_at": "登録日時",
 			"updated_at": "更新日時",
 		}
 		if err := AddColumnComments(dbConn, "t_role", role); err != nil {
+			log.Println(err)
+		}
+
+		// t_role_association
+		if err := AddTableComment(dbConn, "t_role_association", "付与ロール"); err != nil {
+			log.Println(err)
+		}
+		roleAssociation := map[string]string{
+			"role_id":        "ロールID",
+			"master_role_id": "マスターロールID",
+		}
+		if err := AddColumnComments(dbConn, "t_role_association", roleAssociation); err != nil {
 			log.Println(err)
 		}
 
@@ -238,6 +256,7 @@ func main() {
 			"password":      "パスワード(ハッシュ化)",
 			"init_password": "初回パスワード(ハッシュ化)",
 			"role_id":       "ロールID",
+			"user_type":     "ユーザー種別",
 			"refresh_token": "リフレッシュトークン",
 			"company_id":    "企業ID",
 			"created_at":    "登録日時",
@@ -308,7 +327,13 @@ func main() {
 		}
 
 		// t_applicant
-		if err := AddTableComment(dbConn, "t_applicant", "応募者"); err != nil {
+		year := time.Now().Year()
+		month := time.Now().Month()
+		if err := AddTableComment(
+			dbConn,
+			fmt.Sprintf("t_applicant_%d_%02d", year, month),
+			fmt.Sprintf("応募者_%d_%02d", year, month),
+		); err != nil {
 			log.Println(err)
 		}
 		applicant := map[string]string{
@@ -329,7 +354,7 @@ func main() {
 			"created_at":       "登録日時",
 			"updated_at":       "更新日時",
 		}
-		if err := AddColumnComments(dbConn, "t_applicant", applicant); err != nil {
+		if err := AddColumnComments(dbConn, fmt.Sprintf("t_applicant_%d_%02d", year, month), applicant); err != nil {
 			log.Println(err)
 		}
 
@@ -345,8 +370,8 @@ func main() {
 			"template":   "テンプレート",
 			"desc":       "説明",
 			"company_id": "企業ID",
-			"edit_flg":   "編集可能フラグ",
-			"delete_flg": "削除可能フラグ",
+			"edit_flg":   "編集保護",
+			"delete_flg": "削除保護",
 			"created_at": "登録日時",
 			"updated_at": "更新日時",
 		}
@@ -364,8 +389,8 @@ func main() {
 			"title":      "変数タイトル",
 			"json_name":  "変数格納Json名",
 			"company_id": "企業ID",
-			"edit_flg":   "編集可能フラグ",
-			"delete_flg": "削除可能フラグ",
+			"edit_flg":   "編集保護",
+			"delete_flg": "削除保護",
 			"created_at": "登録日時",
 			"updated_at": "更新日時",
 		}
@@ -384,8 +409,8 @@ func main() {
 			"title":       "メールプレビュー名",
 			"desc":        "説明",
 			"company_id":  "企業ID",
-			"edit_flg":    "編集可能フラグ",
-			"delete_flg":  "削除可能フラグ",
+			"edit_flg":    "編集保護",
+			"delete_flg":  "削除保護",
 			"created_at":  "登録日時",
 			"updated_at":  "更新日時",
 		}
@@ -463,6 +488,7 @@ func main() {
 			// t
 			&model.Company{},
 			&model.CustomRole{},
+			&model.RoleAssociation{},
 			&model.User{},
 			&model.UserGroup{},
 			&model.UserGroupAssociation{},
@@ -494,411 +520,410 @@ func AddColumnComments(db *gorm.DB, tableName string, comments map[string]string
 	return nil
 }
 
-// 初期マスタデータ作成
+// 初期データ作成
 func CreateData(db *gorm.DB) {
-	r := repository.NewMasterRepository(db)
+	master := repository.NewMasterRepository(db)
+	admin := repository.NewAdminRepository(db)
+	role := repository.NewRoleRepository(db)
+	user := repository.NewUserRepository(db)
+
+	tx := db.Begin()
+	if err := tx.Error; err != nil {
+		log.Printf("%v", err)
+		return
+	}
+
+	// m_login_type
+	loginTypes := []*model.LoginType{
+		{
+			AbstractMasterModel: model.AbstractMasterModel{
+				ID: uint(enum.LOGIN_TYPE_ADMIN),
+			},
+			Type: "システム管理者",
+			Path: "admin",
+		},
+		{
+			AbstractMasterModel: model.AbstractMasterModel{
+				ID: uint(enum.LOGIN_TYPE_MANAGEMENT),
+			},
+			Type: "一般",
+			Path: "management",
+		},
+	}
+	for _, row := range loginTypes {
+		if err := master.InsertLoginType(tx, row); err != nil {
+			if err := tx.Rollback().Error; err != nil {
+				log.Printf("%v", err)
+				return
+			}
+			return
+		}
+	}
 
 	// m_site
-	r.InsertSite(
-		&model.Site{
+	sites := []*model.Site{
+		{
 			AbstractMasterModel: model.AbstractMasterModel{
 				ID: uint(enum.RECRUIT),
 			},
 			SiteName: "リクナビNEXT",
 		},
-	)
-	r.InsertSite(
-		&model.Site{
+		{
 			AbstractMasterModel: model.AbstractMasterModel{
 				ID: uint(enum.MYNAVI),
 			},
 			SiteName: "マイナビ",
 		},
-	)
-	r.InsertSite(
-		&model.Site{
+		{
 			AbstractMasterModel: model.AbstractMasterModel{
 				ID: uint(enum.DODA),
 			},
 			SiteName: "DODA",
 		},
-	)
-	r.InsertSite(
-		&model.Site{
+		{
 			AbstractMasterModel: model.AbstractMasterModel{
 				ID: uint(enum.OTHER),
 			},
 			SiteName: "その他",
 		},
-	)
+	}
+	for _, row := range sites {
+		if err := master.InsertSite(tx, row); err != nil {
+			if err := tx.Rollback().Error; err != nil {
+				log.Printf("%v", err)
+				return
+			}
+			return
+		}
+	}
 
 	// m_role
-	r.InsertRole(
-		&model.Role{
+	roles := []*model.Role{
+		// admin_ロール関連
+		{
 			AbstractMasterModel: model.AbstractMasterModel{
-				ID: 1,
+				ID: uint(enum.ROLE_ADMIN_ROLE_CREATE),
 			},
-			NameJa: "最高責任者",
-			NameEn: "Admin",
+			NameJa:   "システム管理者ロール作成",
+			NameEn:   "AdminRoleCreate",
+			RoleType: uint(enum.LOGIN_TYPE_ADMIN),
 		},
-	)
-	r.InsertRole(
-		&model.Role{
+		{
 			AbstractMasterModel: model.AbstractMasterModel{
-				ID: 2,
+				ID: uint(enum.ROLE_ADMIN_ROLE_READ),
 			},
-			NameJa: "面接官",
-			NameEn: "Interviewer",
+			NameJa:   "システム管理者ロール閲覧",
+			NameEn:   "AdminRoleRead",
+			RoleType: uint(enum.LOGIN_TYPE_ADMIN),
 		},
-	)
-
-	// m_applicant_status
-	r.InsertApplicantStatus(
-		&model.ApplicantStatus{
+		{
 			AbstractMasterModel: model.AbstractMasterModel{
-				ID: uint(enum.SCHEDULE_UNANSWERED),
+				ID: uint(enum.ROLE_ADMIN_ROLE_DETAIL_READ),
 			},
-			StatusNameJa: "日程未回答",
-			StatusNameEn: "Schedule Unanswered",
+			NameJa:   "システム管理者ロール詳細閲覧",
+			NameEn:   "AdminRoleDetailRead",
+			RoleType: uint(enum.LOGIN_TYPE_ADMIN),
 		},
-	)
-	r.InsertApplicantStatus(
-		&model.ApplicantStatus{
+		{
 			AbstractMasterModel: model.AbstractMasterModel{
-				ID: uint(enum.BOOK_CATEGORY_NOT_PRESENTED),
+				ID: uint(enum.ROLE_ADMIN_ROLE_EDIT),
 			},
-			StatusNameJa: "書類未提出",
-			StatusNameEn: "Document Not Submitted",
+			NameJa:   "システム管理者ロール編集",
+			NameEn:   "AdminRoleEdit",
+			RoleType: uint(enum.LOGIN_TYPE_ADMIN),
 		},
-	)
-	r.InsertApplicantStatus(
-		&model.ApplicantStatus{
+		{
 			AbstractMasterModel: model.AbstractMasterModel{
-				ID: uint(enum.INTERVIEW_1),
+				ID: uint(enum.ROLE_ADMIN_ROLE_DELETE),
 			},
-			StatusNameJa: "1次面接",
-			StatusNameEn: "First Interview",
+			NameJa:   "システム管理者ロール削除",
+			NameEn:   "AdminRoleDelete",
+			RoleType: uint(enum.LOGIN_TYPE_ADMIN),
 		},
-	)
-	r.InsertApplicantStatus(
-		&model.ApplicantStatus{
+		{
 			AbstractMasterModel: model.AbstractMasterModel{
-				ID: uint(enum.INTERVIEW_2),
+				ID: uint(enum.ROLE_ADMIN_ROLE_ASSIGN),
 			},
-			StatusNameJa: "2次面接",
-			StatusNameEn: "Second Interview",
+			NameJa:   "システム管理者ロール変更",
+			NameEn:   "AdminRoleAssign",
+			RoleType: uint(enum.LOGIN_TYPE_ADMIN),
 		},
-	)
-	r.InsertApplicantStatus(
-		&model.ApplicantStatus{
+		// admin_企業関連
+		{
 			AbstractMasterModel: model.AbstractMasterModel{
-				ID: uint(enum.INTERVIEW_3),
+				ID: uint(enum.ROLE_ADMIN_COMPANY_CREATE),
 			},
-			StatusNameJa: "3次面接",
-			StatusNameEn: "Third Interview",
+			NameJa:   "システム管理者企業作成",
+			NameEn:   "AdminCompanyCreate",
+			RoleType: uint(enum.LOGIN_TYPE_ADMIN),
 		},
-	)
-	r.InsertApplicantStatus(
-		&model.ApplicantStatus{
+		{
 			AbstractMasterModel: model.AbstractMasterModel{
-				ID: uint(enum.INTERVIEW_4),
+				ID: uint(enum.ROLE_ADMIN_COMPANY_READ),
 			},
-			StatusNameJa: "4次面接",
-			StatusNameEn: "Fourth Interview",
+			NameJa:   "システム管理者企業閲覧",
+			NameEn:   "AdminCompanyRead",
+			RoleType: uint(enum.LOGIN_TYPE_ADMIN),
 		},
-	)
-	r.InsertApplicantStatus(
-		&model.ApplicantStatus{
+		{
 			AbstractMasterModel: model.AbstractMasterModel{
-				ID: uint(enum.INTERVIEW_5),
+				ID: uint(enum.ROLE_ADMIN_COMPANY_DETAIL_READ),
 			},
-			StatusNameJa: "5次面接",
-			StatusNameEn: "Fifth Interview",
+			NameJa:   "システム管理者企業詳細閲覧",
+			NameEn:   "AdminCompanyDetailRead",
+			RoleType: uint(enum.LOGIN_TYPE_ADMIN),
 		},
-	)
-	r.InsertApplicantStatus(
-		&model.ApplicantStatus{
+		{
 			AbstractMasterModel: model.AbstractMasterModel{
-				ID: uint(enum.INTERVIEW_6),
+				ID: uint(enum.ROLE_ADMIN_COMPANY_EDIT),
 			},
-			StatusNameJa: "6次面接",
-			StatusNameEn: "Sixth Interview",
+			NameJa:   "システム管理者企業編集",
+			NameEn:   "AdminCompanyEdit",
+			RoleType: uint(enum.LOGIN_TYPE_ADMIN),
 		},
-	)
-	r.InsertApplicantStatus(
-		&model.ApplicantStatus{
+		{
 			AbstractMasterModel: model.AbstractMasterModel{
-				ID: uint(enum.INTERVIEW_7),
+				ID: uint(enum.ROLE_ADMIN_COMPANY_DELETE),
 			},
-			StatusNameJa: "7次面接",
-			StatusNameEn: "Seventh Interview",
+			NameJa:   "システム管理者企業削除",
+			NameEn:   "AdminCompanyDelete",
+			RoleType: uint(enum.LOGIN_TYPE_ADMIN),
 		},
-	)
-	r.InsertApplicantStatus(
-		&model.ApplicantStatus{
+		// management_ロール関連
+		{
 			AbstractMasterModel: model.AbstractMasterModel{
-				ID: uint(enum.INTERVIEW_8),
+				ID: uint(enum.ROLE_MANAGEMENT_ROLE_CREATE),
 			},
-			StatusNameJa: "8次面接",
-			StatusNameEn: "Eighth Interview",
+			NameJa:   "管理者ロール作成",
+			NameEn:   "ManagementRoleCreate",
+			RoleType: uint(enum.LOGIN_TYPE_MANAGEMENT),
 		},
-	)
-	r.InsertApplicantStatus(
-		&model.ApplicantStatus{
+		{
 			AbstractMasterModel: model.AbstractMasterModel{
-				ID: uint(enum.INTERVIEW_9),
+				ID: uint(enum.ROLE_MANAGEMENT_ROLE_READ),
 			},
-			StatusNameJa: "9次面接",
-			StatusNameEn: "Ninth Interview",
+			NameJa:   "管理者ロール閲覧",
+			NameEn:   "ManagementRoleRead",
+			RoleType: uint(enum.LOGIN_TYPE_MANAGEMENT),
 		},
-	)
-	r.InsertApplicantStatus(
-		&model.ApplicantStatus{
+		{
 			AbstractMasterModel: model.AbstractMasterModel{
-				ID: uint(enum.INTERVIEW_10),
+				ID: uint(enum.ROLE_MANAGEMENT_ROLE_DETAIL_READ),
 			},
-			StatusNameJa: "10次面接",
-			StatusNameEn: "Tenth Interview",
+			NameJa:   "管理者ロール詳細閲覧",
+			NameEn:   "ManagementRoleDetailRead",
+			RoleType: uint(enum.LOGIN_TYPE_MANAGEMENT),
 		},
-	)
-	r.InsertApplicantStatus(
-		&model.ApplicantStatus{
+		{
 			AbstractMasterModel: model.AbstractMasterModel{
-				ID: uint(enum.TASK_AFTER_INTERVIEW_1),
+				ID: uint(enum.ROLE_MANAGEMENT_ROLE_EDIT),
 			},
-			StatusNameJa: "1次面接後課題",
-			StatusNameEn: "Task After First Interview",
+			NameJa:   "管理者ロール編集",
+			NameEn:   "ManagementRoleEdit",
+			RoleType: uint(enum.LOGIN_TYPE_MANAGEMENT),
 		},
-	)
-	r.InsertApplicantStatus(
-		&model.ApplicantStatus{
+		{
 			AbstractMasterModel: model.AbstractMasterModel{
-				ID: uint(enum.TASK_AFTER_INTERVIEW_2),
+				ID: uint(enum.ROLE_MANAGEMENT_ROLE_DELETE),
 			},
-			StatusNameJa: "2次面接後課題",
-			StatusNameEn: "Task After Second Interview",
+			NameJa:   "管理者ロール削除",
+			NameEn:   "ManagementRoleDelete",
+			RoleType: uint(enum.LOGIN_TYPE_MANAGEMENT),
 		},
-	)
-	r.InsertApplicantStatus(
-		&model.ApplicantStatus{
+		{
 			AbstractMasterModel: model.AbstractMasterModel{
-				ID: uint(enum.TASK_AFTER_INTERVIEW_3),
+				ID: uint(enum.ROLE_MANAGEMENT_ROLE_ASSIGN),
 			},
-			StatusNameJa: "3次面接後課題",
-			StatusNameEn: "Task After Third Interview",
+			NameJa:   "管理者ロール割振",
+			NameEn:   "ManagementRoleAssign",
+			RoleType: uint(enum.LOGIN_TYPE_MANAGEMENT),
 		},
-	)
-	r.InsertApplicantStatus(
-		&model.ApplicantStatus{
+		// management_ユーザー関連
+		{
 			AbstractMasterModel: model.AbstractMasterModel{
-				ID: uint(enum.TASK_AFTER_INTERVIEW_4),
+				ID: uint(enum.ROLE_MANAGEMENT_USER_CREATE),
 			},
-			StatusNameJa: "4次面接後課題",
-			StatusNameEn: "Task After Fourth Interview",
+			NameJa:   "管理者ユーザー作成",
+			NameEn:   "ManagementUserCreate",
+			RoleType: uint(enum.LOGIN_TYPE_MANAGEMENT),
 		},
-	)
-	r.InsertApplicantStatus(
-		&model.ApplicantStatus{
+		{
 			AbstractMasterModel: model.AbstractMasterModel{
-				ID: uint(enum.TASK_AFTER_INTERVIEW_5),
+				ID: uint(enum.ROLE_MANAGEMENT_USER_READ),
 			},
-			StatusNameJa: "5次面接後課題",
-			StatusNameEn: "Task After Fifth Interview",
+			NameJa:   "管理者ユーザー閲覧",
+			NameEn:   "ManagementUserRead",
+			RoleType: uint(enum.LOGIN_TYPE_MANAGEMENT),
 		},
-	)
-	r.InsertApplicantStatus(
-		&model.ApplicantStatus{
+		{
 			AbstractMasterModel: model.AbstractMasterModel{
-				ID: uint(enum.TASK_AFTER_INTERVIEW_6),
+				ID: uint(enum.ROLE_MANAGEMENT_USER_DETAIL_READ),
 			},
-			StatusNameJa: "6次面接後課題",
-			StatusNameEn: "Task After Sixth Interview",
+			NameJa:   "管理者ユーザー詳細閲覧",
+			NameEn:   "ManagementUserDetailRead",
+			RoleType: uint(enum.LOGIN_TYPE_MANAGEMENT),
 		},
-	)
-	r.InsertApplicantStatus(
-		&model.ApplicantStatus{
+		{
 			AbstractMasterModel: model.AbstractMasterModel{
-				ID: uint(enum.TASK_AFTER_INTERVIEW_7),
+				ID: uint(enum.ROLE_MANAGEMENT_USER_EDIT),
 			},
-			StatusNameJa: "7次面接後課題",
-			StatusNameEn: "Task After Seventh Interview",
+			NameJa:   "管理者ユーザー編集",
+			NameEn:   "ManagementUserEdit",
+			RoleType: uint(enum.LOGIN_TYPE_MANAGEMENT),
 		},
-	)
-	r.InsertApplicantStatus(
-		&model.ApplicantStatus{
+		{
 			AbstractMasterModel: model.AbstractMasterModel{
-				ID: uint(enum.TASK_AFTER_INTERVIEW_8),
+				ID: uint(enum.ROLE_MANAGEMENT_USER_DELETE),
 			},
-			StatusNameJa: "8次面接後課題",
-			StatusNameEn: "Task After Eighth Interview",
+			NameJa:   "管理者ユーザー削除",
+			NameEn:   "ManagementUserDelete",
+			RoleType: uint(enum.LOGIN_TYPE_MANAGEMENT),
 		},
-	)
-	r.InsertApplicantStatus(
-		&model.ApplicantStatus{
+		// management_チーム関連
+		{
 			AbstractMasterModel: model.AbstractMasterModel{
-				ID: uint(enum.TASK_AFTER_INTERVIEW_9),
+				ID: uint(enum.ROLE_MANAGEMENT_TEAM_CREATE),
 			},
-			StatusNameJa: "9次面接後課題",
-			StatusNameEn: "Task After Ninth Interview",
+			NameJa:   "管理者チーム作成",
+			NameEn:   "ManagementTeamCreate",
+			RoleType: uint(enum.LOGIN_TYPE_MANAGEMENT),
 		},
-	)
-	r.InsertApplicantStatus(
-		&model.ApplicantStatus{
+		{
 			AbstractMasterModel: model.AbstractMasterModel{
-				ID: uint(enum.TASK_AFTER_INTERVIEW_10),
+				ID: uint(enum.ROLE_MANAGEMENT_TEAM_READ),
 			},
-			StatusNameJa: "10次面接後課題",
-			StatusNameEn: "Task After Tenth Interview",
+			NameJa:   "管理者チーム閲覧",
+			NameEn:   "ManagementTeamRead",
+			RoleType: uint(enum.LOGIN_TYPE_MANAGEMENT),
 		},
-	)
-	r.InsertApplicantStatus(
-		&model.ApplicantStatus{
+		{
 			AbstractMasterModel: model.AbstractMasterModel{
-				ID: uint(enum.Failing_TO_PASS_INTERVIEW_1),
+				ID: uint(enum.ROLE_MANAGEMENT_TEAM_DETAIL_READ),
 			},
-			StatusNameJa: "1次面接落ち",
-			StatusNameEn: "Failed First Interview",
+			NameJa:   "管理者チーム詳細閲覧",
+			NameEn:   "ManagementTeamDetailRead",
+			RoleType: uint(enum.LOGIN_TYPE_MANAGEMENT),
 		},
-	)
-	r.InsertApplicantStatus(
-		&model.ApplicantStatus{
+		{
 			AbstractMasterModel: model.AbstractMasterModel{
-				ID: uint(enum.Failing_TO_PASS_INTERVIEW_2),
+				ID: uint(enum.ROLE_MANAGEMENT_TEAM_EDIT),
 			},
-			StatusNameJa: "2次面接落ち",
-			StatusNameEn: "Failed Second Interview",
+			NameJa:   "管理者チーム編集",
+			NameEn:   "ManagementTeamEdit",
+			RoleType: uint(enum.LOGIN_TYPE_MANAGEMENT),
 		},
-	)
-	r.InsertApplicantStatus(
-		&model.ApplicantStatus{
+		{
 			AbstractMasterModel: model.AbstractMasterModel{
-				ID: uint(enum.Failing_TO_PASS_INTERVIEW_3),
+				ID: uint(enum.ROLE_MANAGEMENT_TEAM_DELETE),
 			},
-			StatusNameJa: "3次面接落ち",
-			StatusNameEn: "Failed Third Interview",
+			NameJa:   "管理者チーム削除",
+			NameEn:   "ManagementTeamDelete",
+			RoleType: uint(enum.LOGIN_TYPE_MANAGEMENT),
 		},
-	)
-	r.InsertApplicantStatus(
-		&model.ApplicantStatus{
+		// management_カレンダー関連
+		{
 			AbstractMasterModel: model.AbstractMasterModel{
-				ID: uint(enum.Failing_TO_PASS_INTERVIEW_4),
+				ID: uint(enum.ROLE_MANAGEMENT_CALENDAR_CREATE),
 			},
-			StatusNameJa: "4次面接落ち",
-			StatusNameEn: "Failed Fourth Interview",
+			NameJa:   "管理者カレンダー作成",
+			NameEn:   "ManagementCalendarCreate",
+			RoleType: uint(enum.LOGIN_TYPE_MANAGEMENT),
 		},
-	)
-	r.InsertApplicantStatus(
-		&model.ApplicantStatus{
+		{
 			AbstractMasterModel: model.AbstractMasterModel{
-				ID: uint(enum.Failing_TO_PASS_INTERVIEW_5),
+				ID: uint(enum.ROLE_MANAGEMENT_CALENDAR_READ),
 			},
-			StatusNameJa: "5次面接落ち",
-			StatusNameEn: "Failed Fifth Interview",
+			NameJa:   "管理者カレンダー閲覧",
+			NameEn:   "ManagementCalendarRead",
+			RoleType: uint(enum.LOGIN_TYPE_MANAGEMENT),
 		},
-	)
-	r.InsertApplicantStatus(
-		&model.ApplicantStatus{
+		{
 			AbstractMasterModel: model.AbstractMasterModel{
-				ID: uint(enum.Failing_TO_PASS_INTERVIEW_6),
+				ID: uint(enum.ROLE_MANAGEMENT_CALENDAR_DETAIL_READ),
 			},
-			StatusNameJa: "6次面接落ち",
-			StatusNameEn: "Failed Sixth Interview",
+			NameJa:   "管理者カレンダー詳細閲覧",
+			NameEn:   "ManagementCalendarDetailRead",
+			RoleType: uint(enum.LOGIN_TYPE_MANAGEMENT),
 		},
-	)
-	r.InsertApplicantStatus(
-		&model.ApplicantStatus{
+		{
 			AbstractMasterModel: model.AbstractMasterModel{
-				ID: uint(enum.Failing_TO_PASS_INTERVIEW_7),
+				ID: uint(enum.ROLE_MANAGEMENT_CALENDAR_EDIT),
 			},
-			StatusNameJa: "7次面接落ち",
-			StatusNameEn: "Failed Seventh Interview",
+			NameJa:   "管理者カレンダー編集",
+			NameEn:   "ManagementCalendarEdit",
+			RoleType: uint(enum.LOGIN_TYPE_MANAGEMENT),
 		},
-	)
-	r.InsertApplicantStatus(
-		&model.ApplicantStatus{
+		{
 			AbstractMasterModel: model.AbstractMasterModel{
-				ID: uint(enum.Failing_TO_PASS_INTERVIEW_8),
+				ID: uint(enum.ROLE_MANAGEMENT_CALENDAR_DELETE),
 			},
-			StatusNameJa: "8次面接落ち",
-			StatusNameEn: "Failed Eighth Interview",
+			NameJa:   "管理者カレンダー削除",
+			NameEn:   "ManagementCalendarDelete",
+			RoleType: uint(enum.LOGIN_TYPE_MANAGEMENT),
 		},
-	)
-	r.InsertApplicantStatus(
-		&model.ApplicantStatus{
+		// management_応募者関連
+		{
 			AbstractMasterModel: model.AbstractMasterModel{
-				ID: uint(enum.Failing_TO_PASS_INTERVIEW_9),
+				ID: uint(enum.ROLE_MANAGEMENT_APPLICANT_CREATE),
 			},
-			StatusNameJa: "9次面接落ち",
-			StatusNameEn: "Failed Ninth Interview",
+			NameJa:   "管理者応募者作成",
+			NameEn:   "ManagementApplicantCreate",
+			RoleType: uint(enum.LOGIN_TYPE_MANAGEMENT),
 		},
-	)
-	r.InsertApplicantStatus(
-		&model.ApplicantStatus{
+		{
 			AbstractMasterModel: model.AbstractMasterModel{
-				ID: uint(enum.Failing_TO_PASS_INTERVIEW_10),
+				ID: uint(enum.ROLE_MANAGEMENT_APPLICANT_READ),
 			},
-			StatusNameJa: "10次面接落ち",
-			StatusNameEn: "Failed Tenth Interview",
+			NameJa:   "管理者応募者閲覧",
+			NameEn:   "ManagementApplicantRead",
+			RoleType: uint(enum.LOGIN_TYPE_MANAGEMENT),
 		},
-	)
-	r.InsertApplicantStatus(
-		&model.ApplicantStatus{
+		{
 			AbstractMasterModel: model.AbstractMasterModel{
-				ID: uint(enum.OFFER),
+				ID: uint(enum.ROLE_MANAGEMENT_APPLICANT_DETAIL_READ),
 			},
-			StatusNameJa: "内定",
-			StatusNameEn: "Offer",
+			NameJa:   "管理者応募者詳細閲覧",
+			NameEn:   "ManagementApplicantDetailRead",
+			RoleType: uint(enum.LOGIN_TYPE_MANAGEMENT),
 		},
-	)
-	r.InsertApplicantStatus(
-		&model.ApplicantStatus{
+		{
 			AbstractMasterModel: model.AbstractMasterModel{
-				ID: uint(enum.OFFER_COMMITMENT),
+				ID: uint(enum.ROLE_MANAGEMENT_APPLICANT_DOWNLOAD),
 			},
-			StatusNameJa: "内定承諾",
-			StatusNameEn: "Offer Commitment",
+			NameJa:   "管理者応募者ダウンロード",
+			NameEn:   "ManagementApplicantDownload",
+			RoleType: uint(enum.LOGIN_TYPE_MANAGEMENT),
 		},
-	)
-	r.InsertApplicantStatus(
-		&model.ApplicantStatus{
+		{
 			AbstractMasterModel: model.AbstractMasterModel{
-				ID: uint(enum.Failing_TO_PASS_DOCUMENTS),
+				ID: uint(enum.ROLE_MANAGEMENT_APPLICANT_CREATE_MEET_URL),
 			},
-			StatusNameJa: "書類選考落ち",
-			StatusNameEn: "Failed Document Screening",
+			NameJa:   "管理者面接URL作成",
+			NameEn:   "ManagementApplicantCreateMeetURL",
+			RoleType: uint(enum.LOGIN_TYPE_MANAGEMENT),
 		},
-	)
-	r.InsertApplicantStatus(
-		&model.ApplicantStatus{
+		{
 			AbstractMasterModel: model.AbstractMasterModel{
-				ID: uint(enum.WITHDRAWAL),
+				ID: uint(enum.ROLE_MANAGEMENT_APPLICANT_ASSIGN_USER),
 			},
-			StatusNameJa: "選考辞退",
-			StatusNameEn: "Withdrawal from Selection",
+			NameJa:   "管理者応募者割振",
+			NameEn:   "ManagementApplicantAssignUser",
+			RoleType: uint(enum.LOGIN_TYPE_MANAGEMENT),
 		},
-	)
-	r.InsertApplicantStatus(
-		&model.ApplicantStatus{
-			AbstractMasterModel: model.AbstractMasterModel{
-				ID: uint(enum.OFFER_DISMISSAL),
-			},
-			StatusNameJa: "内定辞退",
-			StatusNameEn: "Offer Rejection",
-		},
-	)
-	r.InsertApplicantStatus(
-		&model.ApplicantStatus{
-			AbstractMasterModel: model.AbstractMasterModel{
-				ID: uint(enum.OFFER_COMMITMENT_DISMISSAL),
-			},
-			StatusNameJa: "内定承諾後辞退",
-			StatusNameEn: "Post-Acceptance Withdrawal",
-		},
-	)
+	}
+	for _, row := range roles {
+		if err := master.InsertRole(tx, row); err != nil {
+			if err := tx.Rollback().Error; err != nil {
+				log.Printf("%v", err)
+				return
+			}
+			return
+		}
+	}
 
 	// m_calendar_freq_status
-	r.InsertCalendarFreqStatus(
-		&model.CalendarFreqStatus{
+	calendarFreqStatus := []*model.CalendarFreqStatus{
+		{
 			AbstractMasterModel: model.AbstractMasterModel{
 				ID: uint(enum.FREQ_NONE),
 			},
@@ -906,9 +931,7 @@ func CreateData(db *gorm.DB) {
 			NameJa: "なし",
 			NameEn: "None",
 		},
-	)
-	r.InsertCalendarFreqStatus(
-		&model.CalendarFreqStatus{
+		{
 			AbstractMasterModel: model.AbstractMasterModel{
 				ID: uint(enum.FREQ_DAILY),
 			},
@@ -916,9 +939,7 @@ func CreateData(db *gorm.DB) {
 			NameJa: "毎日",
 			NameEn: "Daily",
 		},
-	)
-	r.InsertCalendarFreqStatus(
-		&model.CalendarFreqStatus{
+		{
 			AbstractMasterModel: model.AbstractMasterModel{
 				ID: uint(enum.FREQ_WEEKLY),
 			},
@@ -926,9 +947,7 @@ func CreateData(db *gorm.DB) {
 			NameJa: "毎週",
 			NameEn: "Weekly",
 		},
-	)
-	r.InsertCalendarFreqStatus(
-		&model.CalendarFreqStatus{
+		{
 			AbstractMasterModel: model.AbstractMasterModel{
 				ID: uint(enum.FREQ_MONTHLY),
 			},
@@ -936,9 +955,7 @@ func CreateData(db *gorm.DB) {
 			NameJa: "毎月",
 			NameEn: "Monthly",
 		},
-	)
-	r.InsertCalendarFreqStatus(
-		&model.CalendarFreqStatus{
+		{
 			AbstractMasterModel: model.AbstractMasterModel{
 				ID: uint(enum.FREQ_YEARLY),
 			},
@@ -946,5 +963,109 @@ func CreateData(db *gorm.DB) {
 			NameJa: "毎年",
 			NameEn: "Yearly",
 		},
-	)
+	}
+	for _, row := range calendarFreqStatus {
+		if err := master.InsertCalendarFreqStatus(tx, row); err != nil {
+			if err := tx.Rollback().Error; err != nil {
+				log.Printf("%v", err)
+				return
+			}
+			return
+		}
+	}
+
+	// t_company
+	companies := []*model.Company{
+		{
+			Name: "管理者",
+		},
+	}
+	for _, row := range companies {
+		_, hash, _ := service.GenerateHash(1, 25)
+		row.HashKey = string(enum.PRE_COMPANY) + "_" + *hash
+
+		if err := admin.InsertCompany(tx, row); err != nil {
+			if err := tx.Rollback().Error; err != nil {
+				log.Printf("%v", err)
+				return
+			}
+			return
+		}
+	}
+
+	// t_role
+	customRoles := []*model.CustomRole{
+		{
+			AbstractTransactionModel: model.AbstractTransactionModel{
+				CompanyID: 1,
+			},
+			AbstractTransactionFlgModel: model.AbstractTransactionFlgModel{
+				EditFlg:   uint(enum.ON),
+				DeleteFlg: uint(enum.ON),
+			},
+			Name: "Initial full-rights role (name change recommended)",
+		},
+	}
+	for _, row := range customRoles {
+		_, hash, _ := service.GenerateHash(1, 25)
+		row.HashKey = string(enum.PRE_ROLE) + "_" + *hash
+
+		if err := role.Insert(tx, row); err != nil {
+			if err := tx.Rollback().Error; err != nil {
+				log.Printf("%v", err)
+				return
+			}
+			return
+		}
+	}
+
+	// t_role_association
+	for _, row := range roles {
+		if row.RoleType == uint(enum.LOGIN_TYPE_ADMIN) {
+			if err := role.InsertAssociation(tx, &model.RoleAssociation{
+				RoleID:       1,
+				MasterRoleID: row.ID,
+			}); err != nil {
+				if err := tx.Rollback().Error; err != nil {
+					log.Printf("%v", err)
+					return
+				}
+				return
+			}
+		}
+	}
+
+	// t_user
+	users := []*model.User{
+		{
+			AbstractTransactionModel: model.AbstractTransactionModel{
+				CompanyID: 1,
+			},
+			Name:     "Initial user (name change recommended)",
+			Email: os.Getenv("INIT_USER_EMAIL"),
+			RoleID:   1,
+			UserType: uint(enum.LOGIN_TYPE_ADMIN),
+		},
+	}
+	for index, row := range users {
+		password, hashPassword, _ := service.GenerateHash(8, 16)
+		_, hash, _ := service.GenerateHash(1, 25)
+		row.HashKey = string(enum.PRE_USER) + "_" + *hash
+		row.Password = *hashPassword
+		row.InitPassword = *hashPassword
+
+		if err := user.Insert(tx, row); err != nil {
+			if err := tx.Rollback().Error; err != nil {
+				log.Printf("%v", err)
+				return
+			}
+			return
+		}
+		log.Printf("init password for user%v: %v", index+1, *password)
+	}
+
+	if err := tx.Commit().Error; err != nil {
+		log.Printf("%v", err)
+		return
+	}
 }

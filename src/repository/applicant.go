@@ -36,11 +36,11 @@ type ApplicantRepository struct {
 	redis *redis.Client
 }
 
-// 登録
 func NewApplicantRepository(db *gorm.DB, redis *redis.Client) IApplicantRepository {
 	return &ApplicantRepository{db, redis}
 }
 
+// 登録
 func (a *ApplicantRepository) Insert(tx *gorm.DB, applicant *model.Applicant) error {
 	if err := tx.Create(applicant).Error; err != nil {
 		log.Printf("%v", err)
