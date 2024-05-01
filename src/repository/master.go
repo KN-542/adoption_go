@@ -9,10 +9,15 @@ import (
 
 type IMasterRepository interface {
 	/*
+		m_login_type
+	*/
+	// insert
+	InsertLoginType(tx *gorm.DB, m *model.LoginType) error
+	/*
 		m_site
 	*/
 	// insert
-	InsertSite(m *model.Site) error
+	InsertSite(tx *gorm.DB, m *model.Site) error
 	// select
 	SelectSite() (*[]model.Site, error)
 	// select by primary key
@@ -21,21 +26,21 @@ type IMasterRepository interface {
 		m_role
 	*/
 	// insert
-	InsertRole(m *model.Role) error
+	InsertRole(tx *gorm.DB, m *model.Role) error
 	// select
 	SelectRole() (*[]model.Role, error)
 	/*
 		m_applicant_status
 	*/
 	// insert
-	InsertApplicantStatus(m *model.ApplicantStatus) error
+	InsertApplicantStatus(tx *gorm.DB, m *model.ApplicantStatus) error
 	// select
 	SelectApplicantStatus() (*[]model.ApplicantStatus, error)
 	/*
 		m_calendar_freq_status
 	*/
 	// insert
-	InsertCalendarFreqStatus(m *model.CalendarFreqStatus) error
+	InsertCalendarFreqStatus(tx *gorm.DB, m *model.CalendarFreqStatus) error
 	// select
 	SelectCalendarFreqStatus() (*[]model.CalendarFreqStatus, error)
 }
@@ -49,11 +54,23 @@ func NewMasterRepository(db *gorm.DB) IMasterRepository {
 }
 
 /*
+	m_login_type
+*/
+// insert
+func (r *MasterRepository) InsertLoginType(tx *gorm.DB, m *model.LoginType) error {
+	if err := tx.Create(m).Error; err != nil {
+		log.Printf("%v", err)
+		return err
+	}
+	return nil
+}
+
+/*
 	m_site
 */
 // insert
-func (r *MasterRepository) InsertSite(m *model.Site) error {
-	if err := r.db.Create(m).Error; err != nil {
+func (r *MasterRepository) InsertSite(tx *gorm.DB, m *model.Site) error {
+	if err := tx.Create(m).Error; err != nil {
 		log.Printf("%v", err)
 		return err
 	}
@@ -84,8 +101,8 @@ func (r *MasterRepository) SelectSiteByPrimaryKey(key int) (*model.Site, error) 
 	m_role
 */
 // insert
-func (r *MasterRepository) InsertRole(m *model.Role) error {
-	if err := r.db.Create(m).Error; err != nil {
+func (r *MasterRepository) InsertRole(tx *gorm.DB, m *model.Role) error {
+	if err := tx.Create(m).Error; err != nil {
 		log.Printf("%v", err)
 		return err
 	}
@@ -106,8 +123,8 @@ func (r *MasterRepository) SelectRole() (*[]model.Role, error) {
 	m_applicant_status
 */
 // insert
-func (r *MasterRepository) InsertApplicantStatus(m *model.ApplicantStatus) error {
-	if err := r.db.Create(m).Error; err != nil {
+func (r *MasterRepository) InsertApplicantStatus(tx *gorm.DB, m *model.ApplicantStatus) error {
+	if err := tx.Create(m).Error; err != nil {
 		log.Printf("%v", err)
 		return err
 	}
@@ -128,8 +145,8 @@ func (r *MasterRepository) SelectApplicantStatus() (*[]model.ApplicantStatus, er
 	m_calendar_freq_status
 */
 // insert
-func (r *MasterRepository) InsertCalendarFreqStatus(m *model.CalendarFreqStatus) error {
-	if err := r.db.Create(m).Error; err != nil {
+func (r *MasterRepository) InsertCalendarFreqStatus(tx *gorm.DB, m *model.CalendarFreqStatus) error {
+	if err := tx.Create(m).Error; err != nil {
 		log.Printf("%v", err)
 		return err
 	}

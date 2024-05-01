@@ -1,8 +1,79 @@
 package enum
 
-type Site int
+type Protection uint
+type HashKeyPre string
+type Role uint
+type LoginType uint
+type Site uint
 type ApplicantStatus uint
 type CalendarStatus uint
+
+const (
+	ON  Protection = 1
+	OFF Protection = 0
+)
+
+// m_role
+const (
+	// admin_ロール関連
+	ROLE_ADMIN_ROLE_CREATE      Role = 1
+	ROLE_ADMIN_ROLE_READ        Role = 2
+	ROLE_ADMIN_ROLE_DETAIL_READ Role = 3
+	ROLE_ADMIN_ROLE_EDIT        Role = 4
+	ROLE_ADMIN_ROLE_DELETE      Role = 5
+	ROLE_ADMIN_ROLE_ASSIGN      Role = 6
+	// admin_企業関連
+	ROLE_ADMIN_COMPANY_CREATE      Role = 101
+	ROLE_ADMIN_COMPANY_READ        Role = 102
+	ROLE_ADMIN_COMPANY_DETAIL_READ Role = 103
+	ROLE_ADMIN_COMPANY_EDIT        Role = 104
+	ROLE_ADMIN_COMPANY_DELETE      Role = 105
+	// management_ロール関連
+	ROLE_MANAGEMENT_ROLE_CREATE      Role = 1001
+	ROLE_MANAGEMENT_ROLE_READ        Role = 1002
+	ROLE_MANAGEMENT_ROLE_DETAIL_READ Role = 1003
+	ROLE_MANAGEMENT_ROLE_EDIT        Role = 1004
+	ROLE_MANAGEMENT_ROLE_DELETE      Role = 1005
+	ROLE_MANAGEMENT_ROLE_ASSIGN      Role = 1006
+	// management_ユーザー関連
+	ROLE_MANAGEMENT_USER_CREATE      Role = 2001
+	ROLE_MANAGEMENT_USER_READ        Role = 2002
+	ROLE_MANAGEMENT_USER_DETAIL_READ Role = 2003
+	ROLE_MANAGEMENT_USER_EDIT        Role = 2004
+	ROLE_MANAGEMENT_USER_DELETE      Role = 2005
+	// management_チーム関連
+	ROLE_MANAGEMENT_TEAM_CREATE      Role = 2101
+	ROLE_MANAGEMENT_TEAM_READ        Role = 2102
+	ROLE_MANAGEMENT_TEAM_DETAIL_READ Role = 2103
+	ROLE_MANAGEMENT_TEAM_EDIT        Role = 2104
+	ROLE_MANAGEMENT_TEAM_DELETE      Role = 2105
+	// management_カレンダー関連
+	ROLE_MANAGEMENT_CALENDAR_CREATE      Role = 2201
+	ROLE_MANAGEMENT_CALENDAR_READ        Role = 2202
+	ROLE_MANAGEMENT_CALENDAR_DETAIL_READ Role = 2203
+	ROLE_MANAGEMENT_CALENDAR_EDIT        Role = 2204
+	ROLE_MANAGEMENT_CALENDAR_DELETE      Role = 2205
+	// management_応募者関連
+	ROLE_MANAGEMENT_APPLICANT_CREATE          Role = 2301
+	ROLE_MANAGEMENT_APPLICANT_READ            Role = 2302
+	ROLE_MANAGEMENT_APPLICANT_DETAIL_READ     Role = 2303
+	ROLE_MANAGEMENT_APPLICANT_DOWNLOAD        Role = 2304
+	ROLE_MANAGEMENT_APPLICANT_CREATE_MEET_URL Role = 2305
+	ROLE_MANAGEMENT_APPLICANT_ASSIGN_USER     Role = 2306
+)
+
+// m_login_type
+const (
+	LOGIN_TYPE_ADMIN      LoginType = 1
+	LOGIN_TYPE_MANAGEMENT LoginType = 2
+)
+
+// m_hash_key_pre
+const (
+	PRE_COMPANY HashKeyPre = "company"
+	PRE_ROLE    HashKeyPre = "role"
+	PRE_USER    HashKeyPre = "user"
+)
 
 // m_site
 const (
