@@ -1,34 +1,31 @@
 package validator
 
 import (
-	"api/src/model"
+	"api/src/model/ddl"
 	"api/src/model/enum"
-	"errors"
 
 	validation "github.com/go-ozzo/ozzo-validation/v4"
 	"github.com/go-ozzo/ozzo-validation/v4/is"
 )
 
+// TODO 名前の末尾からValidateを除去
 type IUserValidator interface {
-	CreateValidate(u *model.User) error
-	CreateGroupValidate(u *model.UserGroupRequest) error
-	CreateScheduleValidate(u *model.UserScheduleRequest) error
-	LoginValidate(u *model.User) error
-	MFAValidate(u *model.UserMFA) error
-	PasswordChangeValidate(u *model.User) error
-	HashKeyValidate(u *model.User) error
-	ScheduleHashKeyValidate(u *model.UserSchedule) error
-	LoginApplicantValidate(u *model.Applicant) error
-	HashKeyValidateApplicant(u *model.Applicant) error
+	CreateValidate(u *ddl.User) error
+	CreateTeamValidate(u *ddl.TeamRequest) error
+	CreateScheduleValidate(u *ddl.UserScheduleRequest) error
+	ScheduleHashKeyValidate(u *ddl.UserSchedule) error
+	LoginApplicantValidate(u *ddl.Applicant) error
+	HashKeyValidateApplicant(u *ddl.Applicant) error
+	HashKeyValidate(u *ddl.User) error
 }
 
-type userValidator struct{}
+type UserValidator struct{}
 
 func NewUserValidator() IUserValidator {
-	return &userValidator{}
+	return &UserValidator{}
 }
 
-func (v *userValidator) CreateValidate(u *model.User) error {
+func (v *UserValidator) CreateValidate(u *ddl.User) error {
 	return validation.ValidateStruct(
 		u,
 		validation.Field(
@@ -48,7 +45,7 @@ func (v *userValidator) CreateValidate(u *model.User) error {
 		),
 	)
 }
-func (v *userValidator) CreateGroupValidate(u *model.UserGroupRequest) error {
+func (v *UserValidator) CreateTeamValidate(u *ddl.TeamRequest) error {
 	return validation.ValidateStruct(
 		u,
 		validation.Field(
@@ -58,7 +55,7 @@ func (v *userValidator) CreateGroupValidate(u *model.UserGroupRequest) error {
 		),
 	)
 }
-func (v *userValidator) CreateScheduleValidate(u *model.UserScheduleRequest) error {
+func (v *UserValidator) CreateScheduleValidate(u *ddl.UserScheduleRequest) error {
 	return validation.ValidateStruct(
 		u,
 		validation.Field(
@@ -80,7 +77,28 @@ func (v *userValidator) CreateScheduleValidate(u *model.UserScheduleRequest) err
 		),
 	)
 }
-func (v *userValidator) LoginValidate(u *model.User) error {
+
+func (v *UserValidator) ScheduleHashKeyValidate(u *ddl.UserSchedule) error {
+	return validation.ValidateStruct(
+		u,
+		validation.Field(
+			&u.HashKey,
+			validation.Required,
+		),
+	)
+}
+
+func (v *UserValidator) HashKeyValidateApplicant(u *ddl.Applicant) error {
+	return validation.ValidateStruct(
+		u,
+		validation.Field(
+			&u.HashKey,
+			validation.Required,
+		),
+	)
+}
+
+func (v *UserValidator) LoginApplicantValidate(u *ddl.Applicant) error {
 	return validation.ValidateStruct(
 		u,
 		validation.Field(
@@ -89,97 +107,15 @@ func (v *userValidator) LoginValidate(u *model.User) error {
 			validation.Length(1, 50),
 			is.Email,
 		),
-		validation.Field(
-			&u.Password,
-			validation.Required,
-			validation.Length(8, 16),
-			is.Alphanumeric,
-		),
 	)
 }
-func (v *userValidator) MFAValidate(u *model.UserMFA) error {
+
+func (v *UserValidator) HashKeyValidate(u *ddl.User) error {
 	return validation.ValidateStruct(
 		u,
 		validation.Field(
 			&u.HashKey,
 			validation.Required,
-		),
-		validation.Field(
-			&u.Code,
-			validation.Required,
-			validation.Length(6, 6),
-			is.UTFNumeric,
-		),
-	)
-}
-
-func (v *userValidator) PasswordChangeValidate(u *model.User) error {
-	return validation.ValidateStruct(
-		u,
-		validation.Field(
-			&u.HashKey,
-			validation.Required,
-		),
-		validation.Field(
-			&u.Password,
-			validation.Required,
-			validation.Length(8, 16),
-			is.Alphanumeric,
-		),
-		validation.Field(
-			&u.InitPassword,
-			validation.Required,
-			validation.Length(8, 16),
-			is.Alphanumeric,
-			validation.By(func(value interface{}) error {
-				initPassword, _ := value.(string)
-				if initPassword == u.Password {
-					return errors.New("password cannot be the same as the initial password")
-				}
-				return nil
-			}),
-		),
-	)
-}
-
-func (v *userValidator) HashKeyValidate(u *model.User) error {
-	return validation.ValidateStruct(
-		u,
-		validation.Field(
-			&u.HashKey,
-			validation.Required,
-		),
-	)
-}
-
-func (v *userValidator) ScheduleHashKeyValidate(u *model.UserSchedule) error {
-	return validation.ValidateStruct(
-		u,
-		validation.Field(
-			&u.HashKey,
-			validation.Required,
-		),
-	)
-}
-
-func (v *userValidator) HashKeyValidateApplicant(u *model.Applicant) error {
-	return validation.ValidateStruct(
-		u,
-		validation.Field(
-			&u.HashKey,
-			validation.Required,
-		),
-	)
-}
-
-func (v *userValidator) LoginApplicantValidate(u *model.Applicant) error {
-	return validation.ValidateStruct(
-		u,
-		validation.Field(
-			&u.Email,
-			validation.Required,
-			validation.Length(1, 50),
-			is.Email,
 		),
 	)
 }

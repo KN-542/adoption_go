@@ -23,5 +23,3 @@ refresh_token は最初のログインの時しか返してくれない.(refresh
 https://myaccount.google.com/u/0/permissions?pli=1
 
 ## 今後のメモ
-
-- 企業マスタのレコード削除の際は、物理削除なら ID で外部結合してる関連のテーブルの該当レコードも全削除する。論理削除なら、レコードは削除しつつ、データは S3 に保管したい

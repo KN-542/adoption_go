@@ -1,4 +1,4 @@
-package model
+package ddl
 
 /*
 t_role
@@ -8,7 +8,7 @@ type CustomRole struct {
 	AbstractTransactionModel
 	AbstractTransactionFlgModel
 	// ロール名
-	Name string `json:"name" gorm:"unique;not null;check:name <> '';type:varchar(75);index"`
+	Name string `json:"name" gorm:"not null;check:name <> '';type:varchar(75);index"`
 }
 
 /*

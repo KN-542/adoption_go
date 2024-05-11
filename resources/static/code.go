@@ -24,6 +24,12 @@ const (
 		user
 	*/
 	// create
+	CODE_COMPANY_NAME_DUPL int8 = 1
+
+	/*
+		user
+	*/
+	// create
 	CODE_USER_EMAIL_DUPL int8 = 1
 )
 
@@ -32,5 +38,7 @@ const (
 	/*
 		common
 	*/
-	MESSAGE_BAD_REQUEST string = "Bad Request"
+	MESSAGE_BAD_REQUEST             string = "bad request"
+	MESSAGE_UNEXPECTED_COOKIE       string = "unexpected jwt token"
+	MESSAGE_NOT_FOUND_LOGIN_SERVICE string = "controller does not have a valid ILoginService field"
 )

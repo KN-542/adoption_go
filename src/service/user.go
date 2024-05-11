@@ -2,8 +2,9 @@ package service
 
 import (
 	"api/resources/static"
-	"api/src/model"
+	"api/src/model/ddl"
 	"api/src/model/enum"
+	"api/src/model/response"
 	"api/src/repository"
 	"api/src/validator"
 	"log"
@@ -14,29 +15,27 @@ import (
 
 type IUserService interface {
 	// 一覧
-	List() (*model.UsersResponse, *model.ErrorResponse)
+	List() (*ddl.UsersResponse, *response.Error)
 	// 登録
-	Create(req *model.User) (*model.UserResponse, *model.ErrorResponse)
+	Create(req *ddl.User) (*ddl.UserResponse, *response.Error)
 	// 取得
-	Get(req *model.User) (*model.UserResponse, *model.ErrorResponse)
-	// ロール一覧
-	RoleList() (*model.UserRoles, *model.ErrorResponse)
-	// 検索(グループ)
-	SearchGroups() (*model.UserGroupsResponse, *model.ErrorResponse)
-	// グループ登録
-	CreateGroup(req *model.UserGroupRequest) *model.ErrorResponse
+	Get(req *ddl.User) (*ddl.UserResponse, *response.Error)
+	// 検索(チーム)
+	SearchTeams() (*ddl.TeamsResponse, *response.Error)
+	// チーム登録
+	CreateTeam(req *ddl.TeamRequest) *response.Error
 	// スケジュール登録種別一覧
-	ListScheduleType() (*model.CalendarsFreqStatus, *model.ErrorResponse)
+	ListScheduleType() (*ddl.CalendarsFreqStatus, *response.Error)
 	// スケジュール登録
-	CreateSchedule(req *model.UserScheduleRequest) (*string, *model.ErrorResponse)
+	CreateSchedule(req *ddl.UserScheduleRequest) (*string, *response.Error)
 	// スケジュール更新
-	UpdateSchedule(req *model.UserScheduleRequest) *model.ErrorResponse
+	UpdateSchedule(req *ddl.UserScheduleRequest) *response.Error
 	// スケジュール一覧
-	Schedules() (*model.UserSchedulesResponse, *model.ErrorResponse)
+	Schedules() (*ddl.UserSchedulesResponse, *response.Error)
 	// スケジュール削除
-	DeleteSchedule(req *model.UserSchedule) *model.ErrorResponse
+	DeleteSchedule(req *ddl.UserSchedule) *response.Error
 	// 予約表提示
-	DispReserveTable() (*model.ReserveTable, *model.ErrorResponse)
+	DispReserveTable() (*ddl.ReserveTable, *response.Error)
 }
 
 type UserService struct {
@@ -60,26 +59,26 @@ func NewUserService(
 }
 
 // 一覧
-func (u *UserService) List() (*model.UsersResponse, *model.ErrorResponse) {
+func (u *UserService) List() (*ddl.UsersResponse, *response.Error) {
 	users, err := u.r.List()
 	if err != nil {
 		log.Printf("%v", err)
-		return nil, &model.ErrorResponse{
+		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
 
-	return &model.UsersResponse{
+	return &ddl.UsersResponse{
 		Users: users,
 	}, nil
 }
 
 // 登録
-func (u *UserService) Create(req *model.User) (*model.UserResponse, *model.ErrorResponse) {
+func (u *UserService) Create(req *ddl.User) (*ddl.UserResponse, *response.Error) {
 	// バリデーション
 	if err := u.v.CreateValidate(req); err != nil {
 		log.Printf("%v", err)
-		return nil, &model.ErrorResponse{
+		return nil, &response.Error{
 			Status: http.StatusBadRequest,
 			Code:   static.CODE_BAD_REQUEST,
 		}
@@ -87,7 +86,7 @@ func (u *UserService) Create(req *model.User) (*model.UserResponse, *model.Error
 
 	// メールアドレス重複チェック
 	if err := u.r.EmailDuplCheck(req); err != nil {
-		return nil, &model.ErrorResponse{
+		return nil, &response.Error{
 			Status: http.StatusConflict,
 			Code:   static.CODE_USER_EMAIL_DUPL,
 		}
@@ -97,7 +96,7 @@ func (u *UserService) Create(req *model.User) (*model.UserResponse, *model.Error
 	password, hashPassword, err := GenerateHash(8, 16)
 	if err != nil {
 		log.Printf("%v", err)
-		return nil, &model.ErrorResponse{
+		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
@@ -106,21 +105,21 @@ func (u *UserService) Create(req *model.User) (*model.UserResponse, *model.Error
 	_, hashKey, err := GenerateHash(1, 25)
 	if err != nil {
 		log.Printf("%v", err)
-		return nil, &model.ErrorResponse{
+		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
 
 	tx, err := u.d.TxStart()
 	if err != nil {
-		return nil, &model.ErrorResponse{
+		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
 
 	// 登録
-	user := model.User{
-		AbstractTransactionModel: model.AbstractTransactionModel{
+	user := ddl.User{
+		AbstractTransactionModel: ddl.AbstractTransactionModel{
 			HashKey: *hashKey,
 		},
 		Name:         req.Name,
@@ -130,24 +129,25 @@ func (u *UserService) Create(req *model.User) (*model.UserResponse, *model.Error
 		RoleID:       req.RoleID,
 	}
 
-	if err := u.r.Insert(tx, &user); err != nil {
+	_, err2 := u.r.Insert(tx, &user)
+	if err2 != nil {
 		if err := u.d.TxRollback(tx); err != nil {
-			return nil, &model.ErrorResponse{
+			return nil, &response.Error{
 				Status: http.StatusInternalServerError,
 			}
 		}
-		return nil, &model.ErrorResponse{
+		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
 
 	if err := u.d.TxCommit(tx); err != nil {
-		return nil, &model.ErrorResponse{
+		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
 
-	res := model.UserResponse{
+	res := ddl.UserResponse{
 		Email:        user.Email,
 		InitPassword: *password,
 	}
@@ -155,82 +155,74 @@ func (u *UserService) Create(req *model.User) (*model.UserResponse, *model.Error
 }
 
 // 取得
-func (u *UserService) Get(req *model.User) (*model.UserResponse, *model.ErrorResponse) {
+func (u *UserService) Get(req *ddl.User) (*ddl.UserResponse, *response.Error) {
 	if err := u.v.HashKeyValidate(req); err != nil {
 		log.Printf("%v", err)
-		return nil, &model.ErrorResponse{
+		return nil, &response.Error{
 			Status: http.StatusBadRequest,
 			Code:   static.CODE_BAD_REQUEST,
 		}
 	}
 
-	res, err := u.r.Get(req)
+	user, err := u.r.Get(req)
 	if err != nil {
 		log.Printf("%v", err)
-		return nil, &model.ErrorResponse{
+		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
 
-	return &*model.ConvertUser(res), nil
+	return &ddl.UserResponse{
+		HashKey: user.HashKey,
+		Name:    user.Name,
+		Email:   user.Email,
+		RoleID:  user.RoleID,
+	}, nil
 }
 
-// ロール一覧
-func (u *UserService) RoleList() (*model.UserRoles, *model.ErrorResponse) {
-	roles, err := u.m.SelectRole()
+// 検索(チーム)
+func (u *UserService) SearchTeams() (*ddl.TeamsResponse, *response.Error) {
+	teams, err := u.r.SearchTeam()
 	if err != nil {
 		log.Printf("%v", err)
-		return nil, &model.ErrorResponse{
-			Status: http.StatusInternalServerError,
-		}
-	}
-
-	return &model.UserRoles{Roles: *roles}, nil
-}
-
-// 検索(グループ)
-func (u *UserService) SearchGroups() (*model.UserGroupsResponse, *model.ErrorResponse) {
-	userGroups, err := u.r.SearchGroup()
-	if err != nil {
-		log.Printf("%v", err)
-		return nil, &model.ErrorResponse{
+		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
 
 	// ユーザー存在確認
-	for index, userGroup := range userGroups {
+	for index, team := range teams {
 		var l []string
-		users, err := u.r.ConfirmUserByHashKeys(strings.Split(userGroup.Users, ","))
+		users, err := u.r.ConfirmUserByHashKeys(strings.Split(team.Users, ","))
 		if err != nil {
 			if err != nil {
-				return nil, &model.ErrorResponse{
+				return nil, &response.Error{
 					Status: http.StatusInternalServerError,
 				}
 			}
 		}
 		if users == nil || len(users) == 0 {
-			userGroups[index].Users = ""
+			teams[index].Users = ""
 			continue
 		}
 
 		for _, user := range users {
 			l = append(l, user.Name)
 		}
-		userGroups[index].Users = strings.Join(l, ",")
+		teams[index].Users = strings.Join(l, ",")
 	}
 
-	return &model.UserGroupsResponse{
-		UserGroups: userGroups,
+	return &ddl.TeamsResponse{
+		Teams: teams,
 	}, nil
 }
 
-// グループ登録
-func (u *UserService) CreateGroup(req *model.UserGroupRequest) *model.ErrorResponse {
+// チーム登録
+func (u *UserService) CreateTeam(req *ddl.TeamRequest) *response.Error {
 	// バリデーション
-	if err := u.v.CreateGroupValidate(req); err != nil {
+	if err := u.v.CreateTeamValidate(req); err != nil {
 		log.Printf("%v", err)
-		return &model.ErrorResponse{
+		return &response.Error{
 			Status: http.StatusBadRequest,
 			Code:   static.CODE_BAD_REQUEST,
 		}
@@ -239,7 +231,7 @@ func (u *UserService) CreateGroup(req *model.UserGroupRequest) *model.ErrorRespo
 	// ユーザー存在確認
 	users, err := u.r.GetUserBasicByHashKeys(strings.Split(req.Users, ","))
 	if err != nil {
-		return &model.ErrorResponse{
+		return &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
@@ -248,50 +240,50 @@ func (u *UserService) CreateGroup(req *model.UserGroupRequest) *model.ErrorRespo
 	_, hashKey, err := GenerateHash(1, 25)
 	if err != nil {
 		log.Printf("%v", err)
-		return &model.ErrorResponse{
+		return &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
 
 	tx, err := u.d.TxStart()
 	if err != nil {
-		return &model.ErrorResponse{
+		return &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
 
-	// グループ登録
+	// チーム登録
 	req.HashKey = *hashKey
-	id, err := u.r.InsertGroup(tx, &req.UserGroup)
+	team, err := u.r.InsertTeam(tx, &req.Team)
 	if err != nil {
 		if err := u.d.TxRollback(tx); err != nil {
-			return &model.ErrorResponse{
+			return &response.Error{
 				Status: http.StatusInternalServerError,
 			}
 		}
-		return &model.ErrorResponse{
+		return &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
 	for _, row := range users {
-		// グループ紐づけ登録
-		if err := u.r.InsertGroupAssociation(tx, &model.UserGroupAssociation{
-			UserGroupID: *id,
-			UserID:      row.ID,
+		// チーム紐づけ登録
+		if err := u.r.InsertTeamAssociation(tx, &ddl.TeamAssociation{
+			TeamID: uint(team.ID),
+			UserID: row.ID,
 		}); err != nil {
 			if err := u.d.TxRollback(tx); err != nil {
-				return &model.ErrorResponse{
+				return &response.Error{
 					Status: http.StatusInternalServerError,
 				}
 			}
-			return &model.ErrorResponse{
+			return &response.Error{
 				Status: http.StatusInternalServerError,
 			}
 		}
 	}
 
 	if err := u.d.TxCommit(tx); err != nil {
-		return &model.ErrorResponse{
+		return &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
@@ -300,25 +292,25 @@ func (u *UserService) CreateGroup(req *model.UserGroupRequest) *model.ErrorRespo
 }
 
 // スケジュール登録種別一覧
-func (u *UserService) ListScheduleType() (*model.CalendarsFreqStatus, *model.ErrorResponse) {
+func (u *UserService) ListScheduleType() (*ddl.CalendarsFreqStatus, *response.Error) {
 	res, err := u.m.SelectCalendarFreqStatus()
 	if err != nil {
-		return nil, &model.ErrorResponse{
+		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
 
-	return &model.CalendarsFreqStatus{
-		List: *res,
+	return &ddl.CalendarsFreqStatus{
+		List: res,
 	}, nil
 }
 
 // スケジュール登録
-func (u *UserService) CreateSchedule(req *model.UserScheduleRequest) (*string, *model.ErrorResponse) {
+func (u *UserService) CreateSchedule(req *ddl.UserScheduleRequest) (*string, *response.Error) {
 	// バリデーション
 	if err := u.v.CreateScheduleValidate(req); err != nil {
 		log.Printf("%v", err)
-		return nil, &model.ErrorResponse{
+		return nil, &response.Error{
 			Status: http.StatusBadRequest,
 			Code:   static.CODE_BAD_REQUEST,
 		}
@@ -327,7 +319,7 @@ func (u *UserService) CreateSchedule(req *model.UserScheduleRequest) (*string, *
 	// ユーザー存在確認
 	users, err := u.r.GetUserBasicByHashKeys(strings.Split(req.UserHashKeys, ","))
 	if err != nil {
-		return nil, &model.ErrorResponse{
+		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
@@ -336,21 +328,21 @@ func (u *UserService) CreateSchedule(req *model.UserScheduleRequest) (*string, *
 	_, hashKey, err := GenerateHash(1, 25)
 	if err != nil {
 		log.Printf("%v", err)
-		return nil, &model.ErrorResponse{
+		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
 
 	tx, err := u.d.TxStart()
 	if err != nil {
-		return nil, &model.ErrorResponse{
+		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
 
 	// スケジュール登録
-	id, err := u.r.InsertSchedule(tx, &model.UserSchedule{
-		AbstractTransactionModel: model.AbstractTransactionModel{
+	id, err := u.r.InsertSchedule(tx, &ddl.UserSchedule{
+		AbstractTransactionModel: ddl.AbstractTransactionModel{
 			HashKey: *hashKey,
 		},
 		InterviewFlg: req.InterviewFlg,
@@ -361,33 +353,33 @@ func (u *UserService) CreateSchedule(req *model.UserScheduleRequest) (*string, *
 	})
 	if err != nil {
 		if err := u.d.TxRollback(tx); err != nil {
-			return nil, &model.ErrorResponse{
+			return nil, &response.Error{
 				Status: http.StatusInternalServerError,
 			}
 		}
-		return nil, &model.ErrorResponse{
+		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
 	for _, row := range users {
 		// スケジュール紐づけ登録
-		if err := u.r.InsertScheduleAssociation(tx, &model.UserScheduleAssociation{
+		if err := u.r.InsertScheduleAssociation(tx, &ddl.UserScheduleAssociation{
 			UserScheduleID: *id,
 			UserID:         row.ID,
 		}); err != nil {
 			if err := u.d.TxRollback(tx); err != nil {
-				return nil, &model.ErrorResponse{
+				return nil, &response.Error{
 					Status: http.StatusInternalServerError,
 				}
 			}
-			return nil, &model.ErrorResponse{
+			return nil, &response.Error{
 				Status: http.StatusInternalServerError,
 			}
 		}
 	}
 
 	if err := u.d.TxCommit(tx); err != nil {
-		return nil, &model.ErrorResponse{
+		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
@@ -396,71 +388,71 @@ func (u *UserService) CreateSchedule(req *model.UserScheduleRequest) (*string, *
 }
 
 // スケジュール更新
-func (u *UserService) UpdateSchedule(req *model.UserScheduleRequest) *model.ErrorResponse {
+func (u *UserService) UpdateSchedule(req *ddl.UserScheduleRequest) *response.Error {
 	// ユーザー存在確認
 	users, err := u.r.GetUserBasicByHashKeys(strings.Split(req.UserHashKeys, ","))
 	if err != nil {
-		return &model.ErrorResponse{
+		return &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
 
 	tx, err := u.d.TxStart()
 	if err != nil {
-		return &model.ErrorResponse{
+		return &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
 
 	// スケジュール更新
-	id, err := u.r.UpdateSchedule(tx, &model.UserSchedule{
-		AbstractTransactionModel: model.AbstractTransactionModel{
+	id, err := u.r.UpdateSchedule(tx, &ddl.UserSchedule{
+		AbstractTransactionModel: ddl.AbstractTransactionModel{
 			HashKey:   req.HashKey,
 			UpdatedAt: time.Now(),
 		},
 	})
 	if err != nil {
 		if err := u.d.TxRollback(tx); err != nil {
-			return &model.ErrorResponse{
+			return &response.Error{
 				Status: http.StatusInternalServerError,
 			}
 		}
-		return &model.ErrorResponse{
+		return &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
 	// 問答無用で紐づけテーブルの該当スケジュールIDのレコード削除
-	if err := u.r.DeleteScheduleAssociation(tx, &model.UserScheduleAssociation{
+	if err := u.r.DeleteScheduleAssociation(tx, &ddl.UserScheduleAssociation{
 		UserScheduleID: *id,
 	}); err != nil {
 		if err := u.d.TxRollback(tx); err != nil {
-			return &model.ErrorResponse{
+			return &response.Error{
 				Status: http.StatusInternalServerError,
 			}
 		}
-		return &model.ErrorResponse{
+		return &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
 	for _, row := range users {
 		// スケジュール紐づけ登録
-		if err := u.r.InsertScheduleAssociation(tx, &model.UserScheduleAssociation{
+		if err := u.r.InsertScheduleAssociation(tx, &ddl.UserScheduleAssociation{
 			UserScheduleID: *id,
 			UserID:         row.ID,
 		}); err != nil {
 			if err := u.d.TxRollback(tx); err != nil {
-				return &model.ErrorResponse{
+				return &response.Error{
 					Status: http.StatusInternalServerError,
 				}
 			}
-			return &model.ErrorResponse{
+			return &response.Error{
 				Status: http.StatusInternalServerError,
 			}
 		}
 	}
 
 	if err := u.d.TxCommit(tx); err != nil {
-		return &model.ErrorResponse{
+		return &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
@@ -469,17 +461,17 @@ func (u *UserService) UpdateSchedule(req *model.UserScheduleRequest) *model.Erro
 }
 
 // スケジュール一覧 (バッチでも実行したい)
-func (u *UserService) Schedules() (*model.UserSchedulesResponse, *model.ErrorResponse) {
+func (u *UserService) Schedules() (*ddl.UserSchedulesResponse, *response.Error) {
 	schedulesBefore, err := u.r.ListSchedule()
 	if err != nil {
-		return nil, &model.ErrorResponse{
+		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
 
 	tx, err := u.d.TxStart()
 	if err != nil {
-		return nil, &model.ErrorResponse{
+		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
@@ -489,17 +481,17 @@ func (u *UserService) Schedules() (*model.UserSchedulesResponse, *model.ErrorRes
 		if schedule.Start.Before(time.Now()) {
 			// なしの場合
 			if schedule.FreqID == uint(enum.FREQ_NONE) {
-				if err := u.r.DeleteSchedule(tx, &model.UserSchedule{
-					AbstractTransactionModel: model.AbstractTransactionModel{
+				if err := u.r.DeleteSchedule(tx, &ddl.UserSchedule{
+					AbstractTransactionModel: ddl.AbstractTransactionModel{
 						HashKey: schedule.HashKey,
 					},
 				}); err != nil {
 					if err := u.d.TxRollback(tx); err != nil {
-						return nil, &model.ErrorResponse{
+						return nil, &response.Error{
 							Status: http.StatusInternalServerError,
 						}
 					}
-					return nil, &model.ErrorResponse{
+					return nil, &response.Error{
 						Status: http.StatusInternalServerError,
 					}
 				}
@@ -523,8 +515,8 @@ func (u *UserService) Schedules() (*model.UserSchedulesResponse, *model.ErrorRes
 					e = e.AddDate(1, 0, 0)
 				}
 
-				if err := u.r.UpdatePastSchedule(tx, &model.UserSchedule{
-					AbstractTransactionModel: model.AbstractTransactionModel{
+				if err := u.r.UpdatePastSchedule(tx, &ddl.UserSchedule{
+					AbstractTransactionModel: ddl.AbstractTransactionModel{
 						HashKey:   schedule.HashKey,
 						UpdatedAt: time.Now(),
 					},
@@ -532,11 +524,11 @@ func (u *UserService) Schedules() (*model.UserSchedulesResponse, *model.ErrorRes
 					End:   e,
 				}); err != nil {
 					if err := u.d.TxRollback(tx); err != nil {
-						return nil, &model.ErrorResponse{
+						return nil, &response.Error{
 							Status: http.StatusInternalServerError,
 						}
 					}
-					return nil, &model.ErrorResponse{
+					return nil, &response.Error{
 						Status: http.StatusInternalServerError,
 					}
 				}
@@ -545,26 +537,26 @@ func (u *UserService) Schedules() (*model.UserSchedulesResponse, *model.ErrorRes
 	}
 
 	if err := u.d.TxCommit(tx); err != nil {
-		return nil, &model.ErrorResponse{
+		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
 
 	schedulesAfter, err := u.r.ListSchedule()
 	if err != nil {
-		return nil, &model.ErrorResponse{
+		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
 
-	return &model.UserSchedulesResponse{List: schedulesAfter}, nil
+	return &ddl.UserSchedulesResponse{List: schedulesAfter}, nil
 }
 
 // スケジュール削除
-func (u *UserService) DeleteSchedule(req *model.UserSchedule) *model.ErrorResponse {
+func (u *UserService) DeleteSchedule(req *ddl.UserSchedule) *response.Error {
 	if err := u.v.ScheduleHashKeyValidate(req); err != nil {
 		log.Printf("%v", err)
-		return &model.ErrorResponse{
+		return &response.Error{
 			Status: http.StatusBadRequest,
 			Code:   static.CODE_BAD_REQUEST,
 		}
@@ -572,7 +564,7 @@ func (u *UserService) DeleteSchedule(req *model.UserSchedule) *model.ErrorRespon
 
 	tx, err := u.d.TxStart()
 	if err != nil {
-		return &model.ErrorResponse{
+		return &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
@@ -580,17 +572,17 @@ func (u *UserService) DeleteSchedule(req *model.UserSchedule) *model.ErrorRespon
 	// 削除
 	if err := u.r.DeleteSchedule(tx, req); err != nil {
 		if err := u.d.TxRollback(tx); err != nil {
-			return &model.ErrorResponse{
+			return &response.Error{
 				Status: http.StatusInternalServerError,
 			}
 		}
-		return &model.ErrorResponse{
+		return &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
 
 	if err := u.d.TxCommit(tx); err != nil {
-		return &model.ErrorResponse{
+		return &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
@@ -599,7 +591,7 @@ func (u *UserService) DeleteSchedule(req *model.UserSchedule) *model.ErrorRespon
 }
 
 // 予約表提示
-func (u *UserService) DispReserveTable() (*model.ReserveTable, *model.ErrorResponse) {
+func (u *UserService) DispReserveTable() (*ddl.ReserveTable, *response.Error) {
 	const WEEKS = 7
 	const RESERVE_DURATION = 2 * WEEKS
 
@@ -607,36 +599,36 @@ func (u *UserService) DispReserveTable() (*model.ReserveTable, *model.ErrorRespo
 	jst, err := time.LoadLocation("Asia/Tokyo")
 	if err != nil {
 		log.Printf("%v", err)
-		return nil, &model.ErrorResponse{
+		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
 
-	// TODO 応募者の面接可能グループ取得(一旦全グループ可能であるとする)
-	var availabilityGroups []model.UserGroupResponse
-	list, err := u.r.SearchGroup()
+	// TODO 応募者の面接可能チーム取得(一旦全チーム可能であるとする)
+	var availabilityTeams []ddl.TeamResponse
+	list, err := u.r.SearchTeam()
 	if err != nil {
-		return nil, &model.ErrorResponse{
+		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
 	for _, row := range list {
-		availabilityGroups = append(availabilityGroups, row)
+		availabilityTeams = append(availabilityTeams, row)
 	}
 
-	// TODO 異なるグループメンバーでの面接可否設定取得(一旦不可能とする)
-	isAvailabilityDifferentGroupMeeting := false
+	// TODO 異なるチームメンバーでの面接可否設定取得(一旦不可能とする)
+	isAvailabilityDifferentTeamMeeting := false
 
 	// スケジュール一覧
 	schedulesUTC, err := u.r.ListSchedule()
 	if err != nil {
-		return nil, &model.ErrorResponse{
+		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
 
 	// TZを日本に
-	var schedulesJST []model.UserScheduleResponse
+	var schedulesJST []ddl.UserScheduleResponse
 	for _, row := range schedulesUTC {
 		start := row.Start.In(jst)
 		end := row.End.In(jst)
@@ -646,7 +638,7 @@ func (u *UserService) DispReserveTable() (*model.ReserveTable, *model.ErrorRespo
 	}
 
 	// スケジュールの頻度が「毎日」と「毎週」の場合、コピー
-	var schedules []model.UserScheduleResponse
+	var schedules []ddl.UserScheduleResponse
 	start := time.Now().AddDate(0, 0, WEEKS).In(jst)
 	s := time.Date(
 		start.Year(),
@@ -686,7 +678,7 @@ func (u *UserService) DispReserveTable() (*model.ReserveTable, *model.ErrorRespo
 				jst,
 			)
 			if row.FreqID == uint(enum.FREQ_DAILY) || (row.FreqID == uint(enum.FREQ_WEEKLY) && s_0.Weekday() == row.Start.Weekday()) {
-				schedules = append(schedules, model.UserScheduleResponse{
+				schedules = append(schedules, ddl.UserScheduleResponse{
 					HashKey:      row.HashKey,
 					UserHashKeys: row.UserHashKeys,
 					Title:        row.Title,
@@ -702,14 +694,14 @@ func (u *UserService) DispReserveTable() (*model.ReserveTable, *model.ErrorRespo
 	// 日本の休日取得
 	holidays, err := u.o.HolidaysJp(time.Now().Year())
 	if err != nil {
-		return nil, &model.ErrorResponse{
+		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
 
 	// 祝日かどうかの判定
 	var times []time.Time
-	var reserveTime []model.ReserveTime
+	var reserveTime []ddl.ReserveTime
 	for i := 0; i < RESERVE_DURATION; i++ {
 		isReserve := true
 
@@ -737,16 +729,16 @@ func (u *UserService) DispReserveTable() (*model.ReserveTable, *model.ErrorRespo
 
 		for d := s.Add(9 * time.Hour); d.Day() == s.Day() && d.Hour() <= 20; d = d.Add(30 * time.Minute) {
 			if !isReserve {
-				reserveTime = append(reserveTime, model.ReserveTime{
+				reserveTime = append(reserveTime, ddl.ReserveTime{
 					Time:      d,
 					IsReserve: false,
 				})
 			} else {
-				var reserveOfGroups []model.ReserveOfGroup
+				var reserveOfTeams []ddl.ReserveOfTeam
 
-				// グループ毎の面接可能人数
-				for _, group := range availabilityGroups {
-					var sum uint = uint(len(strings.Split(group.Users, ",")))
+				// チーム毎の面接可能人数
+				for _, team := range availabilityTeams {
+					var sum uint = uint(len(strings.Split(team.Users, ",")))
 
 					for _, schedule := range schedules {
 						userHashKeys := strings.Split(schedule.UserHashKeys, ",")
@@ -754,10 +746,10 @@ func (u *UserService) DispReserveTable() (*model.ReserveTable, *model.ErrorRespo
 						for _, userHashKey := range userHashKeys {
 							// 時刻dは対象範囲内か
 							if d.After(schedule.Start.Add(-1*time.Minute)) && d.Before(schedule.End.Add(1*time.Minute)) {
-								// ユーザーグループまたはユーザーのハッシュキーか
-								if userHashKey == group.HashKey {
+								// チームまたはユーザーのハッシュキーか
+								if userHashKey == team.HashKey {
 									sum = 0
-								} else if strings.Contains(group.Users, userHashKey) {
+								} else if strings.Contains(team.Users, userHashKey) {
 									if sum > 0 {
 										sum--
 									}
@@ -768,27 +760,27 @@ func (u *UserService) DispReserveTable() (*model.ReserveTable, *model.ErrorRespo
 						}
 					}
 
-					reserveOfGroups = append(reserveOfGroups, model.ReserveOfGroup{
-						HashKey: group.HashKey,
+					reserveOfTeams = append(reserveOfTeams, ddl.ReserveOfTeam{
+						HashKey: team.HashKey,
 						Count:   sum,
 					})
 				}
 
-				if isAvailabilityDifferentGroupMeeting {
+				if isAvailabilityDifferentTeamMeeting {
 					var sum uint = 0
-					for _, reserve := range reserveOfGroups {
+					for _, reserve := range reserveOfTeams {
 						sum += reserve.Count
 					}
-					reserveTime = append(reserveTime, model.ReserveTime{
+					reserveTime = append(reserveTime, ddl.ReserveTime{
 						Time:      d,
 						IsReserve: sum > 1,
 					})
 				} else {
 					isMore2 := false
-					for _, reserve := range reserveOfGroups {
+					for _, reserve := range reserveOfTeams {
 						if reserve.Count > 1 {
 							isMore2 = true
-							reserveTime = append(reserveTime, model.ReserveTime{
+							reserveTime = append(reserveTime, ddl.ReserveTime{
 								Time:      d,
 								IsReserve: true,
 							})
@@ -796,7 +788,7 @@ func (u *UserService) DispReserveTable() (*model.ReserveTable, *model.ErrorRespo
 						}
 					}
 					if !isMore2 {
-						reserveTime = append(reserveTime, model.ReserveTime{
+						reserveTime = append(reserveTime, ddl.ReserveTime{
 							Time:      d,
 							IsReserve: false,
 						})
@@ -806,7 +798,7 @@ func (u *UserService) DispReserveTable() (*model.ReserveTable, *model.ErrorRespo
 		}
 	}
 
-	return &model.ReserveTable{
+	return &ddl.ReserveTable{
 		Dates:   times,
 		Options: reserveTime,
 	}, nil

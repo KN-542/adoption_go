@@ -1,7 +1,8 @@
 package repository
 
 import (
-	model "api/src/model"
+	"api/src/model/ddl"
+	"api/src/model/entity"
 	"log"
 
 	"gorm.io/gorm"
@@ -9,9 +10,11 @@ import (
 
 type IRoleRepository interface {
 	// 登録
-	Insert(tx *gorm.DB, m *model.CustomRole) error
+	Insert(tx *gorm.DB, m *ddl.CustomRole) (*entity.CustomRole, error)
 	// 付与ロール登録
-	InsertAssociation(tx *gorm.DB, m *model.RoleAssociation) error
+	InsertAssociation(tx *gorm.DB, m *ddl.RoleAssociation) error
+	// 該当ロールのマスタID取得
+	GetRoleIDs(m *ddl.CustomRole) ([]entity.RoleAssociation, error)
 }
 
 type RoleRepository struct {
@@ -23,7 +26,18 @@ func NewRoleRepository(db *gorm.DB) IRoleRepository {
 }
 
 // 登録
-func (r *RoleRepository) Insert(tx *gorm.DB, m *model.CustomRole) error {
+func (r *RoleRepository) Insert(tx *gorm.DB, m *ddl.CustomRole) (*entity.CustomRole, error) {
+	if err := tx.Create(m).Error; err != nil {
+		log.Printf("%v", err)
+		return nil, err
+	}
+	return &entity.CustomRole{
+		CustomRole: *m,
+	}, nil
+}
+
+// 付与ロール登録
+func (r *RoleRepository) InsertAssociation(tx *gorm.DB, m *ddl.RoleAssociation) error {
 	if err := tx.Create(m).Error; err != nil {
 		log.Printf("%v", err)
 		return err
@@ -31,11 +45,18 @@ func (r *RoleRepository) Insert(tx *gorm.DB, m *model.CustomRole) error {
 	return nil
 }
 
-// 付与ロール登録
-func (r *RoleRepository) InsertAssociation(tx *gorm.DB, m *model.RoleAssociation) error {
-	if err := tx.Create(m).Error; err != nil {
+// 該当ロールのマスタID取得
+func (r *RoleRepository) GetRoleIDs(m *ddl.CustomRole) ([]entity.RoleAssociation, error) {
+	var res []entity.RoleAssociation
+
+	query := r.db.Model(&entity.RoleAssociation{}).
+		Select(`master_role_id`).
+		Where("role_id = ?", m.ID)
+
+	if err := query.Find(&res).Error; err != nil {
 		log.Printf("%v", err)
-		return err
+		return nil, err
 	}
-	return nil
+
+	return res, nil
 }

@@ -2,8 +2,9 @@ package service
 
 import (
 	"api/resources/static"
-	"api/src/model"
+	"api/src/model/ddl"
 	"api/src/model/enum"
+	"api/src/model/response"
 	"api/src/repository"
 	"api/src/validator"
 	"context"
@@ -18,25 +19,25 @@ import (
 
 type IApplicantService interface {
 	// Google 認証URL作成
-	GetOauthURL(req *model.ApplicantAndUser) (*model.GetOauthURLResponse, *model.ErrorResponse)
+	GetOauthURL(req *ddl.ApplicantAndUser) (*ddl.GetOauthURLResponse, *response.Error)
 	// 応募者ダウンロード
-	Download(d *model.ApplicantsDownload) *model.ErrorResponse
+	Download(d *ddl.ApplicantsDownload) *response.Error
 	// 応募者取得(1件)
-	Get(req *model.Applicant) (*model.Applicant, *model.ErrorResponse)
+	Get(req *ddl.Applicant) (*ddl.Applicant, *response.Error)
 	// 検索
-	Search(req *model.ApplicantSearchRequest) (*model.ApplicantsDownloadResponse, *model.ErrorResponse)
+	Search(req *ddl.ApplicantSearchRequest) (*ddl.ApplicantsDownloadResponse, *response.Error)
 	// 書類アップロード(S3)
-	S3Upload(req *model.FileUpload, fileHeader *multipart.FileHeader) *model.ErrorResponse
+	S3Upload(req *ddl.FileUpload, fileHeader *multipart.FileHeader) *response.Error
 	// 書類ダウンロード(S3)
-	S3Download(req *model.FileDownload) ([]byte, *string, *model.ErrorResponse)
+	S3Download(req *ddl.FileDownload) ([]byte, *string, *response.Error)
 	// 面接希望日登録
-	InsertDesiredAt(req *model.ApplicantDesired) *model.ErrorResponse
+	InsertDesiredAt(req *ddl.ApplicantDesired) *response.Error
 	// 応募者ステータス一覧取得
-	GetApplicantStatus() (*model.ApplicantStatusList, *model.ErrorResponse)
+	GetApplicantStatus() (*ddl.ApplicantStatusList, *response.Error)
 	// サイト一覧取得
-	GetSites() (*model.Sites, *model.ErrorResponse)
+	GetSites() (*ddl.Sites, *response.Error)
 	// Google Meet Url 発行
-	GetGoogleMeetUrl(req *model.ApplicantAndUser) (*model.Applicant, *model.ErrorResponse)
+	GetGoogleMeetUrl(req *ddl.ApplicantAndUser) (*ddl.Applicant, *response.Error)
 }
 
 type ApplicantService struct {
@@ -64,22 +65,22 @@ func NewApplicantService(
 }
 
 // 認証URL作成
-func (s *ApplicantService) GetOauthURL(req *model.ApplicantAndUser) (*model.GetOauthURLResponse, *model.ErrorResponse) {
+func (s *ApplicantService) GetOauthURL(req *ddl.ApplicantAndUser) (*ddl.GetOauthURLResponse, *response.Error) {
 	// バリデーション
 	if err := s.v.HashKeyValidate(&req.Applicant); err != nil {
 		log.Printf("%v", err)
-		return nil, &model.ErrorResponse{
+		return nil, &response.Error{
 			Status: http.StatusBadRequest,
 			Code:   static.CODE_BAD_REQUEST,
 		}
 	}
-	if err := s.v.HashKeyValidate(&model.Applicant{
-		AbstractTransactionModel: model.AbstractTransactionModel{
+	if err := s.v.HashKeyValidate(&ddl.Applicant{
+		AbstractTransactionModel: ddl.AbstractTransactionModel{
 			HashKey: req.UserHashKey,
 		},
 	}); err != nil {
 		log.Printf("%v", err)
-		return nil, &model.ErrorResponse{
+		return nil, &response.Error{
 			Status: http.StatusBadRequest,
 			Code:   static.CODE_BAD_REQUEST,
 		}
@@ -93,14 +94,14 @@ func (s *ApplicantService) GetOauthURL(req *model.ApplicantAndUser) (*model.GetO
 		&req.Applicant.HashKey,
 		24*time.Hour,
 	); err != nil {
-		return nil, &model.ErrorResponse{
+		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
 
 	res, err := s.g.GetOauthURL()
 	if err != nil {
-		return nil, &model.ErrorResponse{
+		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
 			Error:  err,
 		}
@@ -112,12 +113,12 @@ func (s *ApplicantService) GetOauthURL(req *model.ApplicantAndUser) (*model.GetO
 	txt、csvダウンロード用
 */
 // 応募者ダウンロード
-func (s *ApplicantService) Download(d *model.ApplicantsDownload) *model.ErrorResponse {
+func (s *ApplicantService) Download(d *ddl.ApplicantsDownload) *response.Error {
 	// STEP1 サイトIDチェック
 	_, err := s.m.SelectSiteByPrimaryKey(d.Site)
 	if err != nil {
 		log.Printf("%v", err)
-		return &model.ErrorResponse{
+		return &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
@@ -139,14 +140,14 @@ func (s *ApplicantService) Download(d *model.ApplicantsDownload) *model.ErrorRes
 			_, hashKey, err := GenerateHash(1, 25)
 			if err != nil {
 				log.Printf("%v", err)
-				return &model.ErrorResponse{
+				return &response.Error{
 					Status: http.StatusInternalServerError,
 				}
 			}
 
-			m := model.Applicant{
+			m := ddl.Applicant{
 				OuterID: values[enum.RECRUIT_ID],
-				AbstractTransactionModel: model.AbstractTransactionModel{
+				AbstractTransactionModel: ddl.AbstractTransactionModel{
 					HashKey:   *hashKey,
 					CreatedAt: time.Now(),
 					UpdatedAt: time.Now(),
@@ -161,14 +162,14 @@ func (s *ApplicantService) Download(d *model.ApplicantsDownload) *model.ErrorRes
 			count, err := s.r.CountByPrimaryKey(&m.OuterID)
 			if err != nil {
 				log.Printf("%v", err)
-				return &model.ErrorResponse{
+				return &response.Error{
 					Status: http.StatusInternalServerError,
 				}
 			}
 			if *count == int64(0) {
 				tx, err := s.d.TxStart()
 				if err != nil {
-					return &model.ErrorResponse{
+					return &response.Error{
 						Status: http.StatusInternalServerError,
 					}
 				}
@@ -176,17 +177,17 @@ func (s *ApplicantService) Download(d *model.ApplicantsDownload) *model.ErrorRes
 				// STEP2-2 登録
 				if err := s.r.Insert(tx, &m); err != nil {
 					if err := s.d.TxRollback(tx); err != nil {
-						return &model.ErrorResponse{
+						return &response.Error{
 							Status: http.StatusInternalServerError,
 						}
 					}
-					return &model.ErrorResponse{
+					return &response.Error{
 						Status: http.StatusInternalServerError,
 					}
 				}
 
 				if err := s.d.TxCommit(tx); err != nil {
-					return &model.ErrorResponse{
+					return &response.Error{
 						Status: http.StatusInternalServerError,
 					}
 				}
@@ -198,24 +199,24 @@ func (s *ApplicantService) Download(d *model.ApplicantsDownload) *model.ErrorRes
 }
 
 // 応募者取得(1件)
-func (s *ApplicantService) Get(req *model.Applicant) (*model.Applicant, *model.ErrorResponse) {
+func (s *ApplicantService) Get(req *ddl.Applicant) (*ddl.Applicant, *response.Error) {
 	// バリデーション
 	if err := s.v.HashKeyValidate(req); err != nil {
 		log.Printf("%v", err)
-		return nil, &model.ErrorResponse{
+		return nil, &response.Error{
 			Status: http.StatusBadRequest,
 			Code:   static.CODE_BAD_REQUEST,
 		}
 	}
 
 	// 応募者情報取得
-	applicant, err := s.r.GetByHashKey(&model.Applicant{
-		AbstractTransactionModel: model.AbstractTransactionModel{
+	applicant, err := s.r.GetByHashKey(&ddl.Applicant{
+		AbstractTransactionModel: ddl.AbstractTransactionModel{
 			HashKey: req.HashKey,
 		},
 	})
 	if err != nil {
-		return nil, &model.ErrorResponse{
+		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
@@ -224,11 +225,11 @@ func (s *ApplicantService) Get(req *model.Applicant) (*model.Applicant, *model.E
 }
 
 // 検索
-func (s *ApplicantService) Search(req *model.ApplicantSearchRequest) (*model.ApplicantsDownloadResponse, *model.ErrorResponse) {
+func (s *ApplicantService) Search(req *ddl.ApplicantSearchRequest) (*ddl.ApplicantsDownloadResponse, *response.Error) {
 	// バリデーション
 	if err := s.v.SearchValidator(req); err != nil {
 		log.Printf("%v", err)
-		return nil, &model.ErrorResponse{
+		return nil, &response.Error{
 			Status: http.StatusBadRequest,
 			Code:   static.CODE_BAD_REQUEST,
 		}
@@ -237,7 +238,7 @@ func (s *ApplicantService) Search(req *model.ApplicantSearchRequest) (*model.App
 	applicants, err := s.r.Search(req)
 	if err != nil {
 		log.Printf("%v", err)
-		return nil, &model.ErrorResponse{
+		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
@@ -245,13 +246,13 @@ func (s *ApplicantService) Search(req *model.ApplicantSearchRequest) (*model.App
 	for i, row := range applicants {
 		var list []string
 		user, err := s.u.GetUserScheduleAssociationByScheduleID(
-			&model.UserScheduleAssociation{
+			&ddl.UserScheduleAssociation{
 				UserScheduleID: row.CalendarID,
 			},
 		)
 		if err != nil {
 			log.Printf("%v", err)
-			return nil, &model.ErrorResponse{
+			return nil, &response.Error{
 				Status: http.StatusInternalServerError,
 			}
 		}
@@ -261,17 +262,17 @@ func (s *ApplicantService) Search(req *model.ApplicantSearchRequest) (*model.App
 		applicants[i].UserNames = strings.Join(list, ",")
 	}
 
-	return &model.ApplicantsDownloadResponse{
+	return &ddl.ApplicantsDownloadResponse{
 		Applicants: applicants,
 	}, nil
 }
 
 // 書類アップロード(S3)
-func (s *ApplicantService) S3Upload(req *model.FileUpload, fileHeader *multipart.FileHeader) *model.ErrorResponse {
+func (s *ApplicantService) S3Upload(req *ddl.FileUpload, fileHeader *multipart.FileHeader) *response.Error {
 	// バリデーション
 	if err := s.v.S3UploadValidator(req); err != nil {
 		log.Printf("%v", err)
-		return &model.ErrorResponse{
+		return &response.Error{
 			Status: http.StatusBadRequest,
 			Code:   static.CODE_BAD_REQUEST,
 		}
@@ -280,7 +281,7 @@ func (s *ApplicantService) S3Upload(req *model.FileUpload, fileHeader *multipart
 	ctx := context.Background()
 	fileName, err := s.redis.Get(ctx, req.HashKey, static.REDIS_S3_NAME)
 	if err != nil {
-		return &model.ErrorResponse{
+		return &response.Error{
 			Status: http.StatusUnauthorized,
 			Code:   static.CODE_LOGIN_REQUIRED,
 		}
@@ -290,58 +291,58 @@ func (s *ApplicantService) S3Upload(req *model.FileUpload, fileHeader *multipart
 	objName := req.NamePre + "_" + *fileName + "." + req.Extension
 	if err := s.a.S3Upload(objName, fileHeader); err != nil {
 		log.Printf("%v", err)
-		return &model.ErrorResponse{
+		return &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
 
 	tx, err := s.d.TxStart()
 	if err != nil {
-		return &model.ErrorResponse{
+		return &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
 
 	// 書類登録状況更新
 	if req.NamePre == "resume" {
-		if err := s.r.UpdateDocument(tx, &model.Applicant{
-			AbstractTransactionModel: model.AbstractTransactionModel{
+		if err := s.r.UpdateDocument(tx, &ddl.Applicant{
+			AbstractTransactionModel: ddl.AbstractTransactionModel{
 				HashKey: req.HashKey,
 			},
 			Resume:          objName,
 			CurriculumVitae: "",
 		}); err != nil {
 			if err := s.d.TxRollback(tx); err != nil {
-				return &model.ErrorResponse{
+				return &response.Error{
 					Status: http.StatusInternalServerError,
 				}
 			}
-			return &model.ErrorResponse{
+			return &response.Error{
 				Status: http.StatusInternalServerError,
 			}
 		}
 	}
 	if req.NamePre == "curriculum_vitae" {
-		if err := s.r.UpdateDocument(tx, &model.Applicant{
-			AbstractTransactionModel: model.AbstractTransactionModel{
+		if err := s.r.UpdateDocument(tx, &ddl.Applicant{
+			AbstractTransactionModel: ddl.AbstractTransactionModel{
 				HashKey: req.HashKey,
 			},
 			Resume:          "",
 			CurriculumVitae: objName,
 		}); err != nil {
 			if err := s.d.TxRollback(tx); err != nil {
-				return &model.ErrorResponse{
+				return &response.Error{
 					Status: http.StatusInternalServerError,
 				}
 			}
-			return &model.ErrorResponse{
+			return &response.Error{
 				Status: http.StatusInternalServerError,
 			}
 		}
 	}
 
 	if err := s.d.TxCommit(tx); err != nil {
-		return &model.ErrorResponse{
+		return &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
@@ -350,25 +351,25 @@ func (s *ApplicantService) S3Upload(req *model.FileUpload, fileHeader *multipart
 }
 
 // 書類ダウンロード(S3)
-func (s *ApplicantService) S3Download(req *model.FileDownload) ([]byte, *string, *model.ErrorResponse) {
+func (s *ApplicantService) S3Download(req *ddl.FileDownload) ([]byte, *string, *response.Error) {
 	// バリデーション
 	if err := s.v.S3DownloadValidator(req); err != nil {
 		log.Printf("%v", err)
-		return nil, nil, &model.ErrorResponse{
+		return nil, nil, &response.Error{
 			Status: http.StatusBadRequest,
 			Code:   static.CODE_BAD_REQUEST,
 		}
 	}
 
 	// ファイル名取得
-	applicant, err := s.r.GetByHashKey(&model.Applicant{
-		AbstractTransactionModel: model.AbstractTransactionModel{
+	applicant, err := s.r.GetByHashKey(&ddl.Applicant{
+		AbstractTransactionModel: ddl.AbstractTransactionModel{
 			HashKey: req.HashKey,
 		},
 	})
 	if err != nil {
 		log.Printf("%v", err)
-		return nil, nil, &model.ErrorResponse{
+		return nil, nil, &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
@@ -378,7 +379,7 @@ func (s *ApplicantService) S3Download(req *model.FileDownload) ([]byte, *string,
 		file, err := s.a.S3Download(applicant.Resume)
 		if err != nil {
 			log.Printf("%v", err)
-			return nil, nil, &model.ErrorResponse{
+			return nil, nil, &response.Error{
 				Status: http.StatusInternalServerError,
 			}
 		}
@@ -388,7 +389,7 @@ func (s *ApplicantService) S3Download(req *model.FileDownload) ([]byte, *string,
 		file, err := s.a.S3Download(applicant.CurriculumVitae)
 		if err != nil {
 			log.Printf("%v", err)
-			return nil, nil, &model.ErrorResponse{
+			return nil, nil, &response.Error{
 				Status: http.StatusInternalServerError,
 			}
 		}
@@ -399,54 +400,54 @@ func (s *ApplicantService) S3Download(req *model.FileDownload) ([]byte, *string,
 }
 
 // 面接希望日登録
-func (s *ApplicantService) InsertDesiredAt(req *model.ApplicantDesired) *model.ErrorResponse {
+func (s *ApplicantService) InsertDesiredAt(req *ddl.ApplicantDesired) *response.Error {
 	// バリデーション
 	if err := s.v.InsertDesiredAtValidator(req); err != nil {
 		log.Printf("%v", err)
-		return &model.ErrorResponse{
+		return &response.Error{
 			Status: http.StatusBadRequest,
 			Code:   static.CODE_BAD_REQUEST,
 		}
 	}
 
 	// カレンダーID取得
-	calendar, err := s.u.GetSchedule(&model.UserSchedule{
-		AbstractTransactionModel: model.AbstractTransactionModel{
+	calendar, err := s.u.GetSchedule(&ddl.UserSchedule{
+		AbstractTransactionModel: ddl.AbstractTransactionModel{
 			HashKey: req.CalendarHashKey,
 		},
 	})
 	if err != nil {
-		return &model.ErrorResponse{
+		return &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
 
 	tx, err := s.d.TxStart()
 	if err != nil {
-		return &model.ErrorResponse{
+		return &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
 
 	// 面接希望日登録
-	if err := s.r.UpdateDesiredAt(tx, &model.Applicant{
-		AbstractTransactionModel: model.AbstractTransactionModel{
+	if err := s.r.UpdateDesiredAt(tx, &ddl.Applicant{
+		AbstractTransactionModel: ddl.AbstractTransactionModel{
 			HashKey: req.HashKey,
 		},
 		CalendarID: uint(calendar.ID),
 	}); err != nil {
 		if err := s.d.TxRollback(tx); err != nil {
-			return &model.ErrorResponse{
+			return &response.Error{
 				Status: http.StatusInternalServerError,
 			}
 		}
-		return &model.ErrorResponse{
+		return &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
 
 	if err := s.d.TxCommit(tx); err != nil {
-		return &model.ErrorResponse{
+		return &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
@@ -455,41 +456,41 @@ func (s *ApplicantService) InsertDesiredAt(req *model.ApplicantDesired) *model.E
 }
 
 // 応募者ステータス一覧取得
-func (s *ApplicantService) GetApplicantStatus() (*model.ApplicantStatusList, *model.ErrorResponse) {
+func (s *ApplicantService) GetApplicantStatus() (*ddl.ApplicantStatusList, *response.Error) {
 	applicantStatus, err := s.m.SelectApplicantStatus()
 	if err != nil {
 		log.Printf("%v", err)
-		return nil, &model.ErrorResponse{
+		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
 
-	return &model.ApplicantStatusList{List: *applicantStatus}, nil
+	return &ddl.ApplicantStatusList{List: applicantStatus}, nil
 }
 
 // サイト一覧取得
-func (s *ApplicantService) GetSites() (*model.Sites, *model.ErrorResponse) {
+func (s *ApplicantService) GetSites() (*ddl.Sites, *response.Error) {
 	sites, err := s.m.SelectSite()
 	if err != nil {
 		log.Printf("%v", err)
-		return nil, &model.ErrorResponse{
+		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
 
-	return &model.Sites{List: *sites}, nil
+	return &ddl.Sites{List: sites}, nil
 }
 
 // Google Meet Url 発行
-func (s *ApplicantService) GetGoogleMeetUrl(req *model.ApplicantAndUser) (*model.Applicant, *model.ErrorResponse) {
+func (s *ApplicantService) GetGoogleMeetUrl(req *ddl.ApplicantAndUser) (*ddl.Applicant, *response.Error) {
 	// バリデーション
-	if err := s.v.HashKeyValidate(&model.Applicant{
-		AbstractTransactionModel: model.AbstractTransactionModel{
+	if err := s.v.HashKeyValidate(&ddl.Applicant{
+		AbstractTransactionModel: ddl.AbstractTransactionModel{
 			HashKey: req.UserHashKey,
 		},
 	}); err != nil {
 		log.Printf("%v", err)
-		return nil, &model.ErrorResponse{
+		return nil, &response.Error{
 			Status: http.StatusBadRequest,
 			Code:   static.CODE_BAD_REQUEST,
 		}
@@ -498,31 +499,31 @@ func (s *ApplicantService) GetGoogleMeetUrl(req *model.ApplicantAndUser) (*model
 	ctx := context.Background()
 	applicantHashKey, err := s.redis.Get(ctx, req.UserHashKey, static.REDIS_APPLICANT_HASH_KEY)
 	if err != nil {
-		return nil, &model.ErrorResponse{
+		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
 
 	// 面接情報取得
-	schedule, err := s.r.GetDesiredAt(&model.Applicant{
-		AbstractTransactionModel: model.AbstractTransactionModel{
+	schedule, err := s.r.GetDesiredAt(&ddl.Applicant{
+		AbstractTransactionModel: ddl.AbstractTransactionModel{
 			HashKey: *applicantHashKey,
 		},
 	})
 	if err != nil {
-		return nil, &model.ErrorResponse{
+		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
 
 	// ユーザー取得
-	user, err := s.u.Get(&model.User{
-		AbstractTransactionModel: model.AbstractTransactionModel{
+	user, err := s.u.Get(&ddl.User{
+		AbstractTransactionModel: ddl.AbstractTransactionModel{
 			HashKey: req.UserHashKey,
 		},
 	})
 	if err != nil {
-		return nil, &model.ErrorResponse{
+		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
@@ -530,7 +531,7 @@ func (s *ApplicantService) GetGoogleMeetUrl(req *model.ApplicantAndUser) (*model
 	accessToken, err := s.g.GetAccessToken(&user.RefreshToken, &req.Code)
 	if err != nil {
 		log.Printf("%v", err)
-		return nil, &model.ErrorResponse{
+		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
@@ -544,42 +545,42 @@ func (s *ApplicantService) GetGoogleMeetUrl(req *model.ApplicantAndUser) (*model
 	)
 	if err != nil {
 		log.Printf("%v", err)
-		return nil, &model.ErrorResponse{
+		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
 
 	tx, err := s.d.TxStart()
 	if err != nil {
-		return nil, &model.ErrorResponse{
+		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
 
 	// Google Meet Url 格納
-	if err := s.r.UpdateGoogleMeet(tx, &model.Applicant{
-		AbstractTransactionModel: model.AbstractTransactionModel{
+	if err := s.r.UpdateGoogleMeet(tx, &ddl.Applicant{
+		AbstractTransactionModel: ddl.AbstractTransactionModel{
 			HashKey: *applicantHashKey,
 		},
 		GoogleMeetURL: *googleMeetUrl,
 	}); err != nil {
 		if err := s.d.TxRollback(tx); err != nil {
-			return nil, &model.ErrorResponse{
+			return nil, &response.Error{
 				Status: http.StatusInternalServerError,
 			}
 		}
-		return nil, &model.ErrorResponse{
+		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
 
 	if err := s.d.TxCommit(tx); err != nil {
-		return nil, &model.ErrorResponse{
+		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
 
-	return &model.Applicant{
+	return &ddl.Applicant{
 		GoogleMeetURL: *googleMeetUrl,
 	}, nil
 }

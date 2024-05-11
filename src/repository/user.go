@@ -1,8 +1,9 @@
 package repository
 
 import (
-	"api/src/model"
-	enum "api/src/model/enum"
+	"api/src/model/ddl"
+	"api/src/model/entity"
+	"api/src/model/enum"
 	"fmt"
 	"log"
 
@@ -10,54 +11,54 @@ import (
 )
 
 type IUserRepository interface {
-	// 登録
-	Insert(tx *gorm.DB, m *model.User) error
-	// 検索
-	List() ([]model.UserResponse, error)
-	// 取得
-	Get(m *model.User) (*model.User, error)
-	// 更新
-	Update(tx *gorm.DB, m *model.User) error
-	// 削除
-	Delete(tx *gorm.DB, m *model.User) error
-	// ユーザーグループ紐づけ登録
-	InsertGroupAssociation(tx *gorm.DB, m *model.UserGroupAssociation) error
-	// ユーザー予定紐づけ登録
-	InsertScheduleAssociation(tx *gorm.DB, m *model.UserScheduleAssociation) error
-	// ユーザー予定紐づけ削除
-	DeleteScheduleAssociation(tx *gorm.DB, m *model.UserScheduleAssociation) error
-	// ユーザー予定紐づけ取得_ユーザー予定ID
-	GetUserScheduleAssociationByScheduleID(m *model.UserScheduleAssociation) ([]model.UserScheduleAssociationWithName, error)
-	// ユーザー基本情報取得
-	GetUserBasicByHashKeys(hashKeys []string) ([]model.CommonModel, error)
-	// ユーザー存在確認
-	ConfirmUserByHashKeys(hashKeys []string) ([]model.UserResponse, error)
 	// ログイン認証
-	Login(m *model.User) ([]model.User, error)
+	Login(m *ddl.User) ([]entity.Login, error)
+	// 取得
+	Get(m *ddl.User) (*entity.User, error)
+	// 登録
+	Insert(tx *gorm.DB, m *ddl.User) (*entity.User, error)
+	// 検索
+	List() ([]ddl.UserResponse, error)
+	// 更新
+	Update(tx *gorm.DB, m *ddl.User) error
+	// 削除
+	Delete(tx *gorm.DB, m *ddl.User) error
+	// チーム登録
+	InsertTeam(tx *gorm.DB, m *ddl.Team) (*entity.Team, error)
+	// チーム紐づけ登録
+	InsertTeamAssociation(tx *gorm.DB, m *ddl.TeamAssociation) error
+	// ユーザー予定紐づけ登録
+	InsertScheduleAssociation(tx *gorm.DB, m *ddl.UserScheduleAssociation) error
+	// ユーザー予定紐づけ削除
+	DeleteScheduleAssociation(tx *gorm.DB, m *ddl.UserScheduleAssociation) error
+	// ユーザー予定紐づけ取得_ユーザー予定ID
+	GetUserScheduleAssociationByScheduleID(m *ddl.UserScheduleAssociation) ([]ddl.UserScheduleAssociationWithName, error)
+	// ユーザー基本情報取得
+	GetUserBasicByHashKeys(hashKeys []string) ([]ddl.CommonModel, error)
+	// ユーザー存在確認
+	ConfirmUserByHashKeys(hashKeys []string) ([]ddl.UserResponse, error)
 	// パスワード変更
-	PasswordChange(tx *gorm.DB, m *model.User) error
+	PasswordChange(tx *gorm.DB, m *ddl.User) error
 	// 初期パスワード一致確認
-	ConfirmInitPassword(m *model.User) (*int8, error)
+	ConfirmInitPassword(m *ddl.User) (*int8, error)
 	// 初期パスワード一致確認2
-	ConfirmInitPassword2(m *model.User) (*string, error)
+	ConfirmInitPassword2(m *ddl.User) (*string, error)
 	// メールアドレス重複チェック
-	EmailDuplCheck(m *model.User) error
-	// 検索(ユーザーグループ)
-	SearchGroup() ([]model.UserGroupResponse, error)
-	// グループ登録
-	InsertGroup(tx *gorm.DB, m *model.UserGroup) (*uint, error)
+	EmailDuplCheck(m *ddl.User) error
+	// 検索(チーム)
+	SearchTeam() ([]ddl.TeamResponse, error)
 	// スケジュール登録
-	InsertSchedule(tx *gorm.DB, m *model.UserSchedule) (*uint, error)
+	InsertSchedule(tx *gorm.DB, m *ddl.UserSchedule) (*uint, error)
 	// スケジュール更新
-	UpdateSchedule(tx *gorm.DB, m *model.UserSchedule) (*uint, error)
+	UpdateSchedule(tx *gorm.DB, m *ddl.UserSchedule) (*uint, error)
 	// スケジュール一覧
-	ListSchedule() ([]model.UserScheduleResponse, error)
+	ListSchedule() ([]ddl.UserScheduleResponse, error)
 	// スケジュール取得
-	GetSchedule(m *model.UserSchedule) (*model.UserSchedule, error)
+	GetSchedule(m *ddl.UserSchedule) (*ddl.UserSchedule, error)
 	// スケジュール削除
-	DeleteSchedule(tx *gorm.DB, m *model.UserSchedule) error
+	DeleteSchedule(tx *gorm.DB, m *ddl.UserSchedule) error
 	// 過去のスケジュールを更新
-	UpdatePastSchedule(tx *gorm.DB, m *model.UserSchedule) error
+	UpdatePastSchedule(tx *gorm.DB, m *ddl.UserSchedule) error
 }
 
 type UserRepository struct {
@@ -68,36 +69,37 @@ func NewUserRepository(db *gorm.DB) IUserRepository {
 	return &UserRepository{db}
 }
 
-// 登録
-func (u *UserRepository) Insert(tx *gorm.DB, m *model.User) error {
-	if err := tx.Create(m).Error; err != nil {
-		log.Printf("%v", err)
-		return err
-	}
-	return nil
-}
+// ログイン認証
+func (u *UserRepository) Login(m *ddl.User) ([]entity.Login, error) {
+	var res []entity.Login
 
-// 検索
-func (u *UserRepository) List() ([]model.UserResponse, error) {
-	var l []model.UserResponse
-
-	query := u.db.Model(&model.User{}).
-		Select("t_user.hash_key, t_user.name, t_user.email, t_user.role_id, m_role.name_ja as role_name_ja").
-		Joins("left join m_role on t_user.role_id = m_role.id")
-
-	if err := query.Find(&l).Error; err != nil {
+	if err := u.db.Model(&entity.Login{}).
+		Select(`
+			t_user.hash_key,
+			t_user.name,
+			t_user.password,
+			t_user.init_password,
+			t_user.role_id,
+			t_user.user_type
+		`).
+		Where(
+			&ddl.User{
+				Email: m.Email,
+			},
+		).Find(&res).Error; err != nil {
 		log.Printf("%v", err)
 		return nil, err
 	}
-	return l, nil
+
+	return res, nil
 }
 
 // 取得
-func (u *UserRepository) Get(m *model.User) (*model.User, error) {
-	var res model.User
+func (u *UserRepository) Get(m *ddl.User) (*entity.User, error) {
+	var res entity.User
 	if err := u.db.Where(
-		&model.User{
-			AbstractTransactionModel: model.AbstractTransactionModel{
+		&ddl.User{
+			AbstractTransactionModel: ddl.AbstractTransactionModel{
 				HashKey: m.HashKey,
 			},
 		},
@@ -109,21 +111,47 @@ func (u *UserRepository) Get(m *model.User) (*model.User, error) {
 	return &res, nil
 }
 
+// 登録
+func (u *UserRepository) Insert(tx *gorm.DB, m *ddl.User) (*entity.User, error) {
+	if err := tx.Create(m).Error; err != nil {
+		log.Printf("%v", err)
+		return nil, err
+	}
+	return &entity.User{
+		User: *m,
+	}, nil
+}
+
+// 検索
+func (u *UserRepository) List() ([]ddl.UserResponse, error) {
+	var l []ddl.UserResponse
+
+	query := u.db.Model(&ddl.User{}).
+		Select("t_user.hash_key, t_user.name, t_user.email, t_user.role_id, m_role.name_ja as role_name_ja").
+		Joins("left join m_role on t_user.role_id = m_role.id")
+
+	if err := query.Find(&l).Error; err != nil {
+		log.Printf("%v", err)
+		return nil, err
+	}
+	return l, nil
+}
+
 // 更新
-func (u *UserRepository) Update(tx *gorm.DB, m *model.User) error {
-	user := model.User{
+func (u *UserRepository) Update(tx *gorm.DB, m *ddl.User) error {
+	user := ddl.User{
 		Name:         m.Name,
 		Email:        m.Email,
 		Password:     m.Password,
 		RoleID:       m.RoleID,
 		RefreshToken: m.RefreshToken,
-		AbstractTransactionModel: model.AbstractTransactionModel{
+		AbstractTransactionModel: ddl.AbstractTransactionModel{
 			UpdatedAt: m.UpdatedAt,
 		},
 	}
-	if err := tx.Model(&model.User{}).Where(
-		&model.User{
-			AbstractTransactionModel: model.AbstractTransactionModel{
+	if err := tx.Model(&ddl.User{}).Where(
+		&ddl.User{
+			AbstractTransactionModel: ddl.AbstractTransactionModel{
 				HashKey: m.HashKey,
 			},
 		},
@@ -136,20 +164,32 @@ func (u *UserRepository) Update(tx *gorm.DB, m *model.User) error {
 }
 
 // 削除
-func (u *UserRepository) Delete(tx *gorm.DB, m *model.User) error {
-	if err := tx.Where(&model.User{
-		AbstractTransactionModel: model.AbstractTransactionModel{
+func (u *UserRepository) Delete(tx *gorm.DB, m *ddl.User) error {
+	if err := tx.Where(&ddl.User{
+		AbstractTransactionModel: ddl.AbstractTransactionModel{
 			HashKey: m.HashKey,
 		},
-	}).Delete(&model.User{}).Error; err != nil {
+	}).Delete(&ddl.User{}).Error; err != nil {
 		log.Printf("%v", err)
 		return err
 	}
 	return nil
 }
 
-// ユーザーグループ紐づけ登録
-func (u *UserRepository) InsertGroupAssociation(tx *gorm.DB, m *model.UserGroupAssociation) error {
+// チーム登録
+func (u *UserRepository) InsertTeam(tx *gorm.DB, m *ddl.Team) (*entity.Team, error) {
+	if err := tx.Create(m).Error; err != nil {
+		log.Printf("%v", err)
+		return nil, err
+	}
+
+	return &entity.Team{
+		Team: *m,
+	}, nil
+}
+
+// チーム紐づけ登録
+func (u *UserRepository) InsertTeamAssociation(tx *gorm.DB, m *ddl.TeamAssociation) error {
 	if err := tx.Create(m).Error; err != nil {
 		log.Printf("%v", err)
 		return err
@@ -158,7 +198,7 @@ func (u *UserRepository) InsertGroupAssociation(tx *gorm.DB, m *model.UserGroupA
 }
 
 // ユーザー予定紐づけ登録
-func (u *UserRepository) InsertScheduleAssociation(tx *gorm.DB, m *model.UserScheduleAssociation) error {
+func (u *UserRepository) InsertScheduleAssociation(tx *gorm.DB, m *ddl.UserScheduleAssociation) error {
 	if err := tx.Create(m).Error; err != nil {
 		log.Printf("%v", err)
 		return err
@@ -167,10 +207,10 @@ func (u *UserRepository) InsertScheduleAssociation(tx *gorm.DB, m *model.UserSch
 }
 
 // ユーザー予定紐づけ削除
-func (u *UserRepository) DeleteScheduleAssociation(tx *gorm.DB, m *model.UserScheduleAssociation) error {
-	if err := tx.Where(&model.UserScheduleAssociation{
+func (u *UserRepository) DeleteScheduleAssociation(tx *gorm.DB, m *ddl.UserScheduleAssociation) error {
+	if err := tx.Where(&ddl.UserScheduleAssociation{
 		UserScheduleID: m.UserScheduleID,
-	}).Delete(&model.User{}).Error; err != nil {
+	}).Delete(&ddl.User{}).Error; err != nil {
 		log.Printf("%v", err)
 		return err
 	}
@@ -178,13 +218,13 @@ func (u *UserRepository) DeleteScheduleAssociation(tx *gorm.DB, m *model.UserSch
 }
 
 // ユーザー予定紐づけ取得_ユーザー予定ID
-func (u *UserRepository) GetUserScheduleAssociationByScheduleID(m *model.UserScheduleAssociation) ([]model.UserScheduleAssociationWithName, error) {
-	var l []model.UserScheduleAssociationWithName
-	if err := u.db.Model(&model.UserScheduleAssociationWithName{}).
+func (u *UserRepository) GetUserScheduleAssociationByScheduleID(m *ddl.UserScheduleAssociation) ([]ddl.UserScheduleAssociationWithName, error) {
+	var l []ddl.UserScheduleAssociationWithName
+	if err := u.db.Model(&ddl.UserScheduleAssociationWithName{}).
 		Select("t_user.name as name").
 		Joins("left join t_user on t_user_schedule_association.user_id = t_user.name").
 		Where(
-			&model.UserScheduleAssociation{
+			&ddl.UserScheduleAssociation{
 				UserScheduleID: m.UserScheduleID,
 			},
 		).Find(&l).Error; err != nil {
@@ -196,13 +236,13 @@ func (u *UserRepository) GetUserScheduleAssociationByScheduleID(m *model.UserSch
 }
 
 // ユーザー基本情報取得
-func (u *UserRepository) GetUserBasicByHashKeys(hashKeys []string) ([]model.CommonModel, error) {
+func (u *UserRepository) GetUserBasicByHashKeys(hashKeys []string) ([]ddl.CommonModel, error) {
 	if len(hashKeys) == 0 {
 		return nil, nil
 	}
-	var l []model.CommonModel
+	var l []ddl.CommonModel
 
-	query := u.db.Model(&model.User{}).
+	query := u.db.Model(&ddl.User{}).
 		Select("t_user.id, t_user.hash_key")
 
 	query = query.Where("t_user.hash_key IN ?", hashKeys)
@@ -215,13 +255,13 @@ func (u *UserRepository) GetUserBasicByHashKeys(hashKeys []string) ([]model.Comm
 }
 
 // ユーザー存在確認
-func (u *UserRepository) ConfirmUserByHashKeys(hashKeys []string) ([]model.UserResponse, error) {
+func (u *UserRepository) ConfirmUserByHashKeys(hashKeys []string) ([]ddl.UserResponse, error) {
 	if len(hashKeys) == 0 {
 		return nil, nil
 	}
-	var l []model.UserResponse
+	var l []ddl.UserResponse
 
-	query := u.db.Model(&model.User{}).
+	query := u.db.Model(&ddl.User{}).
 		Select("t_user.hash_key, t_user.name, t_user.email, t_user.role_id, m_role.name_ja as role_name_ja").
 		Joins("left join m_role on t_user.role_id = m_role.id")
 
@@ -234,26 +274,12 @@ func (u *UserRepository) ConfirmUserByHashKeys(hashKeys []string) ([]model.UserR
 	return l, nil
 }
 
-// ログイン認証
-func (u *UserRepository) Login(m *model.User) ([]model.User, error) {
-	var res []model.User
-	if err := u.db.Where(
-		&model.User{
-			Email: m.Email,
-		},
-	).Find(&res).Error; err != nil {
-		log.Printf("%v", err)
-		return nil, err
-	}
-	return res, nil
-}
-
 // パスワード変更
-func (u *UserRepository) PasswordChange(tx *gorm.DB, m *model.User) error {
-	user := model.User{Password: m.Password}
-	if err := tx.Model(&model.User{}).Where(
-		&model.User{
-			AbstractTransactionModel: model.AbstractTransactionModel{
+func (u *UserRepository) PasswordChange(tx *gorm.DB, m *ddl.User) error {
+	user := ddl.User{Password: m.Password}
+	if err := tx.Model(&ddl.User{}).Where(
+		&ddl.User{
+			AbstractTransactionModel: ddl.AbstractTransactionModel{
 				HashKey: m.HashKey,
 			},
 		},
@@ -266,11 +292,11 @@ func (u *UserRepository) PasswordChange(tx *gorm.DB, m *model.User) error {
 }
 
 // 初期パスワード一致確認
-func (u *UserRepository) ConfirmInitPassword(m *model.User) (*int8, error) {
-	var confirm model.User
+func (u *UserRepository) ConfirmInitPassword(m *ddl.User) (*int8, error) {
+	var confirm ddl.User
 	if err := u.db.Where(
-		&model.User{
-			AbstractTransactionModel: model.AbstractTransactionModel{
+		&ddl.User{
+			AbstractTransactionModel: ddl.AbstractTransactionModel{
 				HashKey: m.HashKey,
 			},
 		},
@@ -288,11 +314,11 @@ func (u *UserRepository) ConfirmInitPassword(m *model.User) (*int8, error) {
 }
 
 // 初期パスワード一致確認2
-func (u *UserRepository) ConfirmInitPassword2(m *model.User) (*string, error) {
-	var confirm model.User
+func (u *UserRepository) ConfirmInitPassword2(m *ddl.User) (*string, error) {
+	var confirm ddl.User
 	if err := u.db.Where(
-		&model.User{
-			AbstractTransactionModel: model.AbstractTransactionModel{
+		&ddl.User{
+			AbstractTransactionModel: ddl.AbstractTransactionModel{
 				HashKey: m.HashKey,
 			},
 		},
@@ -305,10 +331,10 @@ func (u *UserRepository) ConfirmInitPassword2(m *model.User) (*string, error) {
 }
 
 // メールアドレス重複チェック
-func (u *UserRepository) EmailDuplCheck(m *model.User) error {
+func (u *UserRepository) EmailDuplCheck(m *ddl.User) error {
 	var count int64
-	if err := u.db.Model(&model.User{}).Where(
-		&model.User{
+	if err := u.db.Model(&ddl.User{}).Where(
+		&ddl.User{
 			Email: m.Email,
 		},
 	).Count(&count).Error; err != nil {
@@ -323,12 +349,12 @@ func (u *UserRepository) EmailDuplCheck(m *model.User) error {
 	return nil
 }
 
-// 検索(ユーザーグループ)
-func (u *UserRepository) SearchGroup() ([]model.UserGroupResponse, error) {
-	var l []model.UserGroupResponse
+// 検索(チーム)
+func (u *UserRepository) SearchTeam() ([]ddl.TeamResponse, error) {
+	var l []ddl.TeamResponse
 
-	query := u.db.Model(&model.UserGroup{}).
-		Select("t_user_group.hash_key, t_user_group.name, t_user_group.users")
+	query := u.db.Model(&ddl.Team{}).
+		Select("t_team.hash_key, t_team.name, t_team.users")
 
 	if err := query.Find(&l).Error; err != nil {
 		log.Printf("%v", err)
@@ -338,19 +364,8 @@ func (u *UserRepository) SearchGroup() ([]model.UserGroupResponse, error) {
 	return l, nil
 }
 
-// グループ登録
-func (u *UserRepository) InsertGroup(tx *gorm.DB, m *model.UserGroup) (*uint, error) {
-	if err := tx.Create(m).Error; err != nil {
-		log.Printf("%v", err)
-		return nil, err
-	}
-
-	id := uint(m.ID)
-	return &id, nil
-}
-
 // スケジュール登録
-func (u *UserRepository) InsertSchedule(tx *gorm.DB, m *model.UserSchedule) (*uint, error) {
+func (u *UserRepository) InsertSchedule(tx *gorm.DB, m *ddl.UserSchedule) (*uint, error) {
 	if err := tx.Create(m).Error; err != nil {
 		log.Printf("%v", err)
 		return nil, err
@@ -361,10 +376,10 @@ func (u *UserRepository) InsertSchedule(tx *gorm.DB, m *model.UserSchedule) (*ui
 }
 
 // スケジュール更新
-func (u *UserRepository) UpdateSchedule(tx *gorm.DB, m *model.UserSchedule) (*uint, error) {
-	if err := tx.Model(&model.UserSchedule{}).Where(
-		&model.UserSchedule{
-			AbstractTransactionModel: model.AbstractTransactionModel{
+func (u *UserRepository) UpdateSchedule(tx *gorm.DB, m *ddl.UserSchedule) (*uint, error) {
+	if err := tx.Model(&ddl.UserSchedule{}).Where(
+		&ddl.UserSchedule{
+			AbstractTransactionModel: ddl.AbstractTransactionModel{
 				HashKey: m.HashKey,
 			},
 		},
@@ -378,10 +393,10 @@ func (u *UserRepository) UpdateSchedule(tx *gorm.DB, m *model.UserSchedule) (*ui
 }
 
 // スケジュール一覧
-func (u *UserRepository) ListSchedule() ([]model.UserScheduleResponse, error) {
-	var res []model.UserScheduleResponse
+func (u *UserRepository) ListSchedule() ([]ddl.UserScheduleResponse, error) {
+	var res []ddl.UserScheduleResponse
 
-	query := u.db.Model(&model.UserSchedule{}).
+	query := u.db.Model(&ddl.UserSchedule{}).
 		Select("t_user_schedule.*, m_calendar_freq_status.freq").
 		Joins("left join m_calendar_freq_status on t_user_schedule.freq_id = m_calendar_freq_status.id")
 
@@ -393,11 +408,11 @@ func (u *UserRepository) ListSchedule() ([]model.UserScheduleResponse, error) {
 }
 
 // スケジュール取得
-func (u *UserRepository) GetSchedule(m *model.UserSchedule) (*model.UserSchedule, error) {
-	var res model.UserSchedule
+func (u *UserRepository) GetSchedule(m *ddl.UserSchedule) (*ddl.UserSchedule, error) {
+	var res ddl.UserSchedule
 	if err := u.db.Where(
-		&model.UserSchedule{
-			AbstractTransactionModel: model.AbstractTransactionModel{
+		&ddl.UserSchedule{
+			AbstractTransactionModel: ddl.AbstractTransactionModel{
 				HashKey: m.HashKey,
 			},
 		},
@@ -410,8 +425,8 @@ func (u *UserRepository) GetSchedule(m *model.UserSchedule) (*model.UserSchedule
 }
 
 // スケジュール削除
-func (u *UserRepository) DeleteSchedule(tx *gorm.DB, m *model.UserSchedule) error {
-	if err := tx.Where(m).Delete(&model.UserSchedule{}).Error; err != nil {
+func (u *UserRepository) DeleteSchedule(tx *gorm.DB, m *ddl.UserSchedule) error {
+	if err := tx.Where(m).Delete(&ddl.UserSchedule{}).Error; err != nil {
 		log.Printf("%v", err)
 		return err
 	}
@@ -419,17 +434,17 @@ func (u *UserRepository) DeleteSchedule(tx *gorm.DB, m *model.UserSchedule) erro
 }
 
 // 過去のスケジュールを更新
-func (u *UserRepository) UpdatePastSchedule(tx *gorm.DB, m *model.UserSchedule) error {
-	schedule := model.UserSchedule{
+func (u *UserRepository) UpdatePastSchedule(tx *gorm.DB, m *ddl.UserSchedule) error {
+	schedule := ddl.UserSchedule{
 		Start: m.Start,
 		End:   m.End,
-		AbstractTransactionModel: model.AbstractTransactionModel{
+		AbstractTransactionModel: ddl.AbstractTransactionModel{
 			UpdatedAt: m.UpdatedAt,
 		},
 	}
-	if err := tx.Model(&model.UserSchedule{}).Where(
-		&model.UserSchedule{
-			AbstractTransactionModel: model.AbstractTransactionModel{
+	if err := tx.Model(&ddl.UserSchedule{}).Where(
+		&ddl.UserSchedule{
+			AbstractTransactionModel: ddl.AbstractTransactionModel{
 				HashKey: m.HashKey,
 			},
 		},

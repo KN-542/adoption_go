@@ -1,17 +1,19 @@
-package model
+package ddl
 
-import "time"
+import (
+	"time"
+)
 
 /*
-	t_user
-	ユーザー
+t_user
+ユーザー
 */
 type User struct {
 	AbstractTransactionModel
 	// 氏名
-	Name string `json:"name" gorm:"unique;not null;check:name <> '';type:varchar(75);index"`
+	Name string `json:"name" gorm:"not null;check:name <> '';type:varchar(75);index"`
 	// メールアドレス
-	Email string `json:"email" gorm:"unique;not null;type:varchar(100);check:email ~ '^[a-zA-Z0-9_+-]+(\\.[a-zA-Z0-9_+-]+)*@([a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]*\\.)+[a-zA-Z]{2,}$';index"`
+	Email string `json:"email" gorm:"not null;type:varchar(100);check:email ~ '^[a-zA-Z0-9_+-]+(\\.[a-zA-Z0-9_+-]+)*@([a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]*\\.)+[a-zA-Z]{2,}$';index"`
 	// パスワード(ハッシュ化)
 	Password string `json:"password" gorm:"not null;check:password <> ''"`
 	// 初回パスワード(ハッシュ化)
@@ -29,33 +31,33 @@ type User struct {
 }
 
 /*
-	t_user_group
-	ユーザーグループ
+t_team
+チーム
 */
-type UserGroup struct {
+type Team struct {
 	AbstractTransactionModel
-	// グループ名
-	Name string `json:"name" gorm:"not null;unique;check:name <> '';type:varchar(30);index"`
+	// チーム名
+	Name string `json:"name" gorm:"not null;check:name <> '';type:varchar(30);index"`
 }
 
 /*
-	t_user_group_association
-	ユーザーグループ紐づけ
+t_team_association
+チーム紐づけ
 */
-type UserGroupAssociation struct {
-	// ユーザーグループID
-	UserGroupID uint `json:"user_group_id" gorm:"primaryKey"`
+type TeamAssociation struct {
+	// チームID
+	TeamID uint `json:"team_id" gorm:"primaryKey"`
 	// ユーザーID
 	UserID uint `json:"user_id" gorm:"primaryKey"`
-	// ユーザーグループ(外部キー)
-	UserGroup UserGroup `gorm:"foreignKey:user_group_id;references:id"`
+	// チーム(外部キー)
+	Team Team `gorm:"foreignKey:team_id;references:id"`
 	// ユーザー(外部キー)
 	User User `gorm:"foreignKey:user_id;references:id"`
 }
 
 /*
-	t_user_schedule
-	ユーザー予定
+t_user_schedule
+ユーザー予定
 */
 type UserSchedule struct {
 	AbstractTransactionModel
@@ -74,8 +76,8 @@ type UserSchedule struct {
 }
 
 /*
-	t_user_schedule_association
-	ユーザー予定紐づけ
+t_user_schedule_association
+ユーザー予定紐づけ
 */
 type UserScheduleAssociation struct {
 	// ユーザー予定ID
@@ -91,11 +93,11 @@ type UserScheduleAssociation struct {
 func (t User) TableName() string {
 	return "t_user"
 }
-func (t UserGroup) TableName() string {
-	return "t_user_group"
+func (t Team) TableName() string {
+	return "t_team"
 }
-func (t UserGroupAssociation) TableName() string {
-	return "t_user_group_association"
+func (t TeamAssociation) TableName() string {
+	return "t_team_association"
 }
 func (t UserSchedule) TableName() string {
 	return "t_user_schedule"
@@ -104,9 +106,9 @@ func (t UserScheduleAssociation) TableName() string {
 	return "t_user_schedule_association"
 }
 
-// ユーザーグループ登録 Request
-type UserGroupRequest struct {
-	UserGroup
+// チーム登録 Request
+type TeamRequest struct {
+	Team
 	// 所属ユーザー
 	Users string `json:"users"`
 }
@@ -161,17 +163,17 @@ type UsersResponse struct {
 	Users []UserResponse `json:"users"`
 }
 
-// ユーザーグループ response
-type UserGroupResponse struct {
+// チーム response
+type TeamResponse struct {
 	// ハッシュキー
 	HashKey string `json:"hash_key"`
-	// グループ名
+	// チーム名
 	Name string `json:"name"`
 	// 所属ユーザー
 	Users string `json:"users"`
 }
-type UserGroupsResponse struct {
-	UserGroups []UserGroupResponse `json:"user_groups"`
+type TeamsResponse struct {
+	Teams []TeamResponse `json:"teams"`
 }
 
 type CalendarsFreqStatus struct {
@@ -218,11 +220,6 @@ type PasswordChanging struct {
 	Password string `json:"password"`
 }
 
-// ユーザーロール一覧
-type UserRoles struct {
-	Roles []Role `json:"roles"`
-}
-
 // 予約時間
 type ReserveTime struct {
 	// 時間
@@ -239,8 +236,8 @@ type ReserveTable struct {
 	Options []ReserveTime `json:"options"`
 }
 
-// グループ毎の面接可能人数
-type ReserveOfGroup struct {
+// チーム毎の面接可能人数
+type ReserveOfTeam struct {
 	// ハッシュキー
 	HashKey string `json:"hash_key"`
 	// 面接可能人数
@@ -267,13 +264,4 @@ func ConvertUsers(u *[]User) *[]UserResponse {
 		)
 	}
 	return &respList
-}
-
-func ConvertUser(u *User) *UserResponse {
-	return &UserResponse{
-		HashKey: u.HashKey,
-		Name:    u.Name,
-		Email:   u.Email,
-		RoleID:  u.RoleID,
-	}
 }

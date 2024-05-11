@@ -2,7 +2,11 @@ package service
 
 import (
 	"api/resources/static"
-	"api/src/model"
+	"api/src/model/ddl"
+	"api/src/model/entity"
+	"api/src/model/enum"
+	"api/src/model/request"
+	"api/src/model/response"
 	"api/src/repository"
 	"api/src/validator"
 	"context"
@@ -12,6 +16,7 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -22,42 +27,45 @@ import (
 
 type ILoginService interface {
 	// ログイン認証
-	Login(req *model.User) (*model.UserResponse, *model.ErrorResponse)
-	// JWTトークン作成
-	JWT(hashKey *string, name string, secret string) (*http.Cookie, *model.ErrorResponse)
+	Login(req *request.Login) (*response.Login, *response.Error)
 	// MFA 認証コード生成
-	CodeGenerate(req *model.User) *model.ErrorResponse
+	CodeGenerate(req *request.CodeGenerate) *response.Error
 	// MFA
-	MFA(req *model.UserMFA) *model.ErrorResponse
+	MFA(req *request.MFA) (*response.MFA, *response.Error)
+	// JWTトークン作成
+	JWT(hashKey *string, name string, secret string) (*http.Cookie, *response.Error)
+	// JWT検証
+	JWTDecode(cookie *http.Cookie, secret string) *response.Error
 	// ユーザー存在確認
-	UserCheck(req *model.User) (*model.UserResponse, *model.ErrorResponse)
-	// パスワード変更 必要性
-	PasswordChangeCheck(req *model.User) (*int8, *model.ErrorResponse)
+	UserCheck(req *request.JWTDecode) *response.Error
 	// パスワード変更
-	PasswordChange(req *model.User) *model.ErrorResponse
+	PasswordChange(req *request.PasswordChange) *response.Error
+	// パスワード変更 必要性
+	PasswordChangeCheck(req *ddl.User) (*int8, *response.Error)
 	// セッション存在確認
-	SessionConfirm(req *model.User) *model.ErrorResponse
+	SessionConfirm(req *ddl.User) *response.Error
 	// ログアウト
-	Logout(req *model.User) (*http.Cookie, *http.Cookie, *model.ErrorResponse)
+	Logout(req *request.Logout, token string) (*http.Cookie, *response.Error)
 	// ログイン(応募者)
-	LoginApplicant(req *model.Applicant) (*model.Applicant, *model.ErrorResponse)
+	LoginApplicant(req *ddl.Applicant) (*ddl.Applicant, *response.Error)
 	// MFA 認証コード生成(応募者)
-	CodeGenerateApplicant(req *model.Applicant) *model.ErrorResponse
+	CodeGenerateApplicant(req *ddl.Applicant) *response.Error
 	// ユーザー存在確認(応募者)
-	UserCheckApplicant(req *model.Applicant) (*model.Applicant, *model.ErrorResponse)
+	UserCheckApplicant(req *ddl.Applicant) (*ddl.Applicant, *response.Error)
 	// セッション存在確認(応募者)
-	SessionConfirmApplicant(req *model.Applicant) *model.ErrorResponse
+	SessionConfirmApplicant(req *ddl.Applicant) *response.Error
 	// ログアウト(応募者)
-	LogoutApplicant(req *model.Applicant) (*http.Cookie, *model.ErrorResponse)
+	LogoutApplicant(req *ddl.Applicant) (*http.Cookie, *response.Error)
 	// S3 Name Redisに登録
-	S3NamePreInsert(req *model.Applicant) *model.ErrorResponse
+	S3NamePreInsert(req *ddl.Applicant) *response.Error
 }
 
 type LoginService struct {
 	login     repository.IUserRepository
 	applicant repository.IApplicantRepository
 	redis     repository.IRedisRepository
-	v         validator.IUserValidator
+	v         validator.ILoginValidator
+	v_0       validator.IUserValidator
 	d         repository.IDBRepository
 }
 
@@ -65,32 +73,33 @@ func NewLoginService(
 	login repository.IUserRepository,
 	applicant repository.IApplicantRepository,
 	redis repository.IRedisRepository,
-	v validator.IUserValidator,
+	v validator.ILoginValidator,
+	v_0 validator.IUserValidator,
 	d repository.IDBRepository,
 ) ILoginService {
-	return &LoginService{login, applicant, redis, v, d}
+	return &LoginService{login, applicant, redis, v, v_0, d}
 }
 
 // ログイン認証
-func (l *LoginService) Login(req *model.User) (*model.UserResponse, *model.ErrorResponse) {
+func (l *LoginService) Login(req *request.Login) (*response.Login, *response.Error) {
 	// バリデーション
-	if err := l.v.LoginValidate(req); err != nil {
+	if err := l.v.Login(req); err != nil {
 		log.Printf("%v", err)
-		return nil, &model.ErrorResponse{
+		return nil, &response.Error{
 			Status: http.StatusBadRequest,
 			Code:   static.CODE_BAD_REQUEST,
 		}
 	}
 
 	// ログイン認証
-	users, err := l.login.Login(req)
+	users, err := l.login.Login(&req.User)
 	if err != nil {
-		return nil, &model.ErrorResponse{
+		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
 	if len(users) != 1 {
-		return nil, &model.ErrorResponse{
+		return nil, &response.Error{
 			Status: http.StatusUnauthorized,
 			Code:   static.CODE_LOGIN_AUTH,
 		}
@@ -102,7 +111,7 @@ func (l *LoginService) Login(req *model.User) (*model.UserResponse, *model.Error
 		[]byte(req.Password),
 	); err != nil {
 		log.Printf("%v", err)
-		return nil, &model.ErrorResponse{
+		return nil, &response.Error{
 			Status: http.StatusUnauthorized,
 			Code:   static.CODE_LOGIN_AUTH,
 		}
@@ -117,85 +126,54 @@ func (l *LoginService) Login(req *model.User) (*model.UserResponse, *model.Error
 		&user.HashKey,
 		24*time.Hour,
 	); err != nil {
-		return nil, &model.ErrorResponse{
+		return nil, &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+	roleID := strconv.FormatUint(uint64(user.RoleID), 10)
+	if err := l.redis.Set(
+		ctx,
+		user.HashKey,
+		static.REDIS_USER_ROLE,
+		&roleID,
+		24*time.Hour,
+	); err != nil {
+		return nil, &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+	loginType := strconv.FormatUint(uint64(user.UserType), 10)
+	if err := l.redis.Set(
+		ctx,
+		user.HashKey,
+		static.REDIS_USER_LOGIN_TYPE,
+		&loginType,
+		24*time.Hour,
+	); err != nil {
+		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
 
-	return &model.UserResponse{
-		HashKey: user.HashKey,
-		Name:    user.Name,
-		Email:   user.Email,
-		RoleID:  user.RoleID,
+	return &response.Login{
+		User: entity.User{
+			User: ddl.User{
+				AbstractTransactionModel: ddl.AbstractTransactionModel{
+					HashKey: user.HashKey,
+				},
+				Name:  user.Name,
+				Email: user.Email,
+			},
+		},
 	}, nil
 }
 
-// JWTトークン作成
-func (l *LoginService) JWT(hashKey *string, name string, secret string) (*http.Cookie, *model.ErrorResponse) {
-	// Token作成
-	if name == "jwt_token" || name == "jwt_token3" {
-		token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-			"user_id": hashKey,
-			"exp":     time.Now().Add(24 * time.Hour).Unix(),
-		})
-
-		// 署名
-		tokenString, err := token.SignedString([]byte(os.Getenv(secret)))
-		if err != nil {
-			return nil, &model.ErrorResponse{
-				Status: http.StatusInternalServerError,
-			}
-		}
-
-		// Cookie作成
-		cookie := http.Cookie{
-			Name:     name,
-			Value:    tokenString,
-			Expires:  time.Now().Add(24 * time.Hour),
-			HttpOnly: true,  // JavaScriptからのアクセスを禁止する場合はtrueに
-			Secure:   false, // HTTPSでのみ送信 開発環境ではfalseに
-			SameSite: http.SameSiteDefaultMode,
-			Path:     "/",
-		}
-
-		return &cookie, nil
-	} else if name == "jwt_token2" {
-		token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-			"user_id": hashKey,
-			"exp":     time.Now().Add(24 * 30 * 3 * time.Hour).Unix(),
-		})
-
-		// 署名
-		tokenString, err := token.SignedString([]byte(os.Getenv(secret)))
-		if err != nil {
-			return nil, &model.ErrorResponse{
-				Status: http.StatusInternalServerError,
-			}
-		}
-
-		// Cookie作成
-		cookie := http.Cookie{
-			Name:     name,
-			Value:    tokenString,
-			Expires:  time.Now().Add(24 * 30 * 3 * time.Hour),
-			HttpOnly: true,  // JavaScriptからのアクセスを禁止する場合はtrueに
-			Secure:   false, // HTTPSでのみ送信 開発環境ではfalseに
-			SameSite: http.SameSiteDefaultMode,
-			Path:     "/",
-		}
-
-		return &cookie, nil
-	}
-
-	return nil, nil
-}
-
 // MFA 認証コード生成
-func (l *LoginService) CodeGenerate(req *model.User) *model.ErrorResponse {
+func (l *LoginService) CodeGenerate(req *request.CodeGenerate) *response.Error {
 	// バリデーション
-	if err := l.v.HashKeyValidate(req); err != nil {
+	if err := l.v.CodeGenerate(req); err != nil {
 		log.Printf("%v", err)
-		return &model.ErrorResponse{
+		return &response.Error{
 			Status: http.StatusBadRequest,
 			Code:   static.CODE_BAD_REQUEST,
 		}
@@ -205,7 +183,7 @@ func (l *LoginService) CodeGenerate(req *model.User) *model.ErrorResponse {
 	ctx := context.Background()
 	_, err := l.redis.Get(ctx, req.HashKey, static.REDIS_USER_HASH_KEY)
 	if err != nil {
-		return &model.ErrorResponse{
+		return &response.Error{
 			Status: http.StatusUnauthorized,
 			Code:   static.CODE_LOGIN_REQUIRED,
 		}
@@ -222,7 +200,7 @@ func (l *LoginService) CodeGenerate(req *model.User) *model.ErrorResponse {
 		&code,
 		5*time.Minute,
 	); err != nil {
-		return &model.ErrorResponse{
+		return &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
@@ -234,13 +212,21 @@ func (l *LoginService) CodeGenerate(req *model.User) *model.ErrorResponse {
 }
 
 // MFA
-func (l *LoginService) MFA(req *model.UserMFA) *model.ErrorResponse {
+func (l *LoginService) MFA(req *request.MFA) (*response.MFA, *response.Error) {
 	// バリデーション
-	if err := l.v.MFAValidate(req); err != nil {
+	if err := l.v.MFA(req); err != nil {
 		log.Printf("%v", err)
-		return &model.ErrorResponse{
+		return nil, &response.Error{
 			Status: http.StatusBadRequest,
 			Code:   static.CODE_BAD_REQUEST,
+		}
+	}
+
+	// ユーザー取得＆パスワード変更必要性チェック
+	user, err := l.login.Get(&req.User)
+	if err != nil {
+		return nil, &response.Error{
+			Status: http.StatusInternalServerError,
 		}
 	}
 
@@ -250,26 +236,27 @@ func (l *LoginService) MFA(req *model.UserMFA) *model.ErrorResponse {
 		req.HashKey,
 		static.REDIS_CODE,
 	)
-	if err == redis.Nil {
-		// Redisに保存
-		if err := l.redis.Set(
-			ctx,
-			req.HashKey,
-			static.REDIS_USER_HASH_KEY,
-			&req.HashKey,
-			24*time.Hour,
-		); err != nil {
-			return &model.ErrorResponse{
-				Status: http.StatusInternalServerError,
+	if err != nil {
+		if err == redis.Nil {
+			// Redisに保存
+			if err := l.redis.Set(
+				ctx,
+				req.HashKey,
+				static.REDIS_USER_HASH_KEY,
+				&req.HashKey,
+				24*time.Hour,
+			); err != nil {
+				return nil, &response.Error{
+					Status: http.StatusInternalServerError,
+				}
+			}
+
+			return nil, &response.Error{
+				Status: http.StatusUnauthorized,
+				Code:   static.CODE_EXPIRED,
 			}
 		}
-
-		return &model.ErrorResponse{
-			Status: http.StatusUnauthorized,
-			Code:   static.CODE_EXPIRED,
-		}
-	} else if err != nil {
-		return &model.ErrorResponse{
+		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
@@ -283,26 +270,106 @@ func (l *LoginService) MFA(req *model.UserMFA) *model.ErrorResponse {
 			&req.HashKey,
 			24*time.Hour,
 		); err != nil {
-			return &model.ErrorResponse{
+			return nil, &response.Error{
 				Status: http.StatusInternalServerError,
 			}
 		}
 
-		return nil
+		// ログイン種別取得
+		login, err := l.redis.Get(ctx, req.HashKey, static.REDIS_USER_LOGIN_TYPE)
+		if err != nil {
+			return nil, &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+		loginType, err := strconv.ParseUint(*login, 10, 64)
+		if err != nil {
+			log.Printf("%v", err)
+			return nil, &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+		var path string
+		if loginType == uint64(enum.LOGIN_TYPE_ADMIN) {
+			path = "admin"
+		} else {
+			path = "management"
+		}
+
+		return &response.MFA{
+			Path:             path,
+			IsPasswordChange: user.Password == user.InitPassword,
+		}, nil
 	} else {
 		log.Printf("invalid code")
-		return &model.ErrorResponse{
+		return nil, &response.Error{
 			Status: http.StatusUnauthorized,
 			Code:   static.CODE_INVALID_CODE,
 		}
 	}
 }
 
+// JWTトークン作成
+func (l *LoginService) JWT(hashKey *string, name string, secret string) (*http.Cookie, *response.Error) {
+	// Token作成
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"user_id": hashKey,
+		"exp":     time.Now().Add(24 * time.Hour).Unix(),
+	})
+
+	// 署名
+	tokenString, err := token.SignedString([]byte(os.Getenv(secret)))
+	if err != nil {
+		return nil, &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// Cookie作成
+	cookie := http.Cookie{
+		Name:     name,
+		Value:    tokenString,
+		Expires:  time.Now().Add(24 * time.Hour),
+		HttpOnly: true,  // JavaScriptからのアクセスを禁止する場合はtrueに
+		Secure:   false, // HTTPSでのみ送信 開発環境ではfalseに
+		SameSite: http.SameSiteDefaultMode,
+		Path:     "/",
+	}
+
+	return &cookie, nil
+}
+
+// JWT検証
+func (l *LoginService) JWTDecode(cookie *http.Cookie, secret string) *response.Error {
+	token, err := jwt.Parse(cookie.Value, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			log.Print(static.MESSAGE_UNEXPECTED_COOKIE)
+			return nil, fmt.Errorf(static.MESSAGE_UNEXPECTED_COOKIE)
+		}
+		return []byte(os.Getenv(secret)), nil
+	})
+	if err != nil {
+		log.Printf("%v", err)
+		return &response.Error{
+			Status: http.StatusUnauthorized,
+		}
+	}
+
+	if _, ok := token.Claims.(jwt.MapClaims); !ok || !token.Valid {
+		log.Print(static.MESSAGE_UNEXPECTED_COOKIE)
+		return &response.Error{
+			Status: http.StatusUnauthorized,
+		}
+	}
+
+	return nil
+}
+
 // パスワード変更 必要性
-func (l *LoginService) PasswordChangeCheck(req *model.User) (*int8, *model.ErrorResponse) {
+func (l *LoginService) PasswordChangeCheck(req *ddl.User) (*int8, *response.Error) {
 	res, err := l.login.ConfirmInitPassword(req)
 	if err != nil {
-		return nil, &model.ErrorResponse{
+		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
@@ -310,55 +377,78 @@ func (l *LoginService) PasswordChangeCheck(req *model.User) (*int8, *model.Error
 }
 
 // ユーザー存在確認
-func (l *LoginService) UserCheck(req *model.User) (*model.UserResponse, *model.ErrorResponse) {
+func (l *LoginService) UserCheck(req *request.JWTDecode) *response.Error {
 	// バリデーション
-	if err := l.v.HashKeyValidate(req); err != nil {
+	if err := l.v.JWTDecode(req); err != nil {
 		log.Printf("%v", err)
-		return nil, &model.ErrorResponse{
+		return &response.Error{
 			Status: http.StatusBadRequest,
 			Code:   static.CODE_BAD_REQUEST,
 		}
 	}
 
-	res, err := l.login.Get(&model.User{
-		AbstractTransactionModel: model.AbstractTransactionModel{
+	_, err := l.login.Get(&ddl.User{
+		AbstractTransactionModel: ddl.AbstractTransactionModel{
 			HashKey: req.HashKey,
 		},
 	})
 	if err != nil {
-		return nil, &model.ErrorResponse{
+		return &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
 
-	return model.ConvertUser(res), nil
+	// ログインの一時的セッション存在確認
+	ctx := context.Background()
+	hash, err := l.redis.Get(ctx, req.HashKey, static.REDIS_USER_HASH_KEY)
+	if err != nil {
+		return &response.Error{
+			Status: http.StatusUnauthorized,
+			Code:   static.CODE_LOGIN_REQUIRED,
+		}
+	}
+
+	// 有効期限更新
+	if err := l.redis.Set(
+		ctx,
+		req.HashKey,
+		static.REDIS_USER_HASH_KEY,
+		hash,
+		24*time.Hour,
+	); err != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	return nil
 }
 
 // パスワード変更
-func (l *LoginService) PasswordChange(req *model.User) *model.ErrorResponse {
+func (l *LoginService) PasswordChange(req *request.PasswordChange) *response.Error {
 	// バリデーション
-	if err := l.v.PasswordChangeValidate(req); err != nil {
+	if err := l.v.PasswordChange(req); err != nil {
 		log.Printf("%v", err)
-		return &model.ErrorResponse{
+		return &response.Error{
 			Status: http.StatusBadRequest,
 			Code:   static.CODE_BAD_REQUEST,
 		}
 	}
 
 	// 初期パスワード一致確認
-	initPassword, err := l.login.ConfirmInitPassword2(req)
+	user, err := l.login.Get(&req.User)
 	if err != nil {
-		return &model.ErrorResponse{
+		return &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
 
 	if err := bcrypt.CompareHashAndPassword(
-		[]byte(*initPassword),
+		[]byte(user.InitPassword),
 		[]byte(req.InitPassword),
 	); err != nil {
 		log.Printf("%v", err)
-		return &model.ErrorResponse{
+		return &response.Error{
 			Status: http.StatusUnauthorized,
 			Code:   static.CODE_INIT_PASSWORD_INCORRECT,
 		}
@@ -368,7 +458,7 @@ func (l *LoginService) PasswordChange(req *model.User) *model.ErrorResponse {
 	buffer, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
 		log.Printf("%v", err)
-		return &model.ErrorResponse{
+		return &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
@@ -376,26 +466,31 @@ func (l *LoginService) PasswordChange(req *model.User) *model.ErrorResponse {
 
 	tx, err := l.d.TxStart()
 	if err != nil {
-		return &model.ErrorResponse{
+		return &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
 
 	// パスワード変更
-	req.UpdatedAt = time.Now()
-	if err := l.login.PasswordChange(tx, req); err != nil {
+	if err := l.login.Update(tx, &ddl.User{
+		AbstractTransactionModel: ddl.AbstractTransactionModel{
+			HashKey:   req.HashKey,
+			UpdatedAt: time.Now(),
+		},
+		Password: req.Password,
+	}); err != nil {
 		if err := l.d.TxRollback(tx); err != nil {
-			return &model.ErrorResponse{
+			return &response.Error{
 				Status: http.StatusInternalServerError,
 			}
 		}
-		return &model.ErrorResponse{
+		return &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
 
 	if err := l.d.TxCommit(tx); err != nil {
-		return &model.ErrorResponse{
+		return &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
@@ -404,11 +499,11 @@ func (l *LoginService) PasswordChange(req *model.User) *model.ErrorResponse {
 }
 
 // セッション存在確認
-func (l *LoginService) SessionConfirm(req *model.User) *model.ErrorResponse {
+func (l *LoginService) SessionConfirm(req *ddl.User) *response.Error {
 	// バリデーション
-	if err := l.v.HashKeyValidate(req); err != nil {
+	if err := l.v_0.HashKeyValidate(req); err != nil {
 		log.Printf("%v", err)
-		return &model.ErrorResponse{
+		return &response.Error{
 			Status: http.StatusBadRequest,
 			Code:   static.CODE_BAD_REQUEST,
 		}
@@ -418,7 +513,7 @@ func (l *LoginService) SessionConfirm(req *model.User) *model.ErrorResponse {
 	ctx := context.Background()
 	_, err := l.redis.Get(ctx, req.HashKey, static.REDIS_USER_HASH_KEY)
 	if err != nil {
-		return &model.ErrorResponse{
+		return &response.Error{
 			Status: http.StatusUnauthorized,
 			Code:   static.CODE_LOGIN_REQUIRED,
 		}
@@ -432,7 +527,7 @@ func (l *LoginService) SessionConfirm(req *model.User) *model.ErrorResponse {
 		&req.HashKey,
 		24*time.Hour,
 	); err != nil {
-		return &model.ErrorResponse{
+		return &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
@@ -441,11 +536,11 @@ func (l *LoginService) SessionConfirm(req *model.User) *model.ErrorResponse {
 }
 
 // ログアウト
-func (l *LoginService) Logout(req *model.User) (*http.Cookie, *http.Cookie, *model.ErrorResponse) {
+func (l *LoginService) Logout(req *request.Logout, token string) (*http.Cookie, *response.Error) {
 	// バリデーション
-	if err := l.v.HashKeyValidate(req); err != nil {
+	if err := l.v.Logout(req); err != nil {
 		log.Printf("%v", err)
-		return nil, nil, &model.ErrorResponse{
+		return nil, &response.Error{
 			Status: http.StatusBadRequest,
 			Code:   static.CODE_BAD_REQUEST,
 		}
@@ -454,23 +549,14 @@ func (l *LoginService) Logout(req *model.User) (*http.Cookie, *http.Cookie, *mod
 	// Redis破棄
 	ctx := context.Background()
 	if err := l.redis.Delete(ctx, req.HashKey); err != nil {
-		return nil, nil, &model.ErrorResponse{
+		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
 
 	// Cookie破棄(使えないcookieに更新)
 	cookie := http.Cookie{
-		Name:     "jwt_token",
-		Value:    "",
-		Expires:  time.Unix(0, 0),
-		HttpOnly: true,
-		Secure:   false,
-		SameSite: http.SameSiteDefaultMode,
-		Path:     "/",
-	}
-	cookie2 := http.Cookie{
-		Name:     "jwt_token2",
+		Name:     token,
 		Value:    "",
 		Expires:  time.Unix(0, 0),
 		HttpOnly: true,
@@ -479,15 +565,15 @@ func (l *LoginService) Logout(req *model.User) (*http.Cookie, *http.Cookie, *mod
 		Path:     "/",
 	}
 
-	return &cookie, &cookie2, nil
+	return &cookie, nil
 }
 
 // ログイン(応募者)
-func (l *LoginService) LoginApplicant(req *model.Applicant) (*model.Applicant, *model.ErrorResponse) {
+func (l *LoginService) LoginApplicant(req *ddl.Applicant) (*ddl.Applicant, *response.Error) {
 	// バリデーション
-	if err := l.v.LoginApplicantValidate(req); err != nil {
+	if err := l.v_0.LoginApplicantValidate(req); err != nil {
 		log.Printf("%v", err)
-		return nil, &model.ErrorResponse{
+		return nil, &response.Error{
 			Status: http.StatusBadRequest,
 			Code:   static.CODE_BAD_REQUEST,
 		}
@@ -496,12 +582,12 @@ func (l *LoginService) LoginApplicant(req *model.Applicant) (*model.Applicant, *
 	// ログイン認証
 	applicants, err := l.applicant.GetByEmail(req)
 	if err != nil {
-		return nil, &model.ErrorResponse{
+		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
 	if len(applicants) == 0 {
-		return nil, &model.ErrorResponse{
+		return nil, &response.Error{
 			Status: http.StatusUnauthorized,
 			Code:   static.CODE_LOGIN_AUTH,
 		}
@@ -518,7 +604,7 @@ func (l *LoginService) LoginApplicant(req *model.Applicant) (*model.Applicant, *
 		&applicant.HashKey,
 		24*time.Hour,
 	); err != nil {
-		return nil, &model.ErrorResponse{
+		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
@@ -527,11 +613,11 @@ func (l *LoginService) LoginApplicant(req *model.Applicant) (*model.Applicant, *
 }
 
 // MFA 認証コード生成(応募者)
-func (l *LoginService) CodeGenerateApplicant(req *model.Applicant) *model.ErrorResponse {
+func (l *LoginService) CodeGenerateApplicant(req *ddl.Applicant) *response.Error {
 	// バリデーション
-	if err := l.v.HashKeyValidateApplicant(req); err != nil {
+	if err := l.v_0.HashKeyValidateApplicant(req); err != nil {
 		log.Printf("%v", err)
-		return &model.ErrorResponse{
+		return &response.Error{
 			Status: http.StatusBadRequest,
 			Code:   static.CODE_BAD_REQUEST,
 		}
@@ -541,7 +627,7 @@ func (l *LoginService) CodeGenerateApplicant(req *model.Applicant) *model.ErrorR
 	ctx := context.Background()
 	_, err := l.redis.Get(ctx, req.HashKey, static.REDIS_USER_HASH_KEY)
 	if err != nil {
-		return &model.ErrorResponse{
+		return &response.Error{
 			Status: http.StatusUnauthorized,
 			Code:   static.CODE_LOGIN_REQUIRED,
 		}
@@ -558,7 +644,7 @@ func (l *LoginService) CodeGenerateApplicant(req *model.Applicant) *model.ErrorR
 		&code,
 		5*time.Minute,
 	); err != nil {
-		return &model.ErrorResponse{
+		return &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
@@ -570,11 +656,11 @@ func (l *LoginService) CodeGenerateApplicant(req *model.Applicant) *model.ErrorR
 }
 
 // ユーザー存在確認(応募者)
-func (l *LoginService) UserCheckApplicant(req *model.Applicant) (*model.Applicant, *model.ErrorResponse) {
+func (l *LoginService) UserCheckApplicant(req *ddl.Applicant) (*ddl.Applicant, *response.Error) {
 	// バリデーション
-	if err := l.v.HashKeyValidateApplicant(req); err != nil {
+	if err := l.v_0.HashKeyValidateApplicant(req); err != nil {
 		log.Printf("%v", err)
-		return nil, &model.ErrorResponse{
+		return nil, &response.Error{
 			Status: http.StatusBadRequest,
 			Code:   static.CODE_BAD_REQUEST,
 		}
@@ -582,7 +668,7 @@ func (l *LoginService) UserCheckApplicant(req *model.Applicant) (*model.Applican
 
 	res, err := l.applicant.GetByHashKey(req)
 	if err != nil {
-		return nil, &model.ErrorResponse{
+		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
@@ -591,11 +677,11 @@ func (l *LoginService) UserCheckApplicant(req *model.Applicant) (*model.Applican
 }
 
 // セッション存在確認(応募者)
-func (l *LoginService) SessionConfirmApplicant(req *model.Applicant) *model.ErrorResponse {
+func (l *LoginService) SessionConfirmApplicant(req *ddl.Applicant) *response.Error {
 	// バリデーション
-	if err := l.v.HashKeyValidateApplicant(req); err != nil {
+	if err := l.v_0.HashKeyValidateApplicant(req); err != nil {
 		log.Printf("%v", err)
-		return &model.ErrorResponse{
+		return &response.Error{
 			Status: http.StatusBadRequest,
 			Code:   static.CODE_BAD_REQUEST,
 		}
@@ -605,7 +691,7 @@ func (l *LoginService) SessionConfirmApplicant(req *model.Applicant) *model.Erro
 	ctx := context.Background()
 	_, err := l.redis.Get(ctx, req.HashKey, static.REDIS_USER_HASH_KEY)
 	if err != nil {
-		return &model.ErrorResponse{
+		return &response.Error{
 			Status: http.StatusUnauthorized,
 			Code:   static.CODE_LOGIN_REQUIRED,
 		}
@@ -619,7 +705,7 @@ func (l *LoginService) SessionConfirmApplicant(req *model.Applicant) *model.Erro
 		&req.HashKey,
 		24*time.Hour,
 	); err != nil {
-		return &model.ErrorResponse{
+		return &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
@@ -628,11 +714,11 @@ func (l *LoginService) SessionConfirmApplicant(req *model.Applicant) *model.Erro
 }
 
 // ログアウト(応募者)
-func (l *LoginService) LogoutApplicant(req *model.Applicant) (*http.Cookie, *model.ErrorResponse) {
+func (l *LoginService) LogoutApplicant(req *ddl.Applicant) (*http.Cookie, *response.Error) {
 	// バリデーション
-	if err := l.v.HashKeyValidateApplicant(req); err != nil {
+	if err := l.v_0.HashKeyValidateApplicant(req); err != nil {
 		log.Printf("%v", err)
-		return nil, &model.ErrorResponse{
+		return nil, &response.Error{
 			Status: http.StatusBadRequest,
 			Code:   static.CODE_BAD_REQUEST,
 		}
@@ -641,7 +727,7 @@ func (l *LoginService) LogoutApplicant(req *model.Applicant) (*http.Cookie, *mod
 	// Redis破棄
 	ctx := context.Background()
 	if err := l.redis.Delete(ctx, req.HashKey); err != nil {
-		return nil, &model.ErrorResponse{
+		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
@@ -661,10 +747,10 @@ func (l *LoginService) LogoutApplicant(req *model.Applicant) (*http.Cookie, *mod
 }
 
 // S3 Name Redisに登録
-func (l *LoginService) S3NamePreInsert(req *model.Applicant) *model.ErrorResponse {
+func (l *LoginService) S3NamePreInsert(req *ddl.Applicant) *response.Error {
 	res, err := l.applicant.GetByHashKey(req)
 	if err != nil {
-		return &model.ErrorResponse{
+		return &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
@@ -679,7 +765,7 @@ func (l *LoginService) S3NamePreInsert(req *model.Applicant) *model.ErrorRespons
 		&s3Name,
 		24*time.Hour,
 	); err != nil {
-		return &model.ErrorResponse{
+		return &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}

@@ -1,8 +1,8 @@
 package repository
 
 import (
-	model "api/src/model"
-	enum "api/src/model/enum"
+	"api/src/model/ddl"
+	"api/src/model/enum"
 	"log"
 	"time"
 
@@ -12,23 +12,23 @@ import (
 
 type IApplicantRepository interface {
 	// 登録
-	Insert(tx *gorm.DB, applicant *model.Applicant) error
+	Insert(tx *gorm.DB, applicant *ddl.Applicant) error
 	// 検索
-	Search(m *model.ApplicantSearchRequest) ([]model.ApplicantWith, error)
+	Search(m *ddl.ApplicantSearchRequest) ([]ddl.ApplicantWith, error)
 	// 取得(Email)
-	GetByEmail(applicant *model.Applicant) ([]model.Applicant, error)
+	GetByEmail(applicant *ddl.Applicant) ([]ddl.Applicant, error)
 	// PK検索(カウント)
 	CountByPrimaryKey(key *string) (*int64, error)
 	// 応募者取得(ハッシュキー)
-	GetByHashKey(m *model.Applicant) (*model.Applicant, error)
+	GetByHashKey(m *ddl.Applicant) (*ddl.Applicant, error)
 	// 面接希望日取得
-	GetDesiredAt(m *model.Applicant) (*model.UserSchedule, error)
+	GetDesiredAt(m *ddl.Applicant) (*ddl.UserSchedule, error)
 	// Google Meet Url 格納
-	UpdateGoogleMeet(tx *gorm.DB, m *model.Applicant) error
+	UpdateGoogleMeet(tx *gorm.DB, m *ddl.Applicant) error
 	// 書類登録状況更新
-	UpdateDocument(tx *gorm.DB, m *model.Applicant) error
+	UpdateDocument(tx *gorm.DB, m *ddl.Applicant) error
 	// 面接希望日更新
-	UpdateDesiredAt(tx *gorm.DB, m *model.Applicant) error
+	UpdateDesiredAt(tx *gorm.DB, m *ddl.Applicant) error
 }
 
 type ApplicantRepository struct {
@@ -41,7 +41,7 @@ func NewApplicantRepository(db *gorm.DB, redis *redis.Client) IApplicantReposito
 }
 
 // 登録
-func (a *ApplicantRepository) Insert(tx *gorm.DB, applicant *model.Applicant) error {
+func (a *ApplicantRepository) Insert(tx *gorm.DB, applicant *ddl.Applicant) error {
 	if err := tx.Create(applicant).Error; err != nil {
 		log.Printf("%v", err)
 		return err
@@ -50,10 +50,10 @@ func (a *ApplicantRepository) Insert(tx *gorm.DB, applicant *model.Applicant) er
 }
 
 // 検索 TODO 検索仕様追加
-func (a *ApplicantRepository) Search(m *model.ApplicantSearchRequest) ([]model.ApplicantWith, error) {
-	var applicants []model.ApplicantWith
+func (a *ApplicantRepository) Search(m *ddl.ApplicantSearchRequest) ([]ddl.ApplicantWith, error) {
+	var applicants []ddl.ApplicantWith
 
-	query := a.db.Model(&model.Applicant{}).
+	query := a.db.Model(&ddl.Applicant{}).
 		Select(`
 			t_applicant.name,
 			t_applicant.email,
@@ -114,7 +114,7 @@ func (a *ApplicantRepository) Search(m *model.ApplicantSearchRequest) ([]model.A
 // PK検索(カウント)
 func (a *ApplicantRepository) CountByPrimaryKey(key *string) (*int64, error) {
 	var count int64
-	if err := a.db.Model(&model.Applicant{}).Where("id = ?", key).Count(&count).Error; err != nil {
+	if err := a.db.Model(&ddl.Applicant{}).Where("id = ?", key).Count(&count).Error; err != nil {
 		log.Printf("%v", err)
 		return nil, err
 	}
@@ -122,8 +122,8 @@ func (a *ApplicantRepository) CountByPrimaryKey(key *string) (*int64, error) {
 }
 
 // 取得(Email)
-func (a *ApplicantRepository) GetByEmail(applicant *model.Applicant) ([]model.Applicant, error) {
-	var l []model.Applicant
+func (a *ApplicantRepository) GetByEmail(applicant *ddl.Applicant) ([]ddl.Applicant, error) {
+	var l []ddl.Applicant
 	if err := a.db.Where(applicant).Find(&l).Error; err != nil {
 		log.Printf("%v", err)
 		return nil, err
@@ -133,11 +133,11 @@ func (a *ApplicantRepository) GetByEmail(applicant *model.Applicant) ([]model.Ap
 }
 
 // 応募者取得(ハッシュキー)
-func (a *ApplicantRepository) GetByHashKey(m *model.Applicant) (*model.Applicant, error) {
-	var res model.Applicant
+func (a *ApplicantRepository) GetByHashKey(m *ddl.Applicant) (*ddl.Applicant, error) {
+	var res ddl.Applicant
 	if err := a.db.Where(
-		&model.Applicant{
-			AbstractTransactionModel: model.AbstractTransactionModel{
+		&ddl.Applicant{
+			AbstractTransactionModel: ddl.AbstractTransactionModel{
 				HashKey: m.HashKey,
 			},
 		},
@@ -150,14 +150,14 @@ func (a *ApplicantRepository) GetByHashKey(m *model.Applicant) (*model.Applicant
 }
 
 // 面接希望日取得
-func (a *ApplicantRepository) GetDesiredAt(m *model.Applicant) (*model.UserSchedule, error) {
-	var l model.UserSchedule
-	if err := a.db.Model(&model.UserSchedule{}).
+func (a *ApplicantRepository) GetDesiredAt(m *ddl.Applicant) (*ddl.UserSchedule, error) {
+	var l ddl.UserSchedule
+	if err := a.db.Model(&ddl.UserSchedule{}).
 		Select("t_user_schedule.start, t_user_schedule.end").
 		Joins("left join t_applicant on t_applicant.calendar_id = t_user_schedule.id").
 		Where(
-			&model.Applicant{
-				AbstractTransactionModel: model.AbstractTransactionModel{
+			&ddl.Applicant{
+				AbstractTransactionModel: ddl.AbstractTransactionModel{
 					HashKey: m.HashKey,
 				},
 			},
@@ -170,16 +170,16 @@ func (a *ApplicantRepository) GetDesiredAt(m *model.Applicant) (*model.UserSched
 }
 
 // Google Meet Url 格納
-func (a *ApplicantRepository) UpdateGoogleMeet(tx *gorm.DB, m *model.Applicant) error {
-	applicant := model.Applicant{
+func (a *ApplicantRepository) UpdateGoogleMeet(tx *gorm.DB, m *ddl.Applicant) error {
+	applicant := ddl.Applicant{
 		GoogleMeetURL: m.GoogleMeetURL,
-		AbstractTransactionModel: model.AbstractTransactionModel{
+		AbstractTransactionModel: ddl.AbstractTransactionModel{
 			UpdatedAt: time.Now(),
 		},
 	}
-	if err := tx.Model(&model.Applicant{}).Where(
-		&model.Applicant{
-			AbstractTransactionModel: model.AbstractTransactionModel{
+	if err := tx.Model(&ddl.Applicant{}).Where(
+		&ddl.Applicant{
+			AbstractTransactionModel: ddl.AbstractTransactionModel{
 				HashKey: m.HashKey,
 			},
 		},
@@ -192,17 +192,17 @@ func (a *ApplicantRepository) UpdateGoogleMeet(tx *gorm.DB, m *model.Applicant) 
 }
 
 // 書類登録状況更新
-func (a *ApplicantRepository) UpdateDocument(tx *gorm.DB, m *model.Applicant) error {
-	applicant := model.Applicant{
+func (a *ApplicantRepository) UpdateDocument(tx *gorm.DB, m *ddl.Applicant) error {
+	applicant := ddl.Applicant{
 		Resume:          m.Resume,
 		CurriculumVitae: m.CurriculumVitae,
-		AbstractTransactionModel: model.AbstractTransactionModel{
+		AbstractTransactionModel: ddl.AbstractTransactionModel{
 			UpdatedAt: time.Now(),
 		},
 	}
-	if err := tx.Model(&model.Applicant{}).Where(
-		&model.Applicant{
-			AbstractTransactionModel: model.AbstractTransactionModel{
+	if err := tx.Model(&ddl.Applicant{}).Where(
+		&ddl.Applicant{
+			AbstractTransactionModel: ddl.AbstractTransactionModel{
 				HashKey: m.HashKey,
 			},
 		},
@@ -215,16 +215,16 @@ func (a *ApplicantRepository) UpdateDocument(tx *gorm.DB, m *model.Applicant) er
 }
 
 // 面接希望日更新
-func (a *ApplicantRepository) UpdateDesiredAt(tx *gorm.DB, m *model.Applicant) error {
-	applicant := model.Applicant{
+func (a *ApplicantRepository) UpdateDesiredAt(tx *gorm.DB, m *ddl.Applicant) error {
+	applicant := ddl.Applicant{
 		CalendarID: m.CalendarID,
-		AbstractTransactionModel: model.AbstractTransactionModel{
+		AbstractTransactionModel: ddl.AbstractTransactionModel{
 			UpdatedAt: time.Now(),
 		},
 	}
-	if err := tx.Model(&model.Applicant{}).Where(
-		&model.Applicant{
-			AbstractTransactionModel: model.AbstractTransactionModel{
+	if err := tx.Model(&ddl.Applicant{}).Where(
+		&ddl.Applicant{
+			AbstractTransactionModel: ddl.AbstractTransactionModel{
 				HashKey: m.HashKey,
 			},
 		},

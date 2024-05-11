@@ -1,4 +1,4 @@
-package model
+package ddl
 
 /*
 m_login_type
@@ -36,6 +36,39 @@ type Role struct {
 	RoleType uint `json:"role_type"`
 	// ログイン種別(外部キー)
 	LoginType LoginType `gorm:"foreignKey:role_type;references:id"`
+}
+
+/*
+m_sidebar
+サイドバーマスタ
+*/
+type Sidebar struct {
+	AbstractMasterModel
+	// 機能名_日本語
+	NameJa string `json:"name_ja" gorm:"not null;type:varchar(30)"`
+	// 機能名_英語
+	NameEn string `json:"name_en" gorm:"not null;type:varchar(50)"`
+	// 遷移パス
+	Path string `json:"path" gorm:"unique;not null;type:varchar(40)"`
+	// 機能種別
+	FuncType uint `json:"func_type"`
+	// ログイン種別(外部キー)
+	LoginType LoginType `gorm:"foreignKey:func_type;references:id"`
+}
+
+/*
+m_sidebar_role_association
+サイドバーロール紐づけマスタ
+*/
+type SidebarRoleAssociation struct {
+	// サイドバーID
+	SidebarID uint `json:"sidebar_id" gorm:"primaryKey"`
+	// 操作可能ロールID
+	RoleID uint `json:"role_id" gorm:"primaryKey"`
+	// サイドバー(外部キー)
+	Sidebar Sidebar `gorm:"foreignKey:sidebar_id;references:id"`
+	// ロールマスタ(外部キー)
+	Role Role `gorm:"foreignKey:role_id;references:id"`
 }
 
 /*
@@ -134,6 +167,12 @@ func (m Site) TableName() string {
 }
 func (m Role) TableName() string {
 	return "m_role"
+}
+func (m Sidebar) TableName() string {
+	return "m_sidebar"
+}
+func (m SidebarRoleAssociation) TableName() string {
+	return "m_sidebar_role_association"
 }
 func (m ApplicantStatus) TableName() string {
 	return "m_applicant_status"

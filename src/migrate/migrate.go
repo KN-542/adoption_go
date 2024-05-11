@@ -2,7 +2,7 @@ package main
 
 import (
 	"api/src/infra"
-	"api/src/model"
+	"api/src/model/ddl"
 	"api/src/model/enum"
 	"api/src/repository"
 	"api/src/service"
@@ -25,33 +25,35 @@ func main() {
 	if *migrate {
 		dbConn.AutoMigrate(
 			// m
-			&model.LoginType{},
-			&model.Site{},
-			&model.Role{},
-			&model.ApplicantStatus{},
-			&model.CalendarFreqStatus{},
-			&model.ApplyVariable{},
-			&model.OperationLogEvent{},
-			&model.NoticeType{},
-			&model.AnalysisTerm{},
-			&model.HashKeyPre{},
-			&model.S3NamePre{},
+			&ddl.LoginType{},
+			&ddl.Site{},
+			&ddl.Role{},
+			&ddl.Sidebar{},
+			&ddl.SidebarRoleAssociation{},
+			&ddl.ApplicantStatus{},
+			&ddl.CalendarFreqStatus{},
+			&ddl.ApplyVariable{},
+			&ddl.OperationLogEvent{},
+			&ddl.NoticeType{},
+			&ddl.AnalysisTerm{},
+			&ddl.HashKeyPre{},
+			&ddl.S3NamePre{},
 			// t
-			&model.Company{},
-			&model.CustomRole{},
-			&model.RoleAssociation{},
-			&model.User{},
-			&model.UserGroup{},
-			&model.UserGroupAssociation{},
-			&model.UserSchedule{},
-			&model.UserScheduleAssociation{},
-			&model.Applicant{},
-			&model.MailTemplate{},
-			&model.Variable{},
-			&model.MailPreview{},
-			&model.Notice{},
-			&model.OperationLog{},
-			&model.HistoryOfUploadApplicant{},
+			&ddl.Company{},
+			&ddl.CustomRole{},
+			&ddl.RoleAssociation{},
+			&ddl.User{},
+			&ddl.Team{},
+			&ddl.TeamAssociation{},
+			&ddl.UserSchedule{},
+			&ddl.UserScheduleAssociation{},
+			&ddl.Applicant{},
+			&ddl.MailTemplate{},
+			&ddl.Variable{},
+			&ddl.MailPreview{},
+			&ddl.Notice{},
+			&ddl.OperationLog{},
+			&ddl.HistoryOfUploadApplicant{},
 		)
 
 		/*
@@ -94,6 +96,33 @@ func main() {
 			"site_name": "媒体名",
 		}
 		if err := AddColumnComments(dbConn, "m_site", mSite); err != nil {
+			log.Println(err)
+		}
+
+		// m_sidebar
+		if err := AddTableComment(dbConn, "m_sidebar", "サイドバーマスタ"); err != nil {
+			log.Println(err)
+		}
+		mSidebar := map[string]string{
+			"id":        "ID",
+			"name_ja":   "機能名_日本語",
+			"name_en":   "機能名_英語",
+			"path":      "遷移パス",
+			"func_type": "機能種別",
+		}
+		if err := AddColumnComments(dbConn, "m_sidebar", mSidebar); err != nil {
+			log.Println(err)
+		}
+
+		// m_sidebar_role_association
+		if err := AddTableComment(dbConn, "m_sidebar_role_association", "サイドバーロール紐づけマスタ"); err != nil {
+			log.Println(err)
+		}
+		mSidebarRoleAssociation := map[string]string{
+			"sidebar_id": "サイドバーID",
+			"role_id":    "操作可能ロールID",
+		}
+		if err := AddColumnComments(dbConn, "m_sidebar_role_association", mSidebarRoleAssociation); err != nil {
 			log.Println(err)
 		}
 
@@ -266,31 +295,31 @@ func main() {
 			log.Println(err)
 		}
 
-		// t_user_group
-		if err := AddTableComment(dbConn, "t_user_group", "ユーザーグループ"); err != nil {
+		// t_team
+		if err := AddTableComment(dbConn, "t_team", "チーム"); err != nil {
 			log.Println(err)
 		}
-		userGroup := map[string]string{
+		team := map[string]string{
 			"id":         "ID",
 			"hash_key":   "ハッシュキー",
-			"name":       "グループ名",
+			"name":       "チーム名",
 			"company_id": "企業ID",
 			"created_at": "登録日時",
 			"updated_at": "更新日時",
 		}
-		if err := AddColumnComments(dbConn, "t_user_group", userGroup); err != nil {
+		if err := AddColumnComments(dbConn, "t_team", team); err != nil {
 			log.Println(err)
 		}
 
-		// t_user_group_association
-		if err := AddTableComment(dbConn, "t_user_group_association", "ユーザーグループ紐づけ"); err != nil {
+		// t_team_association
+		if err := AddTableComment(dbConn, "t_team_association", "チーム紐づけ"); err != nil {
 			log.Println(err)
 		}
-		userGroupAssociation := map[string]string{
-			"user_group_id": "ユーザーグループ",
-			"user_id":       "ユーザーID",
+		teamAssociation := map[string]string{
+			"team_id": "チーム",
+			"user_id": "ユーザーID",
 		}
-		if err := AddColumnComments(dbConn, "t_user_group_association", userGroupAssociation); err != nil {
+		if err := AddColumnComments(dbConn, "t_team_association", teamAssociation); err != nil {
 			log.Println(err)
 		}
 
@@ -474,33 +503,35 @@ func main() {
 	} else if *drop {
 		dbConn.Migrator().DropTable(
 			// m
-			&model.LoginType{},
-			&model.Site{},
-			&model.Role{},
-			&model.ApplicantStatus{},
-			&model.CalendarFreqStatus{},
-			&model.ApplyVariable{},
-			&model.OperationLogEvent{},
-			&model.NoticeType{},
-			&model.AnalysisTerm{},
-			&model.HashKeyPre{},
-			&model.S3NamePre{},
+			&ddl.LoginType{},
+			&ddl.Site{},
+			&ddl.Role{},
+			&ddl.Sidebar{},
+			&ddl.SidebarRoleAssociation{},
+			&ddl.ApplicantStatus{},
+			&ddl.CalendarFreqStatus{},
+			&ddl.ApplyVariable{},
+			&ddl.OperationLogEvent{},
+			&ddl.NoticeType{},
+			&ddl.AnalysisTerm{},
+			&ddl.HashKeyPre{},
+			&ddl.S3NamePre{},
 			// t
-			&model.Company{},
-			&model.CustomRole{},
-			&model.RoleAssociation{},
-			&model.User{},
-			&model.UserGroup{},
-			&model.UserGroupAssociation{},
-			&model.UserSchedule{},
-			&model.UserScheduleAssociation{},
-			&model.Applicant{},
-			&model.MailTemplate{},
-			&model.Variable{},
-			&model.MailPreview{},
-			&model.Notice{},
-			&model.OperationLog{},
-			&model.HistoryOfUploadApplicant{},
+			&ddl.Company{},
+			&ddl.CustomRole{},
+			&ddl.RoleAssociation{},
+			&ddl.User{},
+			&ddl.Team{},
+			&ddl.TeamAssociation{},
+			&ddl.UserSchedule{},
+			&ddl.UserScheduleAssociation{},
+			&ddl.Applicant{},
+			&ddl.MailTemplate{},
+			&ddl.Variable{},
+			&ddl.MailPreview{},
+			&ddl.Notice{},
+			&ddl.OperationLog{},
+			&ddl.HistoryOfUploadApplicant{},
 		)
 	}
 }
@@ -534,16 +565,16 @@ func CreateData(db *gorm.DB) {
 	}
 
 	// m_login_type
-	loginTypes := []*model.LoginType{
+	loginTypes := []*ddl.LoginType{
 		{
-			AbstractMasterModel: model.AbstractMasterModel{
+			AbstractMasterModel: ddl.AbstractMasterModel{
 				ID: uint(enum.LOGIN_TYPE_ADMIN),
 			},
 			Type: "システム管理者",
 			Path: "admin",
 		},
 		{
-			AbstractMasterModel: model.AbstractMasterModel{
+			AbstractMasterModel: ddl.AbstractMasterModel{
 				ID: uint(enum.LOGIN_TYPE_MANAGEMENT),
 			},
 			Type: "一般",
@@ -561,27 +592,27 @@ func CreateData(db *gorm.DB) {
 	}
 
 	// m_site
-	sites := []*model.Site{
+	sites := []*ddl.Site{
 		{
-			AbstractMasterModel: model.AbstractMasterModel{
+			AbstractMasterModel: ddl.AbstractMasterModel{
 				ID: uint(enum.RECRUIT),
 			},
 			SiteName: "リクナビNEXT",
 		},
 		{
-			AbstractMasterModel: model.AbstractMasterModel{
+			AbstractMasterModel: ddl.AbstractMasterModel{
 				ID: uint(enum.MYNAVI),
 			},
 			SiteName: "マイナビ",
 		},
 		{
-			AbstractMasterModel: model.AbstractMasterModel{
+			AbstractMasterModel: ddl.AbstractMasterModel{
 				ID: uint(enum.DODA),
 			},
 			SiteName: "DODA",
 		},
 		{
-			AbstractMasterModel: model.AbstractMasterModel{
+			AbstractMasterModel: ddl.AbstractMasterModel{
 				ID: uint(enum.OTHER),
 			},
 			SiteName: "その他",
@@ -598,10 +629,10 @@ func CreateData(db *gorm.DB) {
 	}
 
 	// m_role
-	roles := []*model.Role{
+	roles := []*ddl.Role{
 		// admin_ロール関連
 		{
-			AbstractMasterModel: model.AbstractMasterModel{
+			AbstractMasterModel: ddl.AbstractMasterModel{
 				ID: uint(enum.ROLE_ADMIN_ROLE_CREATE),
 			},
 			NameJa:   "システム管理者ロール作成",
@@ -609,7 +640,7 @@ func CreateData(db *gorm.DB) {
 			RoleType: uint(enum.LOGIN_TYPE_ADMIN),
 		},
 		{
-			AbstractMasterModel: model.AbstractMasterModel{
+			AbstractMasterModel: ddl.AbstractMasterModel{
 				ID: uint(enum.ROLE_ADMIN_ROLE_READ),
 			},
 			NameJa:   "システム管理者ロール閲覧",
@@ -617,7 +648,7 @@ func CreateData(db *gorm.DB) {
 			RoleType: uint(enum.LOGIN_TYPE_ADMIN),
 		},
 		{
-			AbstractMasterModel: model.AbstractMasterModel{
+			AbstractMasterModel: ddl.AbstractMasterModel{
 				ID: uint(enum.ROLE_ADMIN_ROLE_DETAIL_READ),
 			},
 			NameJa:   "システム管理者ロール詳細閲覧",
@@ -625,7 +656,7 @@ func CreateData(db *gorm.DB) {
 			RoleType: uint(enum.LOGIN_TYPE_ADMIN),
 		},
 		{
-			AbstractMasterModel: model.AbstractMasterModel{
+			AbstractMasterModel: ddl.AbstractMasterModel{
 				ID: uint(enum.ROLE_ADMIN_ROLE_EDIT),
 			},
 			NameJa:   "システム管理者ロール編集",
@@ -633,7 +664,7 @@ func CreateData(db *gorm.DB) {
 			RoleType: uint(enum.LOGIN_TYPE_ADMIN),
 		},
 		{
-			AbstractMasterModel: model.AbstractMasterModel{
+			AbstractMasterModel: ddl.AbstractMasterModel{
 				ID: uint(enum.ROLE_ADMIN_ROLE_DELETE),
 			},
 			NameJa:   "システム管理者ロール削除",
@@ -641,7 +672,7 @@ func CreateData(db *gorm.DB) {
 			RoleType: uint(enum.LOGIN_TYPE_ADMIN),
 		},
 		{
-			AbstractMasterModel: model.AbstractMasterModel{
+			AbstractMasterModel: ddl.AbstractMasterModel{
 				ID: uint(enum.ROLE_ADMIN_ROLE_ASSIGN),
 			},
 			NameJa:   "システム管理者ロール変更",
@@ -650,7 +681,7 @@ func CreateData(db *gorm.DB) {
 		},
 		// admin_企業関連
 		{
-			AbstractMasterModel: model.AbstractMasterModel{
+			AbstractMasterModel: ddl.AbstractMasterModel{
 				ID: uint(enum.ROLE_ADMIN_COMPANY_CREATE),
 			},
 			NameJa:   "システム管理者企業作成",
@@ -658,7 +689,7 @@ func CreateData(db *gorm.DB) {
 			RoleType: uint(enum.LOGIN_TYPE_ADMIN),
 		},
 		{
-			AbstractMasterModel: model.AbstractMasterModel{
+			AbstractMasterModel: ddl.AbstractMasterModel{
 				ID: uint(enum.ROLE_ADMIN_COMPANY_READ),
 			},
 			NameJa:   "システム管理者企業閲覧",
@@ -666,7 +697,7 @@ func CreateData(db *gorm.DB) {
 			RoleType: uint(enum.LOGIN_TYPE_ADMIN),
 		},
 		{
-			AbstractMasterModel: model.AbstractMasterModel{
+			AbstractMasterModel: ddl.AbstractMasterModel{
 				ID: uint(enum.ROLE_ADMIN_COMPANY_DETAIL_READ),
 			},
 			NameJa:   "システム管理者企業詳細閲覧",
@@ -674,7 +705,7 @@ func CreateData(db *gorm.DB) {
 			RoleType: uint(enum.LOGIN_TYPE_ADMIN),
 		},
 		{
-			AbstractMasterModel: model.AbstractMasterModel{
+			AbstractMasterModel: ddl.AbstractMasterModel{
 				ID: uint(enum.ROLE_ADMIN_COMPANY_EDIT),
 			},
 			NameJa:   "システム管理者企業編集",
@@ -682,16 +713,57 @@ func CreateData(db *gorm.DB) {
 			RoleType: uint(enum.LOGIN_TYPE_ADMIN),
 		},
 		{
-			AbstractMasterModel: model.AbstractMasterModel{
+			AbstractMasterModel: ddl.AbstractMasterModel{
 				ID: uint(enum.ROLE_ADMIN_COMPANY_DELETE),
 			},
 			NameJa:   "システム管理者企業削除",
 			NameEn:   "AdminCompanyDelete",
 			RoleType: uint(enum.LOGIN_TYPE_ADMIN),
 		},
+		// admin_ユーザー関連
+		{
+			AbstractMasterModel: ddl.AbstractMasterModel{
+				ID: uint(enum.ROLE_ADMIN_USER_CREATE),
+			},
+			NameJa:   "システム管理者ユーザー作成",
+			NameEn:   "AdminUserCreate",
+			RoleType: uint(enum.LOGIN_TYPE_ADMIN),
+		},
+		{
+			AbstractMasterModel: ddl.AbstractMasterModel{
+				ID: uint(enum.ROLE_ADMIN_USER_READ),
+			},
+			NameJa:   "システム管理者ユーザー閲覧",
+			NameEn:   "AdminUserRead",
+			RoleType: uint(enum.LOGIN_TYPE_ADMIN),
+		},
+		{
+			AbstractMasterModel: ddl.AbstractMasterModel{
+				ID: uint(enum.ROLE_ADMIN_USER_DETAIL_READ),
+			},
+			NameJa:   "システム管理者ユーザー詳細閲覧",
+			NameEn:   "AdminUserDetailRead",
+			RoleType: uint(enum.LOGIN_TYPE_ADMIN),
+		},
+		{
+			AbstractMasterModel: ddl.AbstractMasterModel{
+				ID: uint(enum.ROLE_ADMIN_USER_EDIT),
+			},
+			NameJa:   "システム管理者ユーザー編集",
+			NameEn:   "AdminUserEdit",
+			RoleType: uint(enum.LOGIN_TYPE_ADMIN),
+		},
+		{
+			AbstractMasterModel: ddl.AbstractMasterModel{
+				ID: uint(enum.ROLE_ADMIN_USER_DELETE),
+			},
+			NameJa:   "システム管理者ユーザー削除",
+			NameEn:   "AdminUserDelete",
+			RoleType: uint(enum.LOGIN_TYPE_ADMIN),
+		},
 		// management_ロール関連
 		{
-			AbstractMasterModel: model.AbstractMasterModel{
+			AbstractMasterModel: ddl.AbstractMasterModel{
 				ID: uint(enum.ROLE_MANAGEMENT_ROLE_CREATE),
 			},
 			NameJa:   "管理者ロール作成",
@@ -699,7 +771,7 @@ func CreateData(db *gorm.DB) {
 			RoleType: uint(enum.LOGIN_TYPE_MANAGEMENT),
 		},
 		{
-			AbstractMasterModel: model.AbstractMasterModel{
+			AbstractMasterModel: ddl.AbstractMasterModel{
 				ID: uint(enum.ROLE_MANAGEMENT_ROLE_READ),
 			},
 			NameJa:   "管理者ロール閲覧",
@@ -707,7 +779,7 @@ func CreateData(db *gorm.DB) {
 			RoleType: uint(enum.LOGIN_TYPE_MANAGEMENT),
 		},
 		{
-			AbstractMasterModel: model.AbstractMasterModel{
+			AbstractMasterModel: ddl.AbstractMasterModel{
 				ID: uint(enum.ROLE_MANAGEMENT_ROLE_DETAIL_READ),
 			},
 			NameJa:   "管理者ロール詳細閲覧",
@@ -715,7 +787,7 @@ func CreateData(db *gorm.DB) {
 			RoleType: uint(enum.LOGIN_TYPE_MANAGEMENT),
 		},
 		{
-			AbstractMasterModel: model.AbstractMasterModel{
+			AbstractMasterModel: ddl.AbstractMasterModel{
 				ID: uint(enum.ROLE_MANAGEMENT_ROLE_EDIT),
 			},
 			NameJa:   "管理者ロール編集",
@@ -723,7 +795,7 @@ func CreateData(db *gorm.DB) {
 			RoleType: uint(enum.LOGIN_TYPE_MANAGEMENT),
 		},
 		{
-			AbstractMasterModel: model.AbstractMasterModel{
+			AbstractMasterModel: ddl.AbstractMasterModel{
 				ID: uint(enum.ROLE_MANAGEMENT_ROLE_DELETE),
 			},
 			NameJa:   "管理者ロール削除",
@@ -731,7 +803,7 @@ func CreateData(db *gorm.DB) {
 			RoleType: uint(enum.LOGIN_TYPE_MANAGEMENT),
 		},
 		{
-			AbstractMasterModel: model.AbstractMasterModel{
+			AbstractMasterModel: ddl.AbstractMasterModel{
 				ID: uint(enum.ROLE_MANAGEMENT_ROLE_ASSIGN),
 			},
 			NameJa:   "管理者ロール割振",
@@ -740,7 +812,7 @@ func CreateData(db *gorm.DB) {
 		},
 		// management_ユーザー関連
 		{
-			AbstractMasterModel: model.AbstractMasterModel{
+			AbstractMasterModel: ddl.AbstractMasterModel{
 				ID: uint(enum.ROLE_MANAGEMENT_USER_CREATE),
 			},
 			NameJa:   "管理者ユーザー作成",
@@ -748,7 +820,7 @@ func CreateData(db *gorm.DB) {
 			RoleType: uint(enum.LOGIN_TYPE_MANAGEMENT),
 		},
 		{
-			AbstractMasterModel: model.AbstractMasterModel{
+			AbstractMasterModel: ddl.AbstractMasterModel{
 				ID: uint(enum.ROLE_MANAGEMENT_USER_READ),
 			},
 			NameJa:   "管理者ユーザー閲覧",
@@ -756,7 +828,7 @@ func CreateData(db *gorm.DB) {
 			RoleType: uint(enum.LOGIN_TYPE_MANAGEMENT),
 		},
 		{
-			AbstractMasterModel: model.AbstractMasterModel{
+			AbstractMasterModel: ddl.AbstractMasterModel{
 				ID: uint(enum.ROLE_MANAGEMENT_USER_DETAIL_READ),
 			},
 			NameJa:   "管理者ユーザー詳細閲覧",
@@ -764,7 +836,7 @@ func CreateData(db *gorm.DB) {
 			RoleType: uint(enum.LOGIN_TYPE_MANAGEMENT),
 		},
 		{
-			AbstractMasterModel: model.AbstractMasterModel{
+			AbstractMasterModel: ddl.AbstractMasterModel{
 				ID: uint(enum.ROLE_MANAGEMENT_USER_EDIT),
 			},
 			NameJa:   "管理者ユーザー編集",
@@ -772,7 +844,7 @@ func CreateData(db *gorm.DB) {
 			RoleType: uint(enum.LOGIN_TYPE_MANAGEMENT),
 		},
 		{
-			AbstractMasterModel: model.AbstractMasterModel{
+			AbstractMasterModel: ddl.AbstractMasterModel{
 				ID: uint(enum.ROLE_MANAGEMENT_USER_DELETE),
 			},
 			NameJa:   "管理者ユーザー削除",
@@ -781,7 +853,7 @@ func CreateData(db *gorm.DB) {
 		},
 		// management_チーム関連
 		{
-			AbstractMasterModel: model.AbstractMasterModel{
+			AbstractMasterModel: ddl.AbstractMasterModel{
 				ID: uint(enum.ROLE_MANAGEMENT_TEAM_CREATE),
 			},
 			NameJa:   "管理者チーム作成",
@@ -789,7 +861,7 @@ func CreateData(db *gorm.DB) {
 			RoleType: uint(enum.LOGIN_TYPE_MANAGEMENT),
 		},
 		{
-			AbstractMasterModel: model.AbstractMasterModel{
+			AbstractMasterModel: ddl.AbstractMasterModel{
 				ID: uint(enum.ROLE_MANAGEMENT_TEAM_READ),
 			},
 			NameJa:   "管理者チーム閲覧",
@@ -797,7 +869,7 @@ func CreateData(db *gorm.DB) {
 			RoleType: uint(enum.LOGIN_TYPE_MANAGEMENT),
 		},
 		{
-			AbstractMasterModel: model.AbstractMasterModel{
+			AbstractMasterModel: ddl.AbstractMasterModel{
 				ID: uint(enum.ROLE_MANAGEMENT_TEAM_DETAIL_READ),
 			},
 			NameJa:   "管理者チーム詳細閲覧",
@@ -805,7 +877,7 @@ func CreateData(db *gorm.DB) {
 			RoleType: uint(enum.LOGIN_TYPE_MANAGEMENT),
 		},
 		{
-			AbstractMasterModel: model.AbstractMasterModel{
+			AbstractMasterModel: ddl.AbstractMasterModel{
 				ID: uint(enum.ROLE_MANAGEMENT_TEAM_EDIT),
 			},
 			NameJa:   "管理者チーム編集",
@@ -813,7 +885,7 @@ func CreateData(db *gorm.DB) {
 			RoleType: uint(enum.LOGIN_TYPE_MANAGEMENT),
 		},
 		{
-			AbstractMasterModel: model.AbstractMasterModel{
+			AbstractMasterModel: ddl.AbstractMasterModel{
 				ID: uint(enum.ROLE_MANAGEMENT_TEAM_DELETE),
 			},
 			NameJa:   "管理者チーム削除",
@@ -822,7 +894,7 @@ func CreateData(db *gorm.DB) {
 		},
 		// management_カレンダー関連
 		{
-			AbstractMasterModel: model.AbstractMasterModel{
+			AbstractMasterModel: ddl.AbstractMasterModel{
 				ID: uint(enum.ROLE_MANAGEMENT_CALENDAR_CREATE),
 			},
 			NameJa:   "管理者カレンダー作成",
@@ -830,7 +902,7 @@ func CreateData(db *gorm.DB) {
 			RoleType: uint(enum.LOGIN_TYPE_MANAGEMENT),
 		},
 		{
-			AbstractMasterModel: model.AbstractMasterModel{
+			AbstractMasterModel: ddl.AbstractMasterModel{
 				ID: uint(enum.ROLE_MANAGEMENT_CALENDAR_READ),
 			},
 			NameJa:   "管理者カレンダー閲覧",
@@ -838,7 +910,7 @@ func CreateData(db *gorm.DB) {
 			RoleType: uint(enum.LOGIN_TYPE_MANAGEMENT),
 		},
 		{
-			AbstractMasterModel: model.AbstractMasterModel{
+			AbstractMasterModel: ddl.AbstractMasterModel{
 				ID: uint(enum.ROLE_MANAGEMENT_CALENDAR_DETAIL_READ),
 			},
 			NameJa:   "管理者カレンダー詳細閲覧",
@@ -846,7 +918,7 @@ func CreateData(db *gorm.DB) {
 			RoleType: uint(enum.LOGIN_TYPE_MANAGEMENT),
 		},
 		{
-			AbstractMasterModel: model.AbstractMasterModel{
+			AbstractMasterModel: ddl.AbstractMasterModel{
 				ID: uint(enum.ROLE_MANAGEMENT_CALENDAR_EDIT),
 			},
 			NameJa:   "管理者カレンダー編集",
@@ -854,7 +926,7 @@ func CreateData(db *gorm.DB) {
 			RoleType: uint(enum.LOGIN_TYPE_MANAGEMENT),
 		},
 		{
-			AbstractMasterModel: model.AbstractMasterModel{
+			AbstractMasterModel: ddl.AbstractMasterModel{
 				ID: uint(enum.ROLE_MANAGEMENT_CALENDAR_DELETE),
 			},
 			NameJa:   "管理者カレンダー削除",
@@ -863,7 +935,7 @@ func CreateData(db *gorm.DB) {
 		},
 		// management_応募者関連
 		{
-			AbstractMasterModel: model.AbstractMasterModel{
+			AbstractMasterModel: ddl.AbstractMasterModel{
 				ID: uint(enum.ROLE_MANAGEMENT_APPLICANT_CREATE),
 			},
 			NameJa:   "管理者応募者作成",
@@ -871,7 +943,7 @@ func CreateData(db *gorm.DB) {
 			RoleType: uint(enum.LOGIN_TYPE_MANAGEMENT),
 		},
 		{
-			AbstractMasterModel: model.AbstractMasterModel{
+			AbstractMasterModel: ddl.AbstractMasterModel{
 				ID: uint(enum.ROLE_MANAGEMENT_APPLICANT_READ),
 			},
 			NameJa:   "管理者応募者閲覧",
@@ -879,7 +951,7 @@ func CreateData(db *gorm.DB) {
 			RoleType: uint(enum.LOGIN_TYPE_MANAGEMENT),
 		},
 		{
-			AbstractMasterModel: model.AbstractMasterModel{
+			AbstractMasterModel: ddl.AbstractMasterModel{
 				ID: uint(enum.ROLE_MANAGEMENT_APPLICANT_DETAIL_READ),
 			},
 			NameJa:   "管理者応募者詳細閲覧",
@@ -887,7 +959,7 @@ func CreateData(db *gorm.DB) {
 			RoleType: uint(enum.LOGIN_TYPE_MANAGEMENT),
 		},
 		{
-			AbstractMasterModel: model.AbstractMasterModel{
+			AbstractMasterModel: ddl.AbstractMasterModel{
 				ID: uint(enum.ROLE_MANAGEMENT_APPLICANT_DOWNLOAD),
 			},
 			NameJa:   "管理者応募者ダウンロード",
@@ -895,7 +967,7 @@ func CreateData(db *gorm.DB) {
 			RoleType: uint(enum.LOGIN_TYPE_MANAGEMENT),
 		},
 		{
-			AbstractMasterModel: model.AbstractMasterModel{
+			AbstractMasterModel: ddl.AbstractMasterModel{
 				ID: uint(enum.ROLE_MANAGEMENT_APPLICANT_CREATE_MEET_URL),
 			},
 			NameJa:   "管理者面接URL作成",
@@ -903,7 +975,7 @@ func CreateData(db *gorm.DB) {
 			RoleType: uint(enum.LOGIN_TYPE_MANAGEMENT),
 		},
 		{
-			AbstractMasterModel: model.AbstractMasterModel{
+			AbstractMasterModel: ddl.AbstractMasterModel{
 				ID: uint(enum.ROLE_MANAGEMENT_APPLICANT_ASSIGN_USER),
 			},
 			NameJa:   "管理者応募者割振",
@@ -921,10 +993,337 @@ func CreateData(db *gorm.DB) {
 		}
 	}
 
-	// m_calendar_freq_status
-	calendarFreqStatus := []*model.CalendarFreqStatus{
+	// m_sidebar
+	sidebar := []*ddl.Sidebar{
 		{
-			AbstractMasterModel: model.AbstractMasterModel{
+			AbstractMasterModel: ddl.AbstractMasterModel{
+				ID: uint(enum.SIDEBAR_ADMIN_COMPANY),
+			},
+			NameJa:   "企業",
+			NameEn:   "Companies",
+			Path:     "/admin/company",
+			FuncType: uint(enum.LOGIN_TYPE_ADMIN),
+		},
+		{
+			AbstractMasterModel: ddl.AbstractMasterModel{
+				ID: uint(enum.SIDEBAR_ADMIN_USER),
+			},
+			NameJa:   "ユーザー",
+			NameEn:   "Users",
+			Path:     "/admin/user",
+			FuncType: uint(enum.LOGIN_TYPE_ADMIN),
+		},
+		{
+			AbstractMasterModel: ddl.AbstractMasterModel{
+				ID: uint(enum.SIDEBAR_ADMIN_ROLE),
+			},
+			NameJa:   "ロール",
+			NameEn:   "Roles",
+			Path:     "/admin/role",
+			FuncType: uint(enum.LOGIN_TYPE_ADMIN),
+		},
+		{
+			AbstractMasterModel: ddl.AbstractMasterModel{
+				ID: uint(enum.SIDEBAR_ADMIN_LOG),
+			},
+			NameJa:   "操作ログ",
+			NameEn:   "Logs",
+			Path:     "/admin/log",
+			FuncType: uint(enum.LOGIN_TYPE_ADMIN),
+		},
+		{
+			AbstractMasterModel: ddl.AbstractMasterModel{
+				ID: uint(enum.SIDEBAR_MANAGEMENT_APPLICANT),
+			},
+			NameJa:   "応募者",
+			NameEn:   "Applicant",
+			Path:     "/management/applicant",
+			FuncType: uint(enum.LOGIN_TYPE_MANAGEMENT),
+		},
+		{
+			AbstractMasterModel: ddl.AbstractMasterModel{
+				ID: uint(enum.SIDEBAR_MANAGEMENT_USER),
+			},
+			NameJa:   "ユーザー",
+			NameEn:   "Users",
+			Path:     "/management/user",
+			FuncType: uint(enum.LOGIN_TYPE_MANAGEMENT),
+		},
+		{
+			AbstractMasterModel: ddl.AbstractMasterModel{
+				ID: uint(enum.SIDEBAR_MANAGEMENT_ROLE),
+			},
+			NameJa:   "ロール",
+			NameEn:   "Roles",
+			Path:     "/management/role",
+			FuncType: uint(enum.LOGIN_TYPE_MANAGEMENT),
+		},
+		{
+			AbstractMasterModel: ddl.AbstractMasterModel{
+				ID: uint(enum.SIDEBAR_MANAGEMENT_MAIL),
+			},
+			NameJa:   "メールテンプレート",
+			NameEn:   "Mail Template",
+			Path:     "/management/mail",
+			FuncType: uint(enum.LOGIN_TYPE_MANAGEMENT),
+		},
+		{
+			AbstractMasterModel: ddl.AbstractMasterModel{
+				ID: uint(enum.SIDEBAR_MANAGEMENT_ANALYSIS),
+			},
+			NameJa:   "分析",
+			NameEn:   "Analysis",
+			Path:     "/management/analysis",
+			FuncType: uint(enum.LOGIN_TYPE_MANAGEMENT),
+		},
+		{
+			AbstractMasterModel: ddl.AbstractMasterModel{
+				ID: uint(enum.SIDEBAR_MANAGEMENT_LOG),
+			},
+			NameJa:   "操作ログ",
+			NameEn:   "Logs",
+			Path:     "/management/log",
+			FuncType: uint(enum.LOGIN_TYPE_MANAGEMENT),
+		},
+	}
+	for _, row := range sidebar {
+		if err := master.InsertSidebar(tx, row); err != nil {
+			if err := tx.Rollback().Error; err != nil {
+				log.Printf("%v", err)
+				return
+			}
+			return
+		}
+	}
+
+	// m_sidebar_role_association
+	sidebarRoleAssociation := []*ddl.SidebarRoleAssociation{
+		// admin_企業関連
+		{
+			SidebarID: uint(enum.SIDEBAR_ADMIN_COMPANY),
+			RoleID:    uint(enum.ROLE_ADMIN_COMPANY_CREATE),
+		},
+		{
+			SidebarID: uint(enum.SIDEBAR_ADMIN_COMPANY),
+			RoleID:    uint(enum.ROLE_ADMIN_COMPANY_READ),
+		},
+		{
+			SidebarID: uint(enum.SIDEBAR_ADMIN_COMPANY),
+			RoleID:    uint(enum.ROLE_ADMIN_COMPANY_DETAIL_READ),
+		},
+		{
+			SidebarID: uint(enum.SIDEBAR_ADMIN_COMPANY),
+			RoleID:    uint(enum.ROLE_ADMIN_COMPANY_EDIT),
+		},
+		{
+			SidebarID: uint(enum.SIDEBAR_ADMIN_COMPANY),
+			RoleID:    uint(enum.ROLE_ADMIN_COMPANY_DELETE),
+		},
+		// admin_ユーザー関連
+		{
+			SidebarID: uint(enum.SIDEBAR_ADMIN_USER),
+			RoleID:    uint(enum.ROLE_ADMIN_USER_CREATE),
+		},
+		{
+			SidebarID: uint(enum.SIDEBAR_ADMIN_USER),
+			RoleID:    uint(enum.ROLE_ADMIN_USER_READ),
+		},
+		{
+			SidebarID: uint(enum.SIDEBAR_ADMIN_USER),
+			RoleID:    uint(enum.ROLE_ADMIN_USER_DETAIL_READ),
+		},
+		{
+			SidebarID: uint(enum.SIDEBAR_ADMIN_USER),
+			RoleID:    uint(enum.ROLE_ADMIN_USER_EDIT),
+		},
+		{
+			SidebarID: uint(enum.SIDEBAR_ADMIN_USER),
+			RoleID:    uint(enum.ROLE_ADMIN_USER_DELETE),
+		},
+		// admin_ロール関連
+		{
+			SidebarID: uint(enum.SIDEBAR_ADMIN_ROLE),
+			RoleID:    uint(enum.ROLE_ADMIN_ROLE_CREATE),
+		},
+		{
+			SidebarID: uint(enum.SIDEBAR_ADMIN_ROLE),
+			RoleID:    uint(enum.ROLE_ADMIN_ROLE_READ),
+		},
+		{
+			SidebarID: uint(enum.SIDEBAR_ADMIN_ROLE),
+			RoleID:    uint(enum.ROLE_ADMIN_ROLE_DETAIL_READ),
+		},
+		{
+			SidebarID: uint(enum.SIDEBAR_ADMIN_ROLE),
+			RoleID:    uint(enum.ROLE_ADMIN_ROLE_EDIT),
+		},
+		{
+			SidebarID: uint(enum.SIDEBAR_ADMIN_ROLE),
+			RoleID:    uint(enum.ROLE_ADMIN_ROLE_DELETE),
+		},
+		{
+			SidebarID: uint(enum.SIDEBAR_ADMIN_ROLE),
+			RoleID:    uint(enum.ROLE_ADMIN_ROLE_ASSIGN),
+		},
+		// management_ロール関連
+		{
+			SidebarID: uint(enum.SIDEBAR_MANAGEMENT_ROLE),
+			RoleID:    uint(enum.ROLE_MANAGEMENT_ROLE_CREATE),
+		},
+		{
+			SidebarID: uint(enum.SIDEBAR_MANAGEMENT_ROLE),
+			RoleID:    uint(enum.ROLE_MANAGEMENT_ROLE_READ),
+		},
+		{
+			SidebarID: uint(enum.SIDEBAR_MANAGEMENT_ROLE),
+			RoleID:    uint(enum.ROLE_MANAGEMENT_ROLE_DETAIL_READ),
+		},
+		{
+			SidebarID: uint(enum.SIDEBAR_MANAGEMENT_ROLE),
+			RoleID:    uint(enum.ROLE_MANAGEMENT_ROLE_EDIT),
+		},
+		{
+			SidebarID: uint(enum.SIDEBAR_MANAGEMENT_ROLE),
+			RoleID:    uint(enum.ROLE_MANAGEMENT_ROLE_DELETE),
+		},
+		{
+			SidebarID: uint(enum.SIDEBAR_MANAGEMENT_ROLE),
+			RoleID:    uint(enum.ROLE_MANAGEMENT_ROLE_ASSIGN),
+		},
+		// management_ユーザー関連
+		{
+			SidebarID: uint(enum.SIDEBAR_MANAGEMENT_USER),
+			RoleID:    uint(enum.ROLE_MANAGEMENT_USER_CREATE),
+		},
+		{
+			SidebarID: uint(enum.SIDEBAR_MANAGEMENT_USER),
+			RoleID:    uint(enum.ROLE_MANAGEMENT_USER_READ),
+		},
+		{
+			SidebarID: uint(enum.SIDEBAR_MANAGEMENT_USER),
+			RoleID:    uint(enum.ROLE_MANAGEMENT_USER_DETAIL_READ),
+		},
+		{
+			SidebarID: uint(enum.SIDEBAR_MANAGEMENT_USER),
+			RoleID:    uint(enum.ROLE_MANAGEMENT_USER_EDIT),
+		},
+		{
+			SidebarID: uint(enum.SIDEBAR_MANAGEMENT_USER),
+			RoleID:    uint(enum.ROLE_MANAGEMENT_USER_DELETE),
+		},
+		// management_チーム関連
+		{
+			SidebarID: uint(enum.SIDEBAR_MANAGEMENT_USER),
+			RoleID:    uint(enum.ROLE_MANAGEMENT_TEAM_CREATE),
+		},
+		{
+			SidebarID: uint(enum.SIDEBAR_MANAGEMENT_USER),
+			RoleID:    uint(enum.ROLE_MANAGEMENT_TEAM_READ),
+		},
+		{
+			SidebarID: uint(enum.SIDEBAR_MANAGEMENT_USER),
+			RoleID:    uint(enum.ROLE_MANAGEMENT_TEAM_DETAIL_READ),
+		},
+		{
+			SidebarID: uint(enum.SIDEBAR_MANAGEMENT_USER),
+			RoleID:    uint(enum.ROLE_MANAGEMENT_TEAM_EDIT),
+		},
+		{
+			SidebarID: uint(enum.SIDEBAR_MANAGEMENT_USER),
+			RoleID:    uint(enum.ROLE_MANAGEMENT_TEAM_DELETE),
+		},
+		// management_カレンダー関連
+		{
+			SidebarID: uint(enum.SIDEBAR_MANAGEMENT_USER),
+			RoleID:    uint(enum.ROLE_MANAGEMENT_CALENDAR_CREATE),
+		},
+		{
+			SidebarID: uint(enum.SIDEBAR_MANAGEMENT_USER),
+			RoleID:    uint(enum.ROLE_MANAGEMENT_CALENDAR_READ),
+		},
+		{
+			SidebarID: uint(enum.SIDEBAR_MANAGEMENT_USER),
+			RoleID:    uint(enum.ROLE_MANAGEMENT_CALENDAR_DETAIL_READ),
+		},
+		{
+			SidebarID: uint(enum.SIDEBAR_MANAGEMENT_USER),
+			RoleID:    uint(enum.ROLE_MANAGEMENT_CALENDAR_EDIT),
+		},
+		{
+			SidebarID: uint(enum.SIDEBAR_MANAGEMENT_USER),
+			RoleID:    uint(enum.ROLE_MANAGEMENT_CALENDAR_DELETE),
+		},
+		// management_カレンダー関連
+		{
+			SidebarID: uint(enum.SIDEBAR_MANAGEMENT_APPLICANT),
+			RoleID:    uint(enum.ROLE_MANAGEMENT_APPLICANT_CREATE),
+		},
+		{
+			SidebarID: uint(enum.SIDEBAR_MANAGEMENT_APPLICANT),
+			RoleID:    uint(enum.ROLE_MANAGEMENT_APPLICANT_READ),
+		},
+		{
+			SidebarID: uint(enum.SIDEBAR_MANAGEMENT_APPLICANT),
+			RoleID:    uint(enum.ROLE_MANAGEMENT_APPLICANT_DETAIL_READ),
+		},
+		{
+			SidebarID: uint(enum.SIDEBAR_MANAGEMENT_APPLICANT),
+			RoleID:    uint(enum.ROLE_MANAGEMENT_APPLICANT_DOWNLOAD),
+		},
+		{
+			SidebarID: uint(enum.SIDEBAR_MANAGEMENT_APPLICANT),
+			RoleID:    uint(enum.ROLE_MANAGEMENT_APPLICANT_CREATE_MEET_URL),
+		},
+		{
+			SidebarID: uint(enum.SIDEBAR_MANAGEMENT_APPLICANT),
+			RoleID:    uint(enum.ROLE_MANAGEMENT_APPLICANT_ASSIGN_USER),
+		},
+	}
+	for _, row := range sidebarRoleAssociation {
+		if err := master.InsertSidebarRoleAssociation(tx, row); err != nil {
+			if err := tx.Rollback().Error; err != nil {
+				log.Printf("%v", err)
+				return
+			}
+			return
+		}
+	}
+
+	// m_hash_key_pre
+	preHashKeys := []*ddl.HashKeyPre{
+		{
+			AbstractMasterModel: ddl.AbstractMasterModel{
+				ID: 1,
+			},
+			Pre: string(enum.PRE_COMPANY),
+		},
+		{
+			AbstractMasterModel: ddl.AbstractMasterModel{
+				ID: 2,
+			},
+			Pre: string(enum.PRE_ROLE),
+		},
+		{
+			AbstractMasterModel: ddl.AbstractMasterModel{
+				ID: 3,
+			},
+			Pre: string(enum.PRE_USER),
+		},
+	}
+	for _, row := range preHashKeys {
+		if err := master.InsertHashKeyPre(tx, row); err != nil {
+			if err := tx.Rollback().Error; err != nil {
+				log.Printf("%v", err)
+				return
+			}
+			return
+		}
+	}
+
+	// m_calendar_freq_status
+	calendarFreqStatus := []*ddl.CalendarFreqStatus{
+		{
+			AbstractMasterModel: ddl.AbstractMasterModel{
 				ID: uint(enum.FREQ_NONE),
 			},
 			Freq:   "",
@@ -932,7 +1331,7 @@ func CreateData(db *gorm.DB) {
 			NameEn: "None",
 		},
 		{
-			AbstractMasterModel: model.AbstractMasterModel{
+			AbstractMasterModel: ddl.AbstractMasterModel{
 				ID: uint(enum.FREQ_DAILY),
 			},
 			Freq:   "daily",
@@ -940,7 +1339,7 @@ func CreateData(db *gorm.DB) {
 			NameEn: "Daily",
 		},
 		{
-			AbstractMasterModel: model.AbstractMasterModel{
+			AbstractMasterModel: ddl.AbstractMasterModel{
 				ID: uint(enum.FREQ_WEEKLY),
 			},
 			Freq:   "weekly",
@@ -948,7 +1347,7 @@ func CreateData(db *gorm.DB) {
 			NameEn: "Weekly",
 		},
 		{
-			AbstractMasterModel: model.AbstractMasterModel{
+			AbstractMasterModel: ddl.AbstractMasterModel{
 				ID: uint(enum.FREQ_MONTHLY),
 			},
 			Freq:   "monthly",
@@ -956,7 +1355,7 @@ func CreateData(db *gorm.DB) {
 			NameEn: "Monthly",
 		},
 		{
-			AbstractMasterModel: model.AbstractMasterModel{
+			AbstractMasterModel: ddl.AbstractMasterModel{
 				ID: uint(enum.FREQ_YEARLY),
 			},
 			Freq:   "yearly",
@@ -975,7 +1374,7 @@ func CreateData(db *gorm.DB) {
 	}
 
 	// t_company
-	companies := []*model.Company{
+	companies := []*ddl.Company{
 		{
 			Name: "管理者",
 		},
@@ -994,23 +1393,24 @@ func CreateData(db *gorm.DB) {
 	}
 
 	// t_role
-	customRoles := []*model.CustomRole{
+	customRoles := []*ddl.CustomRole{
 		{
-			AbstractTransactionModel: model.AbstractTransactionModel{
+			AbstractTransactionModel: ddl.AbstractTransactionModel{
 				CompanyID: 1,
 			},
-			AbstractTransactionFlgModel: model.AbstractTransactionFlgModel{
+			AbstractTransactionFlgModel: ddl.AbstractTransactionFlgModel{
 				EditFlg:   uint(enum.ON),
 				DeleteFlg: uint(enum.ON),
 			},
-			Name: "Initial full-rights role (name change recommended)",
+			Name: "Initial role",
 		},
 	}
 	for _, row := range customRoles {
 		_, hash, _ := service.GenerateHash(1, 25)
 		row.HashKey = string(enum.PRE_ROLE) + "_" + *hash
 
-		if err := role.Insert(tx, row); err != nil {
+		_, err := role.Insert(tx, row)
+		if err != nil {
 			if err := tx.Rollback().Error; err != nil {
 				log.Printf("%v", err)
 				return
@@ -1022,7 +1422,7 @@ func CreateData(db *gorm.DB) {
 	// t_role_association
 	for _, row := range roles {
 		if row.RoleType == uint(enum.LOGIN_TYPE_ADMIN) {
-			if err := role.InsertAssociation(tx, &model.RoleAssociation{
+			if err := role.InsertAssociation(tx, &ddl.RoleAssociation{
 				RoleID:       1,
 				MasterRoleID: row.ID,
 			}); err != nil {
@@ -1036,13 +1436,13 @@ func CreateData(db *gorm.DB) {
 	}
 
 	// t_user
-	users := []*model.User{
+	users := []*ddl.User{
 		{
-			AbstractTransactionModel: model.AbstractTransactionModel{
+			AbstractTransactionModel: ddl.AbstractTransactionModel{
 				CompanyID: 1,
 			},
-			Name:     "Initial user (name change recommended)",
-			Email: os.Getenv("INIT_USER_EMAIL"),
+			Name:     "Initial user",
+			Email:    os.Getenv("INIT_USER_EMAIL"),
 			RoleID:   1,
 			UserType: uint(enum.LOGIN_TYPE_ADMIN),
 		},
@@ -1054,7 +1454,8 @@ func CreateData(db *gorm.DB) {
 		row.Password = *hashPassword
 		row.InitPassword = *hashPassword
 
-		if err := user.Insert(tx, row); err != nil {
+		_, err := user.Insert(tx, row)
+		if err != nil {
 			if err := tx.Rollback().Error; err != nil {
 				log.Printf("%v", err)
 				return

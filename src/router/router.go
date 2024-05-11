@@ -9,8 +9,10 @@ import (
 )
 
 func NewRouter(
+	common controller.ICommonController,
 	login controller.ILoginController,
 	user controller.IUserController,
+	company controller.ICompanyController,
 	applicant controller.IApplicantController,
 ) *echo.Echo {
 	e := echo.New()
@@ -27,6 +29,7 @@ func NewRouter(
 		AllowCredentials: true, // 認証情報を含むリクエストを許可
 	}))
 
+	// ログイン
 	e.POST("/hello", login.HelloWorld)
 	e.POST("/login", login.Login)
 	e.POST("/logout", login.Logout)
@@ -41,11 +44,15 @@ func NewRouter(
 	e.POST("/code_gen_applicant", login.CodeGenerateApplicant)
 	e.POST("/logout_applicant", login.LogoutApplicant)
 
+	// 共通
+	e.POST("/sidebar", common.Sidebar)
+	e.POST("/roles", common.Roles)
+
+	// ユーザー
 	e.POST("/user/list", user.List)
 	e.POST("/user/create", user.Create)
-	e.POST("/user/create_group", user.InsertGroup)
-	e.POST("/user/role_list", user.RoleList)
-	e.POST("/user/search_group", user.SearchGroups)
+	e.POST("/user/create_team", user.InsertTeam)
+	e.POST("/user/search_team", user.SearchTeams)
 	e.POST("/user/schedule_type", user.ListScheduleType)
 	e.POST("/user/create_schedule", user.InsertSchedules)
 	e.POST("/user/update_schedule", user.UpdateSchedule)
@@ -53,6 +60,10 @@ func NewRouter(
 	e.POST("/user/delete_schedule", user.DeleteSchedule)
 	e.POST("/user/reserve_table", user.DispReserveTable)
 
+	// 企業
+	e.POST("/company/create", company.Create)
+
+	// 応募者
 	e.POST("/applicant/get_url", applicant.GetOauthURL)
 	e.POST("/applicant/download", applicant.Download)
 	e.POST("/applicant/get", applicant.Get)

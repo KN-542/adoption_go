@@ -1,4 +1,4 @@
-package model
+package ddl
 
 import (
 	"fmt"
@@ -6,8 +6,8 @@ import (
 )
 
 /*
-	t_applicant
-	応募者
+t_applicant
+応募者
 */
 type Applicant struct {
 	AbstractTransactionModel
@@ -44,7 +44,7 @@ type Applicant struct {
 func (t Applicant) TableName() string {
 	year := time.Now().Year()
 	month := time.Now().Month()
-    return fmt.Sprintf("t_applicant_%d_%02d", year, month)
+	return fmt.Sprintf("t_applicant_%d_%02d", year, month)
 }
 
 type GetOauthURLResponse struct {
