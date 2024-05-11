@@ -2,7 +2,8 @@ package controller
 
 import (
 	"api/resources/static"
-	"api/src/model"
+	"api/src/model/ddl"
+	"api/src/model/response"
 	"api/src/service"
 	"fmt"
 	"log"
@@ -16,12 +17,10 @@ type IUserController interface {
 	List(e echo.Context) error
 	// 登録
 	Create(e echo.Context) error
-	// ロール一覧
-	RoleList(e echo.Context) error
-	// 検索(グループ)
-	SearchGroups(e echo.Context) error
-	// グループ登録
-	InsertGroup(e echo.Context) error
+	// 検索(チーム)
+	SearchTeams(e echo.Context) error
+	// チーム登録
+	InsertTeam(e echo.Context) error
 	// スケジュール登録種別一覧
 	ListScheduleType(e echo.Context) error
 	// スケジュール登録
@@ -48,14 +47,14 @@ func NewUserController(s service.IUserService) IUserController {
 func (c *UserController) List(e echo.Context) error {
 	res, err := c.s.List()
 	if err != nil {
-		return e.JSON(err.Status, model.ErrorConvert(*err))
+		return e.JSON(err.Status, response.ErrorConvert(*err))
 	}
 	return e.JSON(http.StatusOK, res)
 }
 
 // 登録
 func (c *UserController) Create(e echo.Context) error {
-	req := model.User{}
+	req := ddl.User{}
 	if err := e.Bind(&req); err != nil {
 		log.Printf("%v", err)
 		return e.JSON(http.StatusBadRequest, fmt.Errorf(static.MESSAGE_BAD_REQUEST))
@@ -63,39 +62,30 @@ func (c *UserController) Create(e echo.Context) error {
 
 	res, err := c.s.Create(&req)
 	if err != nil {
-		return e.JSON(err.Status, model.ErrorConvert(*err))
+		return e.JSON(err.Status, response.ErrorConvert(*err))
 	}
 	return e.JSON(http.StatusOK, res)
 }
 
-// ロール一覧
-func (c *UserController) RoleList(e echo.Context) error {
-	res, err := c.s.RoleList()
+// 検索(チーム)
+func (c *UserController) SearchTeams(e echo.Context) error {
+	res, err := c.s.SearchTeams()
 	if err != nil {
-		return e.JSON(err.Status, model.ErrorConvert(*err))
+		return e.JSON(err.Status, response.ErrorConvert(*err))
 	}
 	return e.JSON(http.StatusOK, res)
 }
 
-// 検索(グループ)
-func (c *UserController) SearchGroups(e echo.Context) error {
-	res, err := c.s.SearchGroups()
-	if err != nil {
-		return e.JSON(err.Status, model.ErrorConvert(*err))
-	}
-	return e.JSON(http.StatusOK, res)
-}
-
-// グループ登録
-func (c *UserController) InsertGroup(e echo.Context) error {
-	req := model.UserGroupRequest{}
+// チーム登録
+func (c *UserController) InsertTeam(e echo.Context) error {
+	req := ddl.TeamRequest{}
 	if err := e.Bind(&req); err != nil {
 		log.Printf("%v", err)
 		return e.JSON(http.StatusBadRequest, fmt.Errorf(static.MESSAGE_BAD_REQUEST))
 	}
 
-	if err := c.s.CreateGroup(&req); err != nil {
-		return e.JSON(err.Status, model.ErrorConvert(*err))
+	if err := c.s.CreateTeam(&req); err != nil {
+		return e.JSON(err.Status, response.ErrorConvert(*err))
 	}
 	return e.JSON(http.StatusOK, "OK")
 }
@@ -104,14 +94,14 @@ func (c *UserController) InsertGroup(e echo.Context) error {
 func (c *UserController) ListScheduleType(e echo.Context) error {
 	res, err := c.s.ListScheduleType()
 	if err != nil {
-		return e.JSON(err.Status, model.ErrorConvert(*err))
+		return e.JSON(err.Status, response.ErrorConvert(*err))
 	}
 	return e.JSON(http.StatusOK, res)
 }
 
 // スケジュール登録
 func (c *UserController) InsertSchedules(e echo.Context) error {
-	req := model.UserScheduleRequest{}
+	req := ddl.UserScheduleRequest{}
 	if err := e.Bind(&req); err != nil {
 		log.Printf("%v", err)
 		return e.JSON(http.StatusBadRequest, fmt.Errorf(static.MESSAGE_BAD_REQUEST))
@@ -119,21 +109,21 @@ func (c *UserController) InsertSchedules(e echo.Context) error {
 
 	_, err := c.s.CreateSchedule(&req)
 	if err != nil {
-		return e.JSON(err.Status, model.ErrorConvert(*err))
+		return e.JSON(err.Status, response.ErrorConvert(*err))
 	}
 	return e.JSON(http.StatusOK, "OK")
 }
 
 // スケジュール更新
 func (c *UserController) UpdateSchedule(e echo.Context) error {
-	req := model.UserScheduleRequest{}
+	req := ddl.UserScheduleRequest{}
 	if err := e.Bind(&req); err != nil {
 		log.Printf("%v", err)
 		return e.JSON(http.StatusBadRequest, fmt.Errorf(static.MESSAGE_BAD_REQUEST))
 	}
 
 	if err := c.s.UpdateSchedule(&req); err != nil {
-		return e.JSON(err.Status, model.ErrorConvert(*err))
+		return e.JSON(err.Status, response.ErrorConvert(*err))
 	}
 	return e.JSON(http.StatusOK, "OK")
 }
@@ -142,21 +132,21 @@ func (c *UserController) UpdateSchedule(e echo.Context) error {
 func (c *UserController) Schedules(e echo.Context) error {
 	res, err := c.s.Schedules()
 	if err != nil {
-		return e.JSON(err.Status, model.ErrorConvert(*err))
+		return e.JSON(err.Status, response.ErrorConvert(*err))
 	}
 	return e.JSON(http.StatusOK, res)
 }
 
 // スケジュール削除
 func (c *UserController) DeleteSchedule(e echo.Context) error {
-	req := model.UserSchedule{}
+	req := ddl.UserSchedule{}
 	if err := e.Bind(&req); err != nil {
 		log.Printf("%v", err)
 		return e.JSON(http.StatusBadRequest, fmt.Errorf(static.MESSAGE_BAD_REQUEST))
 	}
 
 	if err := c.s.DeleteSchedule(&req); err != nil {
-		return e.JSON(err.Status, model.ErrorConvert(*err))
+		return e.JSON(err.Status, response.ErrorConvert(*err))
 	}
 	return e.JSON(http.StatusOK, "OK")
 }
@@ -165,7 +155,7 @@ func (c *UserController) DeleteSchedule(e echo.Context) error {
 func (c *UserController) DispReserveTable(e echo.Context) error {
 	res, err := c.s.DispReserveTable()
 	if err != nil {
-		return e.JSON(err.Status, model.ErrorConvert(*err))
+		return e.JSON(err.Status, response.ErrorConvert(*err))
 	}
 	return e.JSON(http.StatusOK, res)
 }

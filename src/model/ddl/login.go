@@ -1,4 +1,4 @@
-package model
+package ddl
 
 type LoginStatusResponse struct {
 	MFA            int8 `json:"mfa"`

@@ -1,4 +1,4 @@
-package model
+package ddl
 
 import "time"
 
@@ -10,7 +10,7 @@ type Company struct {
 	// ID
 	ID uint64 `json:"id" gorm:"primaryKey;AUTO_INCREMENT"`
 	// ハッシュキー
-	HashKey string `json:"hash_key" gorm:"not null;unique;check:hash_key <> '';type:text;index"`
+	HashKey string `json:"hash_key" gorm:"unique;not null;unique;check:hash_key <> '';type:text;index"`
 	// 企業名
 	Name string `json:"name" gorm:"not null;type:varchar(30)"`
 	// ロゴファイル名

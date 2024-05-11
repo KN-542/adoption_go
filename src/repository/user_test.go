@@ -2,7 +2,7 @@ package repository
 
 import (
 	"api/src/infra"
-	"api/src/model"
+	"api/src/model/ddl"
 	"reflect"
 	"testing"
 	"time"
@@ -12,7 +12,7 @@ import (
 
 func TestUserRepository_Insert(t *testing.T) {
 	type args struct {
-		m *model.User
+		m *ddl.User
 	}
 	tests := []struct {
 		name    string
@@ -22,8 +22,8 @@ func TestUserRepository_Insert(t *testing.T) {
 		// ok
 		{
 			"ok",
-			args{&model.User{
-				AbstractTransactionModel: model.AbstractTransactionModel{
+			args{&ddl.User{
+				AbstractTransactionModel: ddl.AbstractTransactionModel{
 					HashKey:   "abc",
 					CreatedAt: time.Date(2024, time.January, 1, 0, 0, 0, 0, time.UTC),
 					UpdatedAt: time.Date(2024, time.January, 2, 0, 0, 0, 0, time.UTC),
@@ -40,7 +40,7 @@ func TestUserRepository_Insert(t *testing.T) {
 		// ng_hash_key
 		{
 			"ng_hash_key",
-			args{&model.User{
+			args{&ddl.User{
 				Name:         "taro",
 				Email:        "taro@au.com",
 				Password:     "root",
@@ -52,8 +52,8 @@ func TestUserRepository_Insert(t *testing.T) {
 		// ng_name
 		{
 			"ng_name",
-			args{&model.User{
-				AbstractTransactionModel: model.AbstractTransactionModel{
+			args{&ddl.User{
+				AbstractTransactionModel: ddl.AbstractTransactionModel{
 					HashKey: "abc",
 				},
 				Email:        "taro@au.com",
@@ -66,8 +66,8 @@ func TestUserRepository_Insert(t *testing.T) {
 		// ng_email
 		{
 			"ng_email",
-			args{&model.User{
-				AbstractTransactionModel: model.AbstractTransactionModel{
+			args{&ddl.User{
+				AbstractTransactionModel: ddl.AbstractTransactionModel{
 					HashKey: "abc",
 				},
 				Name:         "taro",
@@ -80,8 +80,8 @@ func TestUserRepository_Insert(t *testing.T) {
 		// ng_password
 		{
 			"ng_password",
-			args{&model.User{
-				AbstractTransactionModel: model.AbstractTransactionModel{
+			args{&ddl.User{
+				AbstractTransactionModel: ddl.AbstractTransactionModel{
 					HashKey: "abc",
 				},
 				Name:     "taro",
@@ -94,8 +94,8 @@ func TestUserRepository_Insert(t *testing.T) {
 		// ng_init_password
 		{
 			"ng_init_password",
-			args{&model.User{
-				AbstractTransactionModel: model.AbstractTransactionModel{
+			args{&ddl.User{
+				AbstractTransactionModel: ddl.AbstractTransactionModel{
 					HashKey: "abc",
 				},
 				Name:         "taro",
@@ -108,8 +108,8 @@ func TestUserRepository_Insert(t *testing.T) {
 		// ng_role_id
 		{
 			"ng_role_id",
-			args{&model.User{
-				AbstractTransactionModel: model.AbstractTransactionModel{
+			args{&ddl.User{
+				AbstractTransactionModel: ddl.AbstractTransactionModel{
 					HashKey: "abc",
 				},
 				Name:         "taro",
@@ -130,7 +130,7 @@ func TestUserRepository_Insert(t *testing.T) {
 				t.Errorf("UserRepository.Insert() error = %v", err)
 			}
 
-			err := u.Insert(tx, tt.args.m)
+			_, err := u.Insert(tx, tt.args.m)
 
 			if err != nil {
 				if err := tx.Rollback().Error; err != nil {
@@ -181,7 +181,7 @@ func TestUserRepository_List(t *testing.T) {
 	tests := []struct {
 		name    string
 		fields  fields
-		want    []model.UserResponse
+		want    []ddl.UserResponse
 		wantErr bool
 	}{
 		// TODO: Add test cases.
@@ -205,24 +205,24 @@ func TestUserRepository_List(t *testing.T) {
 
 func TestUserRepository_Get(t *testing.T) {
 	type args struct {
-		m *model.User
+		m *ddl.User
 	}
 	tests := []struct {
 		name    string
 		args    args
-		want    *model.User
+		want    *ddl.User
 		wantErr bool
 	}{
 		// ok
 		{
 			"ok",
-			args{&model.User{
-				AbstractTransactionModel: model.AbstractTransactionModel{
+			args{&ddl.User{
+				AbstractTransactionModel: ddl.AbstractTransactionModel{
 					HashKey: "abc",
 				},
 			}},
-			&model.User{
-				AbstractTransactionModel: model.AbstractTransactionModel{
+			&ddl.User{
+				AbstractTransactionModel: ddl.AbstractTransactionModel{
 					HashKey:   "abc",
 					CreatedAt: time.Date(2024, time.January, 1, 0, 0, 0, 0, time.UTC),
 					UpdatedAt: time.Date(2024, time.January, 2, 0, 0, 0, 0, time.UTC),
@@ -239,13 +239,13 @@ func TestUserRepository_Get(t *testing.T) {
 		// ng 0件
 		{
 			"ng_0",
-			args{&model.User{
-				AbstractTransactionModel: model.AbstractTransactionModel{
+			args{&ddl.User{
+				AbstractTransactionModel: ddl.AbstractTransactionModel{
 					HashKey: "ng_ab",
 				},
 			}},
-			&model.User{
-				AbstractTransactionModel: model.AbstractTransactionModel{
+			&ddl.User{
+				AbstractTransactionModel: ddl.AbstractTransactionModel{
 					HashKey:   "ng_abc",
 					CreatedAt: time.Date(2024, time.January, 1, 0, 0, 0, 0, time.UTC),
 					UpdatedAt: time.Date(2024, time.January, 2, 0, 0, 0, 0, time.UTC),
@@ -270,7 +270,8 @@ func TestUserRepository_Get(t *testing.T) {
 				t.Errorf("UserRepository.Insert() error = %v", err)
 			}
 
-			if err := u.Insert(tx, tt.want); err != nil {
+			_, err := u.Insert(tx, tt.want)
+			if err != nil {
 				if err := tx.Rollback().Error; err != nil {
 					t.Errorf("UserRepository.Insert() error = %v", err)
 				}
@@ -344,7 +345,7 @@ func TestUserRepository_Update(t *testing.T) {
 	}
 	type args struct {
 		tx *gorm.DB
-		m  *model.User
+		m  *ddl.User
 	}
 	tests := []struct {
 		name    string
@@ -372,7 +373,7 @@ func TestUserRepository_Delete(t *testing.T) {
 	}
 	type args struct {
 		tx *gorm.DB
-		m  *model.User
+		m  *ddl.User
 	}
 	tests := []struct {
 		name    string
@@ -405,7 +406,7 @@ func TestUserRepository_ConfirmUserByHashKeys(t *testing.T) {
 		name    string
 		fields  fields
 		args    args
-		want    []model.UserResponse
+		want    []ddl.UserResponse
 		wantErr bool
 	}{
 		// TODO: Add test cases.
@@ -432,13 +433,13 @@ func TestUserRepository_Login(t *testing.T) {
 		db *gorm.DB
 	}
 	type args struct {
-		m *model.User
+		m *ddl.User
 	}
 	tests := []struct {
 		name    string
 		fields  fields
 		args    args
-		want    []model.User
+		want    []ddl.User
 		wantErr bool
 	}{
 		// TODO: Add test cases.
@@ -466,7 +467,7 @@ func TestUserRepository_PasswordChange(t *testing.T) {
 	}
 	type args struct {
 		tx *gorm.DB
-		m  *model.User
+		m  *ddl.User
 	}
 	tests := []struct {
 		name    string
@@ -493,7 +494,7 @@ func TestUserRepository_ConfirmInitPassword(t *testing.T) {
 		db *gorm.DB
 	}
 	type args struct {
-		m *model.User
+		m *ddl.User
 	}
 	tests := []struct {
 		name    string
@@ -526,7 +527,7 @@ func TestUserRepository_ConfirmInitPassword2(t *testing.T) {
 		db *gorm.DB
 	}
 	type args struct {
-		m *model.User
+		m *ddl.User
 	}
 	tests := []struct {
 		name    string
@@ -559,7 +560,7 @@ func TestUserRepository_EmailDuplCheck(t *testing.T) {
 		db *gorm.DB
 	}
 	type args struct {
-		m *model.User
+		m *ddl.User
 	}
 	tests := []struct {
 		name    string
@@ -581,14 +582,14 @@ func TestUserRepository_EmailDuplCheck(t *testing.T) {
 	}
 }
 
-func TestUserRepository_SearchGroup(t *testing.T) {
+func TestUserRepository_SearchTeam(t *testing.T) {
 	type fields struct {
 		db *gorm.DB
 	}
 	tests := []struct {
 		name    string
 		fields  fields
-		want    []model.UserGroupResponse
+		want    []ddl.TeamResponse
 		wantErr bool
 	}{
 		// TODO: Add test cases.
@@ -598,25 +599,25 @@ func TestUserRepository_SearchGroup(t *testing.T) {
 			u := &UserRepository{
 				db: tt.fields.db,
 			}
-			got, err := u.SearchGroup()
+			got, err := u.SearchTeam()
 			if (err != nil) != tt.wantErr {
-				t.Errorf("UserRepository.SearchGroup() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("UserRepository.SearchTeam() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("UserRepository.SearchGroup() = %v, want %v", got, tt.want)
+				t.Errorf("UserRepository.SearchTeam() = %v, want %v", got, tt.want)
 			}
 		})
 	}
 }
 
-func TestUserRepository_InsertGroup(t *testing.T) {
+func TestUserRepository_InsertTeam(t *testing.T) {
 	type fields struct {
 		db *gorm.DB
 	}
 	type args struct {
 		tx *gorm.DB
-		m  *model.UserGroup
+		m  *ddl.Team
 	}
 	tests := []struct {
 		name    string
@@ -631,9 +632,9 @@ func TestUserRepository_InsertGroup(t *testing.T) {
 			u := &UserRepository{
 				db: tt.fields.db,
 			}
-			_, err := u.InsertGroup(tt.args.tx, tt.args.m)
+			_, err := u.InsertTeam(tt.args.tx, tt.args.m)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("UserRepository.InsertGroup() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("UserRepository.InsertTeam() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}
@@ -645,7 +646,7 @@ func TestUserRepository_InsertSchedule(t *testing.T) {
 	}
 	type args struct {
 		tx *gorm.DB
-		m  *model.UserSchedule
+		m  *ddl.UserSchedule
 	}
 	tests := []struct {
 		name    string
@@ -674,7 +675,7 @@ func TestUserRepository_ListSchedule(t *testing.T) {
 	tests := []struct {
 		name    string
 		fields  fields
-		want    []model.UserScheduleResponse
+		want    []ddl.UserScheduleResponse
 		wantErr bool
 	}{
 		// TODO: Add test cases.
@@ -702,7 +703,7 @@ func TestUserRepository_DeleteSchedule(t *testing.T) {
 	}
 	type args struct {
 		tx *gorm.DB
-		m  *model.UserSchedule
+		m  *ddl.UserSchedule
 	}
 	tests := []struct {
 		name    string
@@ -730,7 +731,7 @@ func TestUserRepository_UpdatePastSchedule(t *testing.T) {
 	}
 	type args struct {
 		tx *gorm.DB
-		m  *model.UserSchedule
+		m  *ddl.UserSchedule
 	}
 	tests := []struct {
 		name    string

@@ -1,6 +1,6 @@
-package model
+package response
 
-type ErrorResponse struct {
+type Error struct {
 	// スタータス(ヘッダー)
 	Status int `json:"status"`
 	// コード
@@ -9,11 +9,11 @@ type ErrorResponse struct {
 	Error error `json:"error"` // 消す可能性大
 }
 
-type ErrorCodeResponse struct {
+type ErrorCode struct {
 	// コード
 	Code int8 `json:"code"`
 }
 
-func ErrorConvert(e ErrorResponse) ErrorCodeResponse {
-	return ErrorCodeResponse{Code: e.Code}
+func ErrorConvert(e Error) ErrorCode {
+	return ErrorCode{Code: e.Code}
 }

@@ -1,7 +1,7 @@
 package repository
 
 import (
-	model "api/src/model"
+	"api/src/model/ddl"
 	"log"
 
 	"gorm.io/gorm"
@@ -9,7 +9,7 @@ import (
 
 type IAdminRepository interface {
 	// 企業登録
-	InsertCompany(tx *gorm.DB, m *model.Company) error
+	InsertCompany(tx *gorm.DB, m *ddl.Company) error
 }
 
 type AdminRepository struct {
@@ -21,7 +21,7 @@ func NewAdminRepository(db *gorm.DB) IAdminRepository {
 }
 
 // 企業登録
-func (a *AdminRepository) InsertCompany(tx *gorm.DB, m *model.Company) error {
+func (a *AdminRepository) InsertCompany(tx *gorm.DB, m *ddl.Company) error {
 	if err := tx.Create(m).Error; err != nil {
 		log.Printf("%v", err)
 		return err

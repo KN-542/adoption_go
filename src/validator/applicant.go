@@ -1,7 +1,7 @@
 package validator
 
 import (
-	"api/src/model"
+	"api/src/model/ddl"
 	"api/src/model/enum"
 	"errors"
 	"fmt"
@@ -10,11 +10,11 @@ import (
 )
 
 type IApplicantValidator interface {
-	HashKeyValidate(a *model.Applicant) error
-	SearchValidator(a *model.ApplicantSearchRequest) error
-	S3UploadValidator(a *model.FileUpload) error
-	S3DownloadValidator(a *model.FileDownload) error
-	InsertDesiredAtValidator(a *model.ApplicantDesired) error
+	HashKeyValidate(a *ddl.Applicant) error
+	SearchValidator(a *ddl.ApplicantSearchRequest) error
+	S3UploadValidator(a *ddl.FileUpload) error
+	S3DownloadValidator(a *ddl.FileDownload) error
+	InsertDesiredAtValidator(a *ddl.ApplicantDesired) error
 }
 
 type ApplicantValidator struct{}
@@ -37,7 +37,7 @@ func validateUintRange(min, max uint) validation.RuleFunc {
 	}
 }
 
-func (v *ApplicantValidator) HashKeyValidate(a *model.Applicant) error {
+func (v *ApplicantValidator) HashKeyValidate(a *ddl.Applicant) error {
 	return validation.ValidateStruct(
 		a,
 		validation.Field(
@@ -47,7 +47,7 @@ func (v *ApplicantValidator) HashKeyValidate(a *model.Applicant) error {
 	)
 }
 
-func (v *ApplicantValidator) SearchValidator(a *model.ApplicantSearchRequest) error {
+func (v *ApplicantValidator) SearchValidator(a *ddl.ApplicantSearchRequest) error {
 	return validation.ValidateStruct(
 		a,
 		validation.Field(
@@ -61,7 +61,7 @@ func (v *ApplicantValidator) SearchValidator(a *model.ApplicantSearchRequest) er
 	)
 }
 
-func (v *ApplicantValidator) S3UploadValidator(a *model.FileUpload) error {
+func (v *ApplicantValidator) S3UploadValidator(a *ddl.FileUpload) error {
 	return validation.ValidateStruct(
 		a,
 		validation.Field(
@@ -78,7 +78,7 @@ func (v *ApplicantValidator) S3UploadValidator(a *model.FileUpload) error {
 		),
 	)
 }
-func (v *ApplicantValidator) S3DownloadValidator(a *model.FileDownload) error {
+func (v *ApplicantValidator) S3DownloadValidator(a *ddl.FileDownload) error {
 	return validation.ValidateStruct(
 		a,
 		validation.Field(
@@ -88,7 +88,7 @@ func (v *ApplicantValidator) S3DownloadValidator(a *model.FileDownload) error {
 	)
 }
 
-func (v *ApplicantValidator) InsertDesiredAtValidator(a *model.ApplicantDesired) error {
+func (v *ApplicantValidator) InsertDesiredAtValidator(a *ddl.ApplicantDesired) error {
 	return validation.ValidateStruct(
 		a,
 		validation.Field(

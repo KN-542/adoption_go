@@ -10,25 +10,46 @@ import (
 )
 
 func main() {
+	// DB
 	db := infra.NewDB()
 
-	dbRepository := repository.NewDBRepository(db)
-
+	// Redis
 	redis := infra.NewRedis()
+
+	// Repository
+	dbRepository := repository.NewDBRepository(db)
 	redisRepository := repository.NewRedisRepository(redis)
-
 	outerRepository := repository.NewOuterRepository()
-
 	awsRepository := repository.NewAWSRepository()
 	googleRepository := repository.NewGoogleRepository(redis)
-
 	masterRepository := repository.NewMasterRepository(db)
-
 	userRepository := repository.NewUserRepository(db)
-	userValidate := validator.NewUserValidator()
-
+	roleRepository := repository.NewRoleRepository(db)
+	companyRepository := repository.NewCompanyRepository(db)
 	applicantRepository := repository.NewApplicantRepository(db, redis)
+
+	// Validator
+	commonValidator := validator.NewCommonValidator()
+	userValidator := validator.NewUserValidator()
 	applicantValidator := validator.NewApplicantValidator()
+	loginValidator := validator.NewLoginValidator()
+	companyValidator := validator.NewCompanyValidator()
+
+	// Service
+	commonService := service.NewCommonService(
+		masterRepository,
+		roleRepository,
+		commonValidator,
+		redisRepository,
+	)
+	companyService := service.NewCompanyService(
+		companyRepository,
+		masterRepository,
+		roleRepository,
+		userRepository,
+		companyValidator,
+		dbRepository,
+	)
 	applicantService := service.NewApplicantService(
 		applicantRepository,
 		userRepository,
@@ -39,17 +60,21 @@ func main() {
 		applicantValidator,
 		dbRepository,
 	)
+	loginService := service.NewLoginService(userRepository, applicantRepository, redisRepository, loginValidator, userValidator, dbRepository)
+	userService := service.NewUserService(userRepository, applicantRepository, masterRepository, userValidator, dbRepository, outerRepository)
 
-	loginService := service.NewLoginService(userRepository, applicantRepository, redisRepository, userValidate, dbRepository)
+	// Controller
+	commonController := controller.NewCommonController(commonService, loginService)
+	companyController := controller.NewCompanyController(companyService, loginService)
 	loginController := controller.NewLoginController(loginService)
-
-	userService := service.NewUserService(userRepository, applicantRepository, masterRepository, userValidate, dbRepository, outerRepository)
 	applicantController := controller.NewApplicantController(applicantService, userService)
 	userController := controller.NewUserController(userService)
 
 	e := router.NewRouter(
+		commonController,
 		loginController,
 		userController,
+		companyController,
 		applicantController,
 	)
 	e.Logger.Fatal(e.Start(":8080"))
