@@ -19,7 +19,7 @@ type User struct {
 	// 初回パスワード(ハッシュ化)
 	InitPassword string `json:"init_password" gorm:"not null;check:init_password <> ''"`
 	// ロールID
-	RoleID uint `json:"role_id"`
+	RoleID uint64 `json:"role_id"`
 	// ユーザー種別
 	UserType uint `json:"user_type"`
 	// リフレッシュトークン
@@ -46,13 +46,27 @@ t_team_association
 */
 type TeamAssociation struct {
 	// チームID
-	TeamID uint `json:"team_id" gorm:"primaryKey"`
+	TeamID uint64 `json:"team_id" gorm:"primaryKey"`
 	// ユーザーID
-	UserID uint `json:"user_id" gorm:"primaryKey"`
+	UserID uint64 `json:"user_id" gorm:"primaryKey"`
 	// チーム(外部キー)
 	Team Team `gorm:"foreignKey:team_id;references:id"`
 	// ユーザー(外部キー)
 	User User `gorm:"foreignKey:user_id;references:id"`
+}
+
+/*
+t_select_status
+選考状況
+*/
+type SelectStatus struct {
+	AbstractTransactionModel
+	// チームID
+	TeamID uint64 `json:"team_id"`
+	// ステータス名
+	StatusName string `json:"status_name" gorm:"unique;not null;type:varchar(50)"`
+	// チーム(外部キー)
+	Team Team `gorm:"foreignKey:team_id;references:id"`
 }
 
 /*
@@ -81,9 +95,9 @@ t_user_schedule_association
 */
 type UserScheduleAssociation struct {
 	// ユーザー予定ID
-	UserScheduleID uint `json:"user_schedule_id" gorm:"primaryKey"`
+	UserScheduleID uint64 `json:"user_schedule_id" gorm:"primaryKey"`
 	// ユーザーID
-	UserID uint `json:"user_id" gorm:"primaryKey"`
+	UserID uint64 `json:"user_id" gorm:"primaryKey"`
 	// ユーザー予定(外部キー)
 	UserSchedule UserSchedule `gorm:"foreignKey:user_schedule_id;references:id"`
 	// ユーザー(外部キー)
@@ -98,6 +112,9 @@ func (t Team) TableName() string {
 }
 func (t TeamAssociation) TableName() string {
 	return "t_team_association"
+}
+func (t SelectStatus) TableName() string {
+	return "t_select_status"
 }
 func (t UserSchedule) TableName() string {
 	return "t_user_schedule"
@@ -149,7 +166,7 @@ type UserResponse struct {
 	// メールアドレス
 	Email string `json:"email"`
 	// ロールID
-	RoleID uint `json:"role_id"`
+	RoleID uint64 `json:"role_id"`
 	// 初回パスワード
 	InitPassword string `json:"init_password"`
 	// MFA認証フラグ

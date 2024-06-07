@@ -174,34 +174,34 @@ func TestUserRepository_Insert(t *testing.T) {
 }
 
 // TODO
-func TestUserRepository_List(t *testing.T) {
-	type fields struct {
-		db *gorm.DB
-	}
-	tests := []struct {
-		name    string
-		fields  fields
-		want    []ddl.UserResponse
-		wantErr bool
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			u := &UserRepository{
-				db: tt.fields.db,
-			}
-			got, err := u.List()
-			if (err != nil) != tt.wantErr {
-				t.Errorf("UserRepository.List() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("UserRepository.List() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
+// func TestUserRepository_List(t *testing.T) {
+// 	type fields struct {
+// 		db *gorm.DB
+// 	}
+// 	tests := []struct {
+// 		name    string
+// 		fields  fields
+// 		want    []ddl.UserResponse
+// 		wantErr bool
+// 	}{
+// 		// TODO: Add test cases.
+// 	}
+// 	for _, tt := range tests {
+// 		t.Run(tt.name, func(t *testing.T) {
+// 			u := &UserRepository{
+// 				db: tt.fields.db,
+// 			}
+// 			got, err := u.List()
+// 			if (err != nil) != tt.wantErr {
+// 				t.Errorf("UserRepository.List() error = %v, wantErr %v", err, tt.wantErr)
+// 				return
+// 			}
+// 			if !reflect.DeepEqual(got, tt.want) {
+// 				t.Errorf("UserRepository.List() = %v, want %v", got, tt.want)
+// 			}
+// 		})
+// 	}
+// }
 
 func TestUserRepository_Get(t *testing.T) {
 	type args struct {
@@ -281,8 +281,8 @@ func TestUserRepository_Get(t *testing.T) {
 				t.Errorf("UserRepository.Insert() error = %v", err)
 			}
 
-			got, err := u.Get(tt.args.m)
-			if err != nil {
+			got, gotErr := u.Get(tt.args.m)
+			if gotErr != nil {
 				tx2 := u.db.Begin()
 				if err := u.Delete(tx2, tt.want); err != nil {
 					if err := tx2.Rollback().Error; err != nil {
@@ -295,7 +295,7 @@ func TestUserRepository_Get(t *testing.T) {
 				}
 
 				if !tt.wantErr {
-					t.Errorf("UserRepository.Get() error = %v, wantErr %v", err, tt.wantErr)
+					t.Errorf("UserRepository.Get() error = %v, wantErr %v", gotErr, tt.wantErr)
 				}
 				return
 			}

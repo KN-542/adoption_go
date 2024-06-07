@@ -18,19 +18,19 @@ func GenerateHash(minLength, maxLength int) (*string, *string, error) {
 	strLength := minLength + int(length.Int64())
 
 	buffer := make([]byte, strLength)
-	_, err = rand.Read(buffer)
-	if err != nil {
-		return nil, nil, err
+	_, err2 := rand.Read(buffer)
+	if err2 != nil {
+		return nil, nil, err2
 	}
 	for i := 0; i < strLength; i++ {
 		buffer[i] = chars[int(buffer[i])%len(chars)]
 	}
 	str := string(buffer)
 
-	buffer2, err := bcrypt.GenerateFromPassword([]byte(str), bcrypt.DefaultCost)
-	if err != nil {
-		log.Printf("%v", err)
-		return nil, nil, err
+	buffer2, err3 := bcrypt.GenerateFromPassword([]byte(str), bcrypt.DefaultCost)
+	if err3 != nil {
+		log.Printf("%v", err3)
+		return nil, nil, err3
 	}
 	hash := string(buffer2)
 

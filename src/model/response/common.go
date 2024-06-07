@@ -11,3 +11,8 @@ type Sidebar struct {
 type Roles struct {
 	Map map[string]bool `json:"map"`
 }
+
+// Teams
+type TeamsBelong struct {
+	List []entity.Team `json:"list"`
+}

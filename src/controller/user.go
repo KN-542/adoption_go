@@ -1,9 +1,10 @@
 package controller
 
 import (
-	"api/resources/static"
 	"api/src/model/ddl"
+	"api/src/model/request"
 	"api/src/model/response"
+	"api/src/model/static"
 	"api/src/service"
 	"fmt"
 	"log"
@@ -13,54 +14,161 @@ import (
 )
 
 type IUserController interface {
-	// 一覧
-	List(e echo.Context) error
 	// 登録
 	Create(e echo.Context) error
-	// 検索(チーム)
+	// 検索*
+	Search(e echo.Context) error
+	// 検索(チーム)*
 	SearchTeams(e echo.Context) error
-	// チーム登録
+	// チーム登録*
 	InsertTeam(e echo.Context) error
-	// スケジュール登録種別一覧
+	// スケジュール登録種別一覧*
 	ListScheduleType(e echo.Context) error
-	// スケジュール登録
+	// スケジュール登録*
 	InsertSchedules(e echo.Context) error
-	// スケジュール更新
+	// スケジュール更新*
 	UpdateSchedule(e echo.Context) error
-	// スケジュール一覧
+	// スケジュール一覧*
 	Schedules(e echo.Context) error
-	// スケジュール削除
+	// スケジュール削除*
 	DeleteSchedule(e echo.Context) error
-	// 予約表提示
+	// 予約表提示*
 	DispReserveTable(e echo.Context) error
 }
 
 type UserController struct {
-	s service.IUserService
+	s     service.IUserService
+	login service.ILoginService
+	role  service.IRoleService
 }
 
-func NewUserController(s service.IUserService) IUserController {
-	return &UserController{s}
+func NewUserController(
+	s service.IUserService,
+	login service.ILoginService,
+	role service.IRoleService,
+) IUserController {
+	return &UserController{s, login, role}
 }
 
-// 一覧
-func (c *UserController) List(e echo.Context) error {
-	res, err := c.s.List()
-	if err != nil {
-		return e.JSON(err.Status, response.ErrorConvert(*err))
-	}
-	return e.JSON(http.StatusOK, res)
+func (c *UserController) GetLoginService() service.ILoginService {
+	return c.login
 }
 
 // 登録
 func (c *UserController) Create(e echo.Context) error {
-	req := ddl.User{}
+	req := request.UserCreate{}
 	if err := e.Bind(&req); err != nil {
 		log.Printf("%v", err)
 		return e.JSON(http.StatusBadRequest, fmt.Errorf(static.MESSAGE_BAD_REQUEST))
 	}
 
-	res, err := c.s.Create(&req)
+	// JWT検証
+	if err := JWTDecodeCommon(
+		c,
+		e,
+		req.HashKey,
+		JWT_TOKEN,
+		JWT_SECRET,
+	); err != nil {
+		return err
+	}
+
+	// ログイン種別取得
+	loginType, loginTypeErr := c.login.GetLoginType(&request.GetLoginType{
+		User: ddl.User{
+			AbstractTransactionModel: ddl.AbstractTransactionModel{
+				HashKey: req.HashKey,
+			},
+		},
+	})
+	if loginTypeErr != nil {
+		return e.JSON(loginTypeErr.Status, response.ErrorConvert(*loginTypeErr))
+	}
+
+	id := static.ROLE_ADMIN_USER_CREATE
+	if loginType.LoginType == static.LOGIN_TYPE_MANAGEMENT {
+		id = static.ROLE_MANAGEMENT_USER_CREATE
+	}
+
+	// ロールチェック
+	exist, roleErr := c.role.Check(&request.RoleCheck{
+		Abstract: request.Abstract{
+			UserHashKey: req.HashKey,
+		},
+		ID: id,
+	})
+	if roleErr != nil {
+		return e.JSON(roleErr.Status, response.ErrorConvert(*roleErr))
+	}
+	if !exist {
+		err := &response.Error{
+			Status: http.StatusUnauthorized,
+		}
+		return e.JSON(err.Status, response.ErrorConvert(*err))
+	}
+
+	res, sErr := c.s.Create(&req)
+	if sErr != nil {
+		return e.JSON(sErr.Status, response.ErrorConvert(*sErr))
+	}
+
+	return e.JSON(http.StatusOK, res)
+}
+
+// 検索
+func (c *UserController) Search(e echo.Context) error {
+	req := request.UserSearch{}
+	if err := e.Bind(&req); err != nil {
+		log.Printf("%v", err)
+		return e.JSON(http.StatusBadRequest, fmt.Errorf(static.MESSAGE_BAD_REQUEST))
+	}
+
+	// JWT検証
+	if err := JWTDecodeCommon(
+		c,
+		e,
+		req.HashKey,
+		JWT_TOKEN,
+		JWT_SECRET,
+	); err != nil {
+		return err
+	}
+
+	// ログイン種別取得
+	loginType, loginTypeErr := c.login.GetLoginType(&request.GetLoginType{
+		User: ddl.User{
+			AbstractTransactionModel: ddl.AbstractTransactionModel{
+				HashKey: req.HashKey,
+			},
+		},
+	})
+	if loginTypeErr != nil {
+		return e.JSON(loginTypeErr.Status, response.ErrorConvert(*loginTypeErr))
+	}
+
+	id := static.ROLE_ADMIN_USER_READ
+	if loginType.LoginType == static.LOGIN_TYPE_MANAGEMENT {
+		id = static.ROLE_MANAGEMENT_USER_READ
+	}
+
+	// ロールチェック
+	exist, roleErr := c.role.Check(&request.RoleCheck{
+		Abstract: request.Abstract{
+			UserHashKey: req.HashKey,
+		},
+		ID: id,
+	})
+	if roleErr != nil {
+		return e.JSON(roleErr.Status, response.ErrorConvert(*roleErr))
+	}
+	if !exist {
+		err := &response.Error{
+			Status: http.StatusNoContent,
+		}
+		return e.JSON(err.Status, response.ErrorConvert(*err))
+	}
+
+	res, err := c.s.Search(&req)
 	if err != nil {
 		return e.JSON(err.Status, response.ErrorConvert(*err))
 	}

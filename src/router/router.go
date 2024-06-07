@@ -30,7 +30,6 @@ func NewRouter(
 	}))
 
 	// ログイン
-	e.POST("/hello", login.HelloWorld)
 	e.POST("/login", login.Login)
 	e.POST("/logout", login.Logout)
 	e.POST("/code_gen", login.CodeGenerate)
@@ -49,7 +48,7 @@ func NewRouter(
 	e.POST("/roles", common.Roles)
 
 	// ユーザー
-	e.POST("/user/list", user.List)
+	e.POST("/user/search", user.Search)
 	e.POST("/user/create", user.Create)
 	e.POST("/user/create_team", user.InsertTeam)
 	e.POST("/user/search_team", user.SearchTeams)
@@ -71,7 +70,7 @@ func NewRouter(
 	e.POST("/applicant/documents", applicant.DocumentsUpload)
 	e.POST("/applicant/documents_download", applicant.DocumentDownload)
 	e.POST("/applicant/desired", applicant.InsertDesiredAt)
-	e.POST("/applicant/status", applicant.GetApplicantStatus)
+	e.POST("/applicant/status", applicant.GetStatusList)
 	e.POST("/applicant/sites", applicant.GetSites)
 	e.POST("/applicant/get_google_meet_url", applicant.GetGoogleMeetUrl)
 

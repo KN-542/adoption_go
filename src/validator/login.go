@@ -21,6 +21,8 @@ type ILoginValidator interface {
 	PasswordChange(u *request.PasswordChange) error
 	// ログアウト
 	Logout(u *request.Logout) error
+	// ログイン種別取得
+	GetLoginType(u *request.GetLoginType) error
 }
 
 type LoginValidator struct{}
@@ -36,7 +38,7 @@ func (v *LoginValidator) Login(u *request.Login) error {
 		validation.Field(
 			&u.Email,
 			validation.Required,
-			validation.Length(1, 50),
+			validation.Length(1, 100),
 			is.Email,
 		),
 		validation.Field(
@@ -119,6 +121,17 @@ func (v *LoginValidator) PasswordChange(u *request.PasswordChange) error {
 
 // ログアウト
 func (v *LoginValidator) Logout(u *request.Logout) error {
+	return validation.ValidateStruct(
+		u,
+		validation.Field(
+			&u.HashKey,
+			validation.Required,
+		),
+	)
+}
+
+// ログイン種別取得
+func (v *LoginValidator) GetLoginType(u *request.GetLoginType) error {
 	return validation.ValidateStruct(
 		u,
 		validation.Field(

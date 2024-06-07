@@ -1,82 +1,75 @@
 package service
 
 import (
-	"api/resources/static"
 	"api/src/model/ddl"
-	"api/src/model/enum"
+	"api/src/model/dto"
+	"api/src/model/entity"
+	"api/src/model/request"
 	"api/src/model/response"
+	"api/src/model/static"
 	"api/src/repository"
 	"api/src/validator"
+	"context"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 )
 
 type IUserService interface {
-	// 一覧
-	List() (*ddl.UsersResponse, *response.Error)
 	// 登録
-	Create(req *ddl.User) (*ddl.UserResponse, *response.Error)
-	// 取得
+	Create(req *request.UserCreate) (*response.UserCreate, *response.Error)
+	// 検索*
+	Search(req *request.UserSearch) (*response.UserSearch, *response.Error)
+	// 取得*
 	Get(req *ddl.User) (*ddl.UserResponse, *response.Error)
-	// 検索(チーム)
+	// 検索(チーム)*
 	SearchTeams() (*ddl.TeamsResponse, *response.Error)
-	// チーム登録
+	// チーム登録*
 	CreateTeam(req *ddl.TeamRequest) *response.Error
-	// スケジュール登録種別一覧
+	// スケジュール登録種別一覧*
 	ListScheduleType() (*ddl.CalendarsFreqStatus, *response.Error)
-	// スケジュール登録
+	// スケジュール登録*
 	CreateSchedule(req *ddl.UserScheduleRequest) (*string, *response.Error)
-	// スケジュール更新
+	// スケジュール更新*
 	UpdateSchedule(req *ddl.UserScheduleRequest) *response.Error
-	// スケジュール一覧
+	// スケジュール一覧*
 	Schedules() (*ddl.UserSchedulesResponse, *response.Error)
-	// スケジュール削除
+	// スケジュール削除*
 	DeleteSchedule(req *ddl.UserSchedule) *response.Error
-	// 予約表提示
+	// 予約表提示*
 	DispReserveTable() (*ddl.ReserveTable, *response.Error)
 }
 
 type UserService struct {
-	r  repository.IUserRepository
-	ra repository.IApplicantRepository
-	m  repository.IMasterRepository
-	v  validator.IUserValidator
-	d  repository.IDBRepository
-	o  repository.IOuterIFRepository
+	user      repository.IUserRepository
+	role      repository.IRoleRepository
+	applicant repository.IApplicantRepository
+	master    repository.IMasterRepository
+	v         validator.IUserValidator
+	d         repository.IDBRepository
+	outer     repository.IOuterIFRepository
+	redis     repository.IRedisRepository
 }
 
 func NewUserService(
-	r repository.IUserRepository,
-	ra repository.IApplicantRepository,
-	m repository.IMasterRepository,
+	user repository.IUserRepository,
+	role repository.IRoleRepository,
+	applicant repository.IApplicantRepository,
+	master repository.IMasterRepository,
 	v validator.IUserValidator,
 	d repository.IDBRepository,
-	o repository.IOuterIFRepository,
+	outer repository.IOuterIFRepository,
+	redis repository.IRedisRepository,
 ) IUserService {
-	return &UserService{r, ra, m, v, d, o}
-}
-
-// 一覧
-func (u *UserService) List() (*ddl.UsersResponse, *response.Error) {
-	users, err := u.r.List()
-	if err != nil {
-		log.Printf("%v", err)
-		return nil, &response.Error{
-			Status: http.StatusInternalServerError,
-		}
-	}
-
-	return &ddl.UsersResponse{
-		Users: users,
-	}, nil
+	return &UserService{user, role, applicant, master, v, d, outer, redis}
 }
 
 // 登録
-func (u *UserService) Create(req *ddl.User) (*ddl.UserResponse, *response.Error) {
+func (u *UserService) Create(req *request.UserCreate) (*response.UserCreate, *response.Error) {
 	// バリデーション
-	if err := u.v.CreateValidate(req); err != nil {
+	if err := u.v.Create(req); err != nil {
 		log.Printf("%v", err)
 		return nil, &response.Error{
 			Status: http.StatusBadRequest,
@@ -84,53 +77,131 @@ func (u *UserService) Create(req *ddl.User) (*ddl.UserResponse, *response.Error)
 		}
 	}
 
-	// メールアドレス重複チェック
-	if err := u.r.EmailDuplCheck(req); err != nil {
+	// ログイン種別、企業ID取得
+	ctx := context.Background()
+	login, loginTypeErr := u.redis.Get(ctx, req.HashKey, static.REDIS_USER_LOGIN_TYPE)
+	if loginTypeErr != nil {
 		return nil, &response.Error{
-			Status: http.StatusConflict,
-			Code:   static.CODE_USER_EMAIL_DUPL,
+			Status: http.StatusInternalServerError,
+		}
+	}
+	loginType, loginTypeParseErr := strconv.ParseUint(*login, 10, 64)
+	if loginTypeParseErr != nil {
+		log.Printf("%v", loginTypeParseErr)
+		return nil, &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+	company, companyErr := u.redis.Get(ctx, req.HashKey, static.REDIS_USER_COMPANY_ID)
+	if companyErr != nil {
+		return nil, &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+	companyID, companyParseErr := strconv.ParseUint(*company, 10, 64)
+	if companyParseErr != nil {
+		log.Printf("%v", companyParseErr)
+		return nil, &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// チームのIDを取得
+	var teams []uint64
+	for _, hash := range req.Teams {
+		// チーム検索
+		team, teamErr := u.user.GetTeam(&ddl.Team{
+			AbstractTransactionModel: ddl.AbstractTransactionModel{
+				HashKey: hash,
+			},
+		})
+		if teamErr != nil {
+			return nil, &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+		teams = append(teams, team.ID)
+	}
+
+	// ログイン種別が管理者の場合、チームに関するバリデーション
+	if loginType == uint64(static.LOGIN_TYPE_MANAGEMENT) {
+		// バリデーション
+		if err := u.v.CreateManagement(req); err != nil {
+			log.Printf("%v", err)
+			return nil, &response.Error{
+				Status: http.StatusBadRequest,
+				Code:   static.CODE_BAD_REQUEST,
+			}
+		}
+
+		// メールアドレス重複チェック
+		if err := u.user.EmailDuplCheckManagement(&req.User, teams); err != nil {
+			return nil, &response.Error{
+				Status: http.StatusConflict,
+				Code:   static.CODE_USER_EMAIL_DUPL,
+			}
+		}
+	} else {
+		// メールアドレス重複チェック
+		if err := u.user.EmailDuplCheck(&req.User); err != nil {
+			return nil, &response.Error{
+				Status: http.StatusConflict,
+				Code:   static.CODE_USER_EMAIL_DUPL,
+			}
+		}
+	}
+
+	// ロール取得
+	role, roleErr := u.role.Get(&ddl.CustomRole{
+		AbstractTransactionModel: ddl.AbstractTransactionModel{
+			HashKey: req.RoleHashKey,
+		},
+	})
+	if roleErr != nil {
+		return nil, &response.Error{
+			Status: http.StatusInternalServerError,
 		}
 	}
 
 	// 初回パスワード発行
-	password, hashPassword, err := GenerateHash(8, 16)
-	if err != nil {
-		log.Printf("%v", err)
+	password, hashPassword, passwordErr := GenerateHash(8, 16)
+	if passwordErr != nil {
+		log.Printf("%v", passwordErr)
 		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
 
 	// ハッシュキー生成
-	_, hashKey, err := GenerateHash(1, 25)
-	if err != nil {
-		log.Printf("%v", err)
+	_, hashKey, hashErr := GenerateHash(1, 25)
+	if hashErr != nil {
+		log.Printf("%v", hashErr)
 		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
 
-	tx, err := u.d.TxStart()
-	if err != nil {
+	tx, txErr := u.d.TxStart()
+	if txErr != nil {
 		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
 
 	// 登録
-	user := ddl.User{
+	user, userCreateErr := u.user.Insert(tx, &ddl.User{
 		AbstractTransactionModel: ddl.AbstractTransactionModel{
-			HashKey: *hashKey,
+			HashKey:   *hashKey,
+			CompanyID: companyID,
 		},
 		Name:         req.Name,
 		Email:        req.Email,
 		Password:     *hashPassword,
 		InitPassword: *hashPassword,
-		RoleID:       req.RoleID,
-	}
-
-	_, err2 := u.r.Insert(tx, &user)
-	if err2 != nil {
+		RoleID:       role.ID,
+		UserType:     static.LOGIN_TYPE_MANAGEMENT,
+	})
+	if userCreateErr != nil {
 		if err := u.d.TxRollback(tx); err != nil {
 			return nil, &response.Error{
 				Status: http.StatusInternalServerError,
@@ -141,17 +212,79 @@ func (u *UserService) Create(req *ddl.User) (*ddl.UserResponse, *response.Error)
 		}
 	}
 
+	for _, id := range teams {
+		// チーム紐づけ登録
+		if err := u.user.InsertTeamAssociation(tx, &ddl.TeamAssociation{
+			TeamID: id,
+			UserID: user.ID,
+		}); err != nil {
+			if err := u.d.TxRollback(tx); err != nil {
+				return nil, &response.Error{
+					Status: http.StatusInternalServerError,
+				}
+			}
+			return nil, &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+	}
+
 	if err := u.d.TxCommit(tx); err != nil {
 		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
 
-	res := ddl.UserResponse{
-		Email:        user.Email,
-		InitPassword: *password,
+	res := response.UserCreate{
+		User: entity.User{
+			User: ddl.User{
+				Email:        user.Email,
+				InitPassword: *password,
+			},
+		},
 	}
 	return &res, nil
+}
+
+// 検索
+func (u *UserService) Search(req *request.UserSearch) (*response.UserSearch, *response.Error) {
+	// バリデーション
+	if err := u.v.Search(req); err != nil {
+		log.Printf("%v", err)
+		return nil, &response.Error{
+			Status: http.StatusBadRequest,
+			Code:   static.CODE_BAD_REQUEST,
+		}
+	}
+
+	// チーム取得
+	ctx := context.Background()
+	team, teamErr := u.redis.Get(ctx, req.HashKey, static.REDIS_USER_TEAM_ID)
+	if teamErr != nil {
+		return nil, &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+	teamID, teamIDErr := strconv.ParseUint(*team, 10, 64)
+	if teamIDErr != nil {
+		return nil, &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	users, usersErr := u.user.Search(&dto.UserSearch{
+		UserSearch: *req,
+		TeamID:     teamID,
+	})
+	if usersErr != nil {
+		return nil, &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	return &response.UserSearch{
+		List: users,
+	}, nil
 }
 
 // 取得
@@ -164,7 +297,7 @@ func (u *UserService) Get(req *ddl.User) (*ddl.UserResponse, *response.Error) {
 		}
 	}
 
-	user, err := u.r.Get(req)
+	user, err := u.user.Get(req)
 	if err != nil {
 		log.Printf("%v", err)
 		return nil, &response.Error{
@@ -182,7 +315,7 @@ func (u *UserService) Get(req *ddl.User) (*ddl.UserResponse, *response.Error) {
 
 // 検索(チーム)
 func (u *UserService) SearchTeams() (*ddl.TeamsResponse, *response.Error) {
-	teams, err := u.r.SearchTeam()
+	teams, err := u.user.SearchTeam()
 	if err != nil {
 		log.Printf("%v", err)
 		return nil, &response.Error{
@@ -193,7 +326,7 @@ func (u *UserService) SearchTeams() (*ddl.TeamsResponse, *response.Error) {
 	// ユーザー存在確認
 	for index, team := range teams {
 		var l []string
-		users, err := u.r.ConfirmUserByHashKeys(strings.Split(team.Users, ","))
+		users, err := u.user.ConfirmUserByHashKeys(strings.Split(team.Users, ","))
 		if err != nil {
 			if err != nil {
 				return nil, &response.Error{
@@ -229,7 +362,7 @@ func (u *UserService) CreateTeam(req *ddl.TeamRequest) *response.Error {
 	}
 
 	// ユーザー存在確認
-	users, err := u.r.GetUserBasicByHashKeys(strings.Split(req.Users, ","))
+	users, err := u.user.GetUserBasicByHashKeys(strings.Split(req.Users, ","))
 	if err != nil {
 		return &response.Error{
 			Status: http.StatusInternalServerError,
@@ -254,7 +387,7 @@ func (u *UserService) CreateTeam(req *ddl.TeamRequest) *response.Error {
 
 	// チーム登録
 	req.HashKey = *hashKey
-	team, err := u.r.InsertTeam(tx, &req.Team)
+	team, err := u.user.InsertTeam(tx, &req.Team)
 	if err != nil {
 		if err := u.d.TxRollback(tx); err != nil {
 			return &response.Error{
@@ -267,8 +400,8 @@ func (u *UserService) CreateTeam(req *ddl.TeamRequest) *response.Error {
 	}
 	for _, row := range users {
 		// チーム紐づけ登録
-		if err := u.r.InsertTeamAssociation(tx, &ddl.TeamAssociation{
-			TeamID: uint(team.ID),
+		if err := u.user.InsertTeamAssociation(tx, &ddl.TeamAssociation{
+			TeamID: team.ID,
 			UserID: row.ID,
 		}); err != nil {
 			if err := u.d.TxRollback(tx); err != nil {
@@ -293,7 +426,7 @@ func (u *UserService) CreateTeam(req *ddl.TeamRequest) *response.Error {
 
 // スケジュール登録種別一覧
 func (u *UserService) ListScheduleType() (*ddl.CalendarsFreqStatus, *response.Error) {
-	res, err := u.m.SelectCalendarFreqStatus()
+	res, err := u.master.SelectCalendarFreqStatus()
 	if err != nil {
 		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
@@ -317,7 +450,7 @@ func (u *UserService) CreateSchedule(req *ddl.UserScheduleRequest) (*string, *re
 	}
 
 	// ユーザー存在確認
-	users, err := u.r.GetUserBasicByHashKeys(strings.Split(req.UserHashKeys, ","))
+	users, err := u.user.GetUserBasicByHashKeys(strings.Split(req.UserHashKeys, ","))
 	if err != nil {
 		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
@@ -341,7 +474,7 @@ func (u *UserService) CreateSchedule(req *ddl.UserScheduleRequest) (*string, *re
 	}
 
 	// スケジュール登録
-	id, err := u.r.InsertSchedule(tx, &ddl.UserSchedule{
+	id, err := u.user.InsertSchedule(tx, &ddl.UserSchedule{
 		AbstractTransactionModel: ddl.AbstractTransactionModel{
 			HashKey: *hashKey,
 		},
@@ -363,7 +496,7 @@ func (u *UserService) CreateSchedule(req *ddl.UserScheduleRequest) (*string, *re
 	}
 	for _, row := range users {
 		// スケジュール紐づけ登録
-		if err := u.r.InsertScheduleAssociation(tx, &ddl.UserScheduleAssociation{
+		if err := u.user.InsertScheduleAssociation(tx, &ddl.UserScheduleAssociation{
 			UserScheduleID: *id,
 			UserID:         row.ID,
 		}); err != nil {
@@ -390,7 +523,7 @@ func (u *UserService) CreateSchedule(req *ddl.UserScheduleRequest) (*string, *re
 // スケジュール更新
 func (u *UserService) UpdateSchedule(req *ddl.UserScheduleRequest) *response.Error {
 	// ユーザー存在確認
-	users, err := u.r.GetUserBasicByHashKeys(strings.Split(req.UserHashKeys, ","))
+	users, err := u.user.GetUserBasicByHashKeys(strings.Split(req.UserHashKeys, ","))
 	if err != nil {
 		return &response.Error{
 			Status: http.StatusInternalServerError,
@@ -405,7 +538,7 @@ func (u *UserService) UpdateSchedule(req *ddl.UserScheduleRequest) *response.Err
 	}
 
 	// スケジュール更新
-	id, err := u.r.UpdateSchedule(tx, &ddl.UserSchedule{
+	id, err := u.user.UpdateSchedule(tx, &ddl.UserSchedule{
 		AbstractTransactionModel: ddl.AbstractTransactionModel{
 			HashKey:   req.HashKey,
 			UpdatedAt: time.Now(),
@@ -422,7 +555,7 @@ func (u *UserService) UpdateSchedule(req *ddl.UserScheduleRequest) *response.Err
 		}
 	}
 	// 問答無用で紐づけテーブルの該当スケジュールIDのレコード削除
-	if err := u.r.DeleteScheduleAssociation(tx, &ddl.UserScheduleAssociation{
+	if err := u.user.DeleteScheduleAssociation(tx, &ddl.UserScheduleAssociation{
 		UserScheduleID: *id,
 	}); err != nil {
 		if err := u.d.TxRollback(tx); err != nil {
@@ -436,7 +569,7 @@ func (u *UserService) UpdateSchedule(req *ddl.UserScheduleRequest) *response.Err
 	}
 	for _, row := range users {
 		// スケジュール紐づけ登録
-		if err := u.r.InsertScheduleAssociation(tx, &ddl.UserScheduleAssociation{
+		if err := u.user.InsertScheduleAssociation(tx, &ddl.UserScheduleAssociation{
 			UserScheduleID: *id,
 			UserID:         row.ID,
 		}); err != nil {
@@ -462,7 +595,7 @@ func (u *UserService) UpdateSchedule(req *ddl.UserScheduleRequest) *response.Err
 
 // スケジュール一覧 (バッチでも実行したい)
 func (u *UserService) Schedules() (*ddl.UserSchedulesResponse, *response.Error) {
-	schedulesBefore, err := u.r.ListSchedule()
+	schedulesBefore, err := u.user.ListSchedule()
 	if err != nil {
 		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
@@ -480,8 +613,8 @@ func (u *UserService) Schedules() (*ddl.UserSchedulesResponse, *response.Error) 
 	for _, schedule := range schedulesBefore {
 		if schedule.Start.Before(time.Now()) {
 			// なしの場合
-			if schedule.FreqID == uint(enum.FREQ_NONE) {
-				if err := u.r.DeleteSchedule(tx, &ddl.UserSchedule{
+			if schedule.FreqID == uint(static.FREQ_NONE) {
+				if err := u.user.DeleteSchedule(tx, &ddl.UserSchedule{
 					AbstractTransactionModel: ddl.AbstractTransactionModel{
 						HashKey: schedule.HashKey,
 					},
@@ -498,24 +631,24 @@ func (u *UserService) Schedules() (*ddl.UserSchedulesResponse, *response.Error) 
 			} else {
 				s := schedule.Start
 				e := schedule.End
-				if schedule.FreqID == uint(enum.FREQ_DAILY) {
+				if schedule.FreqID == uint(static.FREQ_DAILY) {
 					s = s.AddDate(0, 0, 1)
 					e = e.AddDate(0, 0, 1)
 				}
-				if schedule.FreqID == uint(enum.FREQ_WEEKLY) {
+				if schedule.FreqID == uint(static.FREQ_WEEKLY) {
 					s = s.AddDate(0, 0, 7)
 					e = e.AddDate(0, 0, 7)
 				}
-				if schedule.FreqID == uint(enum.FREQ_MONTHLY) {
+				if schedule.FreqID == uint(static.FREQ_MONTHLY) {
 					s = s.AddDate(0, 1, 0)
 					e = e.AddDate(0, 1, 0)
 				}
-				if schedule.FreqID == uint(enum.FREQ_YEARLY) {
+				if schedule.FreqID == uint(static.FREQ_YEARLY) {
 					s = s.AddDate(1, 0, 0)
 					e = e.AddDate(1, 0, 0)
 				}
 
-				if err := u.r.UpdatePastSchedule(tx, &ddl.UserSchedule{
+				if err := u.user.UpdatePastSchedule(tx, &ddl.UserSchedule{
 					AbstractTransactionModel: ddl.AbstractTransactionModel{
 						HashKey:   schedule.HashKey,
 						UpdatedAt: time.Now(),
@@ -542,7 +675,7 @@ func (u *UserService) Schedules() (*ddl.UserSchedulesResponse, *response.Error) 
 		}
 	}
 
-	schedulesAfter, err := u.r.ListSchedule()
+	schedulesAfter, err := u.user.ListSchedule()
 	if err != nil {
 		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
@@ -570,7 +703,7 @@ func (u *UserService) DeleteSchedule(req *ddl.UserSchedule) *response.Error {
 	}
 
 	// 削除
-	if err := u.r.DeleteSchedule(tx, req); err != nil {
+	if err := u.user.DeleteSchedule(tx, req); err != nil {
 		if err := u.d.TxRollback(tx); err != nil {
 			return &response.Error{
 				Status: http.StatusInternalServerError,
@@ -606,7 +739,7 @@ func (u *UserService) DispReserveTable() (*ddl.ReserveTable, *response.Error) {
 
 	// TODO 応募者の面接可能チーム取得(一旦全チーム可能であるとする)
 	var availabilityTeams []ddl.TeamResponse
-	list, err := u.r.SearchTeam()
+	list, err := u.user.SearchTeam()
 	if err != nil {
 		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
@@ -620,7 +753,7 @@ func (u *UserService) DispReserveTable() (*ddl.ReserveTable, *response.Error) {
 	isAvailabilityDifferentTeamMeeting := false
 
 	// スケジュール一覧
-	schedulesUTC, err := u.r.ListSchedule()
+	schedulesUTC, err := u.user.ListSchedule()
 	if err != nil {
 		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
@@ -651,7 +784,7 @@ func (u *UserService) DispReserveTable() (*ddl.ReserveTable, *response.Error) {
 		jst,
 	)
 	for _, row := range schedulesJST {
-		if row.FreqID == uint(enum.FREQ_NONE) || row.FreqID == uint(enum.FREQ_MONTHLY) || row.FreqID == uint(enum.FREQ_YEARLY) {
+		if row.FreqID == uint(static.FREQ_NONE) || row.FreqID == uint(static.FREQ_MONTHLY) || row.FreqID == uint(static.FREQ_YEARLY) {
 			schedules = append(schedules, row)
 			continue
 		}
@@ -677,7 +810,7 @@ func (u *UserService) DispReserveTable() (*ddl.ReserveTable, *response.Error) {
 				row.End.Nanosecond(),
 				jst,
 			)
-			if row.FreqID == uint(enum.FREQ_DAILY) || (row.FreqID == uint(enum.FREQ_WEEKLY) && s_0.Weekday() == row.Start.Weekday()) {
+			if row.FreqID == uint(static.FREQ_DAILY) || (row.FreqID == uint(static.FREQ_WEEKLY) && s_0.Weekday() == row.Start.Weekday()) {
 				schedules = append(schedules, ddl.UserScheduleResponse{
 					HashKey:      row.HashKey,
 					UserHashKeys: row.UserHashKeys,
@@ -692,7 +825,7 @@ func (u *UserService) DispReserveTable() (*ddl.ReserveTable, *response.Error) {
 	}
 
 	// 日本の休日取得
-	holidays, err := u.o.HolidaysJp(time.Now().Year())
+	holidays, err := u.outer.HolidaysJp(time.Now().Year())
 	if err != nil {
 		return nil, &response.Error{
 			Status: http.StatusInternalServerError,

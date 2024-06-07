@@ -1,4 +1,4 @@
-package enum
+package static
 
 type InterviewFlg uint
 

@@ -1,10 +1,12 @@
 package service
 
 import (
-	"api/resources/static"
 	"api/src/model/ddl"
-	"api/src/model/enum"
+	"api/src/model/dto"
+	"api/src/model/entity"
+	"api/src/model/request"
 	"api/src/model/response"
+	"api/src/model/static"
 	"api/src/repository"
 	"api/src/validator"
 	"context"
@@ -14,29 +16,28 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"unicode/utf8"
 )
 
 type IApplicantService interface {
-	// Google 認証URL作成
-	GetOauthURL(req *ddl.ApplicantAndUser) (*ddl.GetOauthURLResponse, *response.Error)
-	// 応募者ダウンロード
-	Download(d *ddl.ApplicantsDownload) *response.Error
-	// 応募者取得(1件)
-	Get(req *ddl.Applicant) (*ddl.Applicant, *response.Error)
-	// 検索
-	Search(req *ddl.ApplicantSearchRequest) (*ddl.ApplicantsDownloadResponse, *response.Error)
-	// 書類アップロード(S3)
-	S3Upload(req *ddl.FileUpload, fileHeader *multipart.FileHeader) *response.Error
-	// 書類ダウンロード(S3)
-	S3Download(req *ddl.FileDownload) ([]byte, *string, *response.Error)
-	// 面接希望日登録
-	InsertDesiredAt(req *ddl.ApplicantDesired) *response.Error
-	// 応募者ステータス一覧取得
-	GetApplicantStatus() (*ddl.ApplicantStatusList, *response.Error)
+	// 検索*
+	Search(req *request.ApplicantSearch) (*response.ApplicantSearch, *response.Error)
 	// サイト一覧取得
-	GetSites() (*ddl.Sites, *response.Error)
-	// Google Meet Url 発行
+	GetSites() (*response.ApplicantSites, *response.Error)
+	// 応募者ステータス一覧取得
+	GetStatusList(req *request.ApplicantStatusList) (*response.ApplicantStatusList, *response.Error)
+	// 応募者ダウンロード
+	Download(req *request.ApplicantDownloadRequest) *response.Error
+	// Google 認証URL作成*
+	GetOauthURL(req *ddl.ApplicantAndUser) (*ddl.GetOauthURLResponse, *response.Error)
+	// 応募者取得(1件)*
+	Get(req *ddl.Applicant) (*ddl.Applicant, *response.Error)
+	// 書類アップロード(S3)*
+	S3Upload(req *ddl.FileUpload, fileHeader *multipart.FileHeader) *response.Error
+	// 書類ダウンロード(S3)*
+	S3Download(req *ddl.FileDownload) ([]byte, *string, *response.Error)
+	// 面接希望日登録*
+	InsertDesiredAt(req *ddl.ApplicantDesired) *response.Error
+	// Google Meet Url 発行*
 	GetGoogleMeetUrl(req *ddl.ApplicantAndUser) (*ddl.Applicant, *response.Error)
 }
 
@@ -62,6 +63,278 @@ func NewApplicantService(
 	d repository.IDBRepository,
 ) IApplicantService {
 	return &ApplicantService{r, u, m, a, g, redis, v, d}
+}
+
+// 検索
+func (s *ApplicantService) Search(req *request.ApplicantSearch) (*response.ApplicantSearch, *response.Error) {
+	// バリデーション
+	if err := s.v.Search(req); err != nil {
+		log.Printf("%v", err)
+		return nil, &response.Error{
+			Status: http.StatusBadRequest,
+			Code:   static.CODE_BAD_REQUEST,
+		}
+	}
+
+	// チーム取得
+	ctx := context.Background()
+	team, teamErr := s.redis.Get(ctx, req.UserHashKey, static.REDIS_USER_TEAM_ID)
+	if teamErr != nil {
+		return nil, &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+	teamID, teamIDErr := strconv.ParseUint(*team, 10, 64)
+	if teamIDErr != nil {
+		return nil, &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+	req.TeamID = teamID
+
+	// 面接官取得
+	var users []uint64
+	for _, hash := range req.Users {
+		user, err := s.u.Get(&ddl.User{
+			AbstractTransactionModel: ddl.AbstractTransactionModel{
+				HashKey: hash,
+			},
+		})
+		if err != nil {
+			return nil, &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+		users = append(users, user.ID)
+	}
+
+	// 検索
+	applicants, searchErr := s.r.Search(&dto.ApplicantSearch{
+		ApplicantSearch: *req,
+		UserIDs:         users,
+	})
+	if searchErr != nil {
+		return nil, &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// ユーザー紐づけ取得
+	for _, row := range applicants {
+		users, usersErr := s.u.GetUserAssociation(&ddl.Applicant{
+			AbstractTransactionModel: ddl.AbstractTransactionModel{
+				ID: row.ID,
+			},
+		})
+		if usersErr != nil {
+			return nil, &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+
+		var userHashKeys []string
+		var userNames []string
+		for _, row2 := range users {
+			userHashKeys = append(userHashKeys, row2.HashKey)
+			userNames = append(userNames, row2.Name)
+		}
+		row.Users = strings.Join(userHashKeys, ",")
+		row.UserNames = strings.Join(userNames, ",")
+	}
+
+	return &response.ApplicantSearch{
+		List: applicants,
+	}, nil
+}
+
+// サイト一覧取得
+func (s *ApplicantService) GetSites() (*response.ApplicantSites, *response.Error) {
+	sites, err := s.m.ListSite()
+	if err != nil {
+		return nil, &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+	for _, row := range sites {
+		row.ID = 0
+	}
+
+	return &response.ApplicantSites{
+		List: sites,
+	}, nil
+}
+
+// 応募者ステータス一覧取得
+func (s *ApplicantService) GetStatusList(req *request.ApplicantStatusList) (*response.ApplicantStatusList, *response.Error) {
+	// バリデーション
+	if err := s.v.GetStatusList(req); err != nil {
+		log.Printf("%v", err)
+		return nil, &response.Error{
+			Status: http.StatusBadRequest,
+			Code:   static.CODE_BAD_REQUEST,
+		}
+	}
+
+	// チーム取得
+	ctx := context.Background()
+	team, teamErr := s.redis.Get(ctx, req.UserHashKey, static.REDIS_USER_TEAM_ID)
+	if teamErr != nil {
+		return nil, &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+	teamID, teamIDErr := strconv.ParseUint(*team, 10, 64)
+	if teamIDErr != nil {
+		return nil, &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// ステータス取得
+	list, listErr := s.r.ListStatus(&ddl.SelectStatus{
+		TeamID: teamID,
+	})
+	if listErr != nil {
+		return nil, &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	var res []entity.ApplicantStatus
+	for _, row := range list {
+		res = append(res, entity.ApplicantStatus{
+			SelectStatus: ddl.SelectStatus{
+				AbstractTransactionModel: ddl.AbstractTransactionModel{
+					HashKey: row.HashKey,
+				},
+				StatusName: row.StatusName,
+			},
+		})
+	}
+
+	return &response.ApplicantStatusList{
+		List: res,
+	}, nil
+}
+
+// 応募者ダウンロード
+func (s *ApplicantService) Download(req *request.ApplicantDownloadRequest) *response.Error {
+	// バリデーション
+	if err := s.v.Download(req); err != nil {
+		log.Printf("%v", err)
+		return &response.Error{
+			Status: http.StatusBadRequest,
+			Code:   static.CODE_BAD_REQUEST,
+		}
+	}
+	for _, row := range req.Applicants {
+		if err := s.v.DownloadSub(&row); err != nil {
+			log.Printf("%v", err)
+			return &response.Error{
+				Status: http.StatusBadRequest,
+				Code:   static.CODE_BAD_REQUEST,
+			}
+		}
+	}
+
+	// チーム、企業取得
+	ctx := context.Background()
+	team, teamErr := s.redis.Get(ctx, req.UserHashKey, static.REDIS_USER_TEAM_ID)
+	if teamErr != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+	teamID, teamIDErr := strconv.ParseUint(*team, 10, 64)
+	if teamIDErr != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	company, companyErr := s.redis.Get(ctx, req.UserHashKey, static.REDIS_USER_COMPANY_ID)
+	if companyErr != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+	companyID, companyParseErr := strconv.ParseUint(*company, 10, 64)
+	if companyParseErr != nil {
+		log.Printf("%v", companyParseErr)
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// サイトID取得
+	site, siteErr := s.m.SelectSiteByHashKey(&ddl.Site{
+		AbstractMasterModel: ddl.AbstractMasterModel{
+			HashKey: req.SiteHashKey,
+		},
+	})
+	if siteErr != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	tx, txErr := s.d.TxStart()
+	if txErr != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// 一括登録
+	for _, row := range req.Applicants {
+		// ハッシュキー生成
+		_, hash, hashErr := GenerateHash(1, 25)
+		if hashErr != nil {
+			if err := s.d.TxRollback(tx); err != nil {
+				return &response.Error{
+					Status: http.StatusInternalServerError,
+				}
+			}
+
+			log.Printf("%v", hashErr)
+			return &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+
+		// 登録
+		if err := s.r.Insert(tx, &ddl.Applicant{
+			AbstractTransactionModel: ddl.AbstractTransactionModel{
+				HashKey:   *hash,
+				CompanyID: companyID,
+			},
+			OuterID: row.OuterID,
+			SiteID:  site.ID,
+			Status:  1,
+			Name:    row.Name,
+			Email:   row.Email,
+			Tel:     row.Tel,
+			Age:     uint(row.Age),
+			TeamID:  teamID,
+		}); err != nil {
+			if err := s.d.TxRollback(tx); err != nil {
+				return &response.Error{
+					Status: http.StatusInternalServerError,
+				}
+			}
+			return &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+	}
+
+	if err := s.d.TxCommit(tx); err != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	return nil
 }
 
 // 認証URL作成
@@ -109,95 +382,6 @@ func (s *ApplicantService) GetOauthURL(req *ddl.ApplicantAndUser) (*ddl.GetOauth
 	return res, nil
 }
 
-/*
-	txt、csvダウンロード用
-*/
-// 応募者ダウンロード
-func (s *ApplicantService) Download(d *ddl.ApplicantsDownload) *response.Error {
-	// STEP1 サイトIDチェック
-	_, err := s.m.SelectSiteByPrimaryKey(d.Site)
-	if err != nil {
-		log.Printf("%v", err)
-		return &response.Error{
-			Status: http.StatusInternalServerError,
-		}
-	}
-
-	// STEP2 登録
-	if d.Site == int(enum.RECRUIT) {
-		for _, values := range d.Values {
-			_, size := utf8.DecodeLastRuneInString(values[enum.RECRUIT_AGE])
-			_, err := strconv.ParseInt(
-				values[enum.RECRUIT_AGE][:len(values[enum.RECRUIT_AGE])-size],
-				10,
-				64,
-			)
-			if err != nil {
-				// TODO
-			}
-
-			// ハッシュキー生成
-			_, hashKey, err := GenerateHash(1, 25)
-			if err != nil {
-				log.Printf("%v", err)
-				return &response.Error{
-					Status: http.StatusInternalServerError,
-				}
-			}
-
-			m := ddl.Applicant{
-				OuterID: values[enum.RECRUIT_ID],
-				AbstractTransactionModel: ddl.AbstractTransactionModel{
-					HashKey:   *hashKey,
-					CreatedAt: time.Now(),
-					UpdatedAt: time.Now(),
-				},
-				SiteID: uint(enum.RECRUIT),
-				Status: uint(enum.SCHEDULE_UNANSWERED),
-				Name:   values[enum.RECRUIT_NAME],
-				Email:  values[enum.RECRUIT_EMAIL],
-			}
-
-			// STEP2-1 重複チェック
-			count, err := s.r.CountByPrimaryKey(&m.OuterID)
-			if err != nil {
-				log.Printf("%v", err)
-				return &response.Error{
-					Status: http.StatusInternalServerError,
-				}
-			}
-			if *count == int64(0) {
-				tx, err := s.d.TxStart()
-				if err != nil {
-					return &response.Error{
-						Status: http.StatusInternalServerError,
-					}
-				}
-
-				// STEP2-2 登録
-				if err := s.r.Insert(tx, &m); err != nil {
-					if err := s.d.TxRollback(tx); err != nil {
-						return &response.Error{
-							Status: http.StatusInternalServerError,
-						}
-					}
-					return &response.Error{
-						Status: http.StatusInternalServerError,
-					}
-				}
-
-				if err := s.d.TxCommit(tx); err != nil {
-					return &response.Error{
-						Status: http.StatusInternalServerError,
-					}
-				}
-			}
-		}
-	}
-
-	return nil
-}
-
 // 応募者取得(1件)
 func (s *ApplicantService) Get(req *ddl.Applicant) (*ddl.Applicant, *response.Error) {
 	// バリデーション
@@ -222,49 +406,6 @@ func (s *ApplicantService) Get(req *ddl.Applicant) (*ddl.Applicant, *response.Er
 	}
 
 	return applicant, nil
-}
-
-// 検索
-func (s *ApplicantService) Search(req *ddl.ApplicantSearchRequest) (*ddl.ApplicantsDownloadResponse, *response.Error) {
-	// バリデーション
-	if err := s.v.SearchValidator(req); err != nil {
-		log.Printf("%v", err)
-		return nil, &response.Error{
-			Status: http.StatusBadRequest,
-			Code:   static.CODE_BAD_REQUEST,
-		}
-	}
-
-	applicants, err := s.r.Search(req)
-	if err != nil {
-		log.Printf("%v", err)
-		return nil, &response.Error{
-			Status: http.StatusInternalServerError,
-		}
-	}
-
-	for i, row := range applicants {
-		var list []string
-		user, err := s.u.GetUserScheduleAssociationByScheduleID(
-			&ddl.UserScheduleAssociation{
-				UserScheduleID: row.CalendarID,
-			},
-		)
-		if err != nil {
-			log.Printf("%v", err)
-			return nil, &response.Error{
-				Status: http.StatusInternalServerError,
-			}
-		}
-		for _, r := range user {
-			list = append(list, r.Name)
-		}
-		applicants[i].UserNames = strings.Join(list, ",")
-	}
-
-	return &ddl.ApplicantsDownloadResponse{
-		Applicants: applicants,
-	}, nil
 }
 
 // 書類アップロード(S3)
@@ -434,7 +575,7 @@ func (s *ApplicantService) InsertDesiredAt(req *ddl.ApplicantDesired) *response.
 		AbstractTransactionModel: ddl.AbstractTransactionModel{
 			HashKey: req.HashKey,
 		},
-		CalendarID: uint(calendar.ID),
+		CalendarID: calendar.ID,
 	}); err != nil {
 		if err := s.d.TxRollback(tx); err != nil {
 			return &response.Error{
@@ -453,32 +594,6 @@ func (s *ApplicantService) InsertDesiredAt(req *ddl.ApplicantDesired) *response.
 	}
 
 	return nil
-}
-
-// 応募者ステータス一覧取得
-func (s *ApplicantService) GetApplicantStatus() (*ddl.ApplicantStatusList, *response.Error) {
-	applicantStatus, err := s.m.SelectApplicantStatus()
-	if err != nil {
-		log.Printf("%v", err)
-		return nil, &response.Error{
-			Status: http.StatusInternalServerError,
-		}
-	}
-
-	return &ddl.ApplicantStatusList{List: applicantStatus}, nil
-}
-
-// サイト一覧取得
-func (s *ApplicantService) GetSites() (*ddl.Sites, *response.Error) {
-	sites, err := s.m.SelectSite()
-	if err != nil {
-		log.Printf("%v", err)
-		return nil, &response.Error{
-			Status: http.StatusInternalServerError,
-		}
-	}
-
-	return &ddl.Sites{List: sites}, nil
 }
 
 // Google Meet Url 発行

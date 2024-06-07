@@ -33,3 +33,8 @@ type PasswordChange struct {
 type Logout struct {
 	ddl.User
 }
+
+// GetLoginType
+type GetLoginType struct {
+	ddl.User
+}

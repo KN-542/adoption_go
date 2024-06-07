@@ -14,7 +14,9 @@ import (
 )
 
 type IAWSRepository interface {
+	// S3アップロード*
 	S3Upload(key string, fileHeader *multipart.FileHeader) error
+	// S3ダウンロード*
 	S3Download(fileName string) ([]byte, error)
 }
 
@@ -27,32 +29,32 @@ func NewAWSRepository() IAWSRepository {
 // S3 Upload
 func (a *AWSRepository) S3Upload(key string, fileHeader *multipart.FileHeader) error {
 	// ファイルを開く
-	file, err := fileHeader.Open()
-	if err != nil {
-		log.Printf("%v", err)
-		return err
+	file, fileErr := fileHeader.Open()
+	if fileErr != nil {
+		log.Printf("%v", fileErr)
+		return fileErr
 	}
 	defer file.Close()
 
 	// AWSセッションを作成（東京リージョン）
-	s, err := session.NewSession(&aws.Config{
+	s, sErr := session.NewSession(&aws.Config{
 		Credentials: credentials.NewStaticCredentials(os.Getenv("AWS_ACCESS_KEY"), os.Getenv("AWS_SECRET_KEY"), ""),
 		Region:      aws.String(os.Getenv("AWS_REGION"))},
 	)
-	if err != nil {
-		log.Printf("%v", err)
-		return err
+	if sErr != nil {
+		log.Printf("%v", sErr)
+		return sErr
 	}
 
 	uploader := s3manager.NewUploader(s)
-	_, err2 := uploader.Upload(&s3manager.UploadInput{
+	_, upErr := uploader.Upload(&s3manager.UploadInput{
 		Bucket: aws.String(os.Getenv("AWS_S3_BUCKET_NAME")),
 		Key:    aws.String(key),
 		Body:   file,
 	})
-	if err2 != nil {
-		log.Printf("%v", err2)
-		return err2
+	if upErr != nil {
+		log.Printf("%v", upErr)
+		return upErr
 	}
 
 	return nil
@@ -60,33 +62,33 @@ func (a *AWSRepository) S3Upload(key string, fileHeader *multipart.FileHeader) e
 
 func (a *AWSRepository) S3Download(fileName string) ([]byte, error) {
 	// AWSセッションを作成
-	sess, err := session.NewSession(&aws.Config{
+	sess, sessErr := session.NewSession(&aws.Config{
 		Credentials: credentials.NewStaticCredentials(os.Getenv("AWS_ACCESS_KEY"), os.Getenv("AWS_SECRET_KEY"), ""),
 		Region:      aws.String(os.Getenv("AWS_REGION")),
 	})
-	if err != nil {
-		log.Printf("%v", err)
-		return nil, err
+	if sessErr != nil {
+		log.Printf("%v", sessErr)
+		return nil, sessErr
 	}
 
 	// S3サービスクライアントを作成
 	svc := s3.New(sess)
 
 	// S3からファイルを取得
-	res, err := svc.GetObject(&s3.GetObjectInput{
+	res, resErr := svc.GetObject(&s3.GetObjectInput{
 		Bucket: aws.String(os.Getenv("AWS_S3_BUCKET_NAME")),
 		Key:    aws.String(fileName),
 	})
-	if err != nil {
-		return nil, err
+	if resErr != nil {
+		return nil, resErr
 	}
 	defer res.Body.Close()
 
-	data, err := io.ReadAll(res.Body)
-	if err != nil {
+	data, dataErr := io.ReadAll(res.Body)
+	if dataErr != nil {
 		// エラーの処理
-		log.Printf("%v", err)
-		return nil, err
+		log.Printf("%v", dataErr)
+		return nil, dataErr
 	}
 
 	return data, nil

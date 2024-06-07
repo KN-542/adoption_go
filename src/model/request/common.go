@@ -11,3 +11,8 @@ type Sidebar struct {
 type Roles struct {
 	ddl.User
 }
+
+// Teams
+type TeamsBelong struct {
+	ddl.User
+}

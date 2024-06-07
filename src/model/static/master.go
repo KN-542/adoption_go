@@ -1,4 +1,4 @@
-package enum
+package static
 
 const (
 	ON  uint = 1
@@ -82,10 +82,11 @@ const (
 
 // m_hash_key_pre
 const (
-	PRE_COMPANY string = "company"
-	PRE_ROLE    string = "role"
-	PRE_USER    string = "user"
-	PRE_TEAM    string = "team"
+	PRE_COMPANY       string = "company"
+	PRE_ROLE          string = "role"
+	PRE_USER          string = "user"
+	PRE_TEAM          string = "team"
+	PRE_SELECT_STATUS string = "select_status"
 )
 
 // m_site
@@ -96,88 +97,31 @@ const (
 	MYNAVI uint = 2
 	// DODA
 	DODA uint = 3
-	// その他
-	OTHER uint = 999
-)
 
-// m_applicant_status
-const (
-	// 日程未回答
-	SCHEDULE_UNANSWERED uint = 1
-	// 書類未提出
-	BOOK_CATEGORY_NOT_PRESENTED uint = 2
-	// 1次面接
-	INTERVIEW_1 uint = 3
-	// 2次面接
-	INTERVIEW_2 uint = 4
-	// 3次面接
-	INTERVIEW_3 uint = 5
-	// 4次面接
-	INTERVIEW_4 uint = 6
-	// 5次面接
-	INTERVIEW_5 uint = 7
-	// 6次面接
-	INTERVIEW_6 uint = 8
-	// 7次面接
-	INTERVIEW_7 uint = 9
-	// 8次面接
-	INTERVIEW_8 uint = 10
-	// 9次面接
-	INTERVIEW_9 uint = 11
-	// 10次面接
-	INTERVIEW_10 uint = 12
-	// 1次面接後課題
-	TASK_AFTER_INTERVIEW_1 uint = 13
-	// 2次面接後課題
-	TASK_AFTER_INTERVIEW_2 uint = 14
-	// 3次面接後課題
-	TASK_AFTER_INTERVIEW_3 uint = 15
-	// 4次面接後課題
-	TASK_AFTER_INTERVIEW_4 uint = 16
-	// 5次面接後課題
-	TASK_AFTER_INTERVIEW_5 uint = 17
-	// 6次面接後課題
-	TASK_AFTER_INTERVIEW_6 uint = 18
-	// 7次面接後課題
-	TASK_AFTER_INTERVIEW_7 uint = 19
-	// 8次面接後課題
-	TASK_AFTER_INTERVIEW_8 uint = 20
-	// 9次面接後課題
-	TASK_AFTER_INTERVIEW_9 uint = 21
-	// 10次面接後課題
-	TASK_AFTER_INTERVIEW_10 uint = 22
-	// 1次面接落ち
-	Failing_TO_PASS_INTERVIEW_1 uint = 23
-	// 2次面接落ち
-	Failing_TO_PASS_INTERVIEW_2 uint = 24
-	// 3次面接落ち
-	Failing_TO_PASS_INTERVIEW_3 uint = 25
-	// 4次面接落ち
-	Failing_TO_PASS_INTERVIEW_4 uint = 26
-	// 5次面接落ち
-	Failing_TO_PASS_INTERVIEW_5 uint = 27
-	// 6次面接落ち
-	Failing_TO_PASS_INTERVIEW_6 uint = 28
-	// 7次面接落ち
-	Failing_TO_PASS_INTERVIEW_7 uint = 29
-	// 8次面接落ち
-	Failing_TO_PASS_INTERVIEW_8 uint = 30
-	// 9次面接落ち
-	Failing_TO_PASS_INTERVIEW_9 uint = 31
-	// 10次面接落ち
-	Failing_TO_PASS_INTERVIEW_10 uint = 32
-	// 内定
-	OFFER uint = 33
-	// 内定承諾
-	OFFER_COMMITMENT uint = 34
-	// 書類選考落ち
-	Failing_TO_PASS_DOCUMENTS uint = 35
-	// 選考辞退
-	WITHDRAWAL uint = 36
-	// 内定辞退
-	OFFER_DISMISSAL uint = 37
-	// 内定承諾後辞退
-	OFFER_COMMITMENT_DISMISSAL uint = 38
+	// リクナビNEXT
+	FILE_NAME_RECRUIT      string = "oubosha"
+	INDEX_RECRUIT_OUTER_ID uint   = 11
+	INDEX_RECRUIT_NAME     uint   = 12
+	INDEX_RECRUIT_EMAIL    uint   = 17
+	INDEX_RECRUIT_TEL      uint   = 18
+	INDEX_RECRUIT_AGE      uint   = 14
+	COLUMNS_RECRUIT        uint   = 220
+	// マイナビ
+	FILE_NAME_MYNAVI      string = "mynavi"
+	INDEX_MYNAVI_OUTER_ID uint   = 0
+	INDEX_MYNAVI_NAME     uint   = 1 // ※性: 1, 名: 2
+	INDEX_MYNAVI_EMAIL    uint   = 9
+	INDEX_MYNAVI_TEL      uint   = 11 // 空文字の場合は12の電話番号(自宅)をチェック
+	INDEX_MYNAVI_AGE      uint   = 6
+	COLUMNS_MYNAVI        uint   = 381
+	// DODA
+	FILE_NAME_DODA      string = "Senko"
+	INDEX_DODA_OUTER_ID uint   = 186
+	INDEX_DODA_NAME     uint   = 6 // ※性: 6, 名: 7
+	INDEX_DODA_EMAIL    uint   = 13
+	INDEX_DODA_TEL      uint   = 18 // 空文字の場合は19の電話番号(自宅)をチェック
+	INDEX_DODA_AGE      uint   = 11
+	COLUMNS_DODA        uint   = 186
 )
 
 // m_calendar_freq_status

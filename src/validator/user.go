@@ -2,7 +2,8 @@ package validator
 
 import (
 	"api/src/model/ddl"
-	"api/src/model/enum"
+	"api/src/model/request"
+	"api/src/model/static"
 
 	validation "github.com/go-ozzo/ozzo-validation/v4"
 	"github.com/go-ozzo/ozzo-validation/v4/is"
@@ -10,7 +11,9 @@ import (
 
 // TODO 名前の末尾からValidateを除去
 type IUserValidator interface {
-	CreateValidate(u *ddl.User) error
+	Create(u *request.UserCreate) error
+	CreateManagement(u *request.UserCreate) error
+	Search(u *request.UserSearch) error
 	CreateTeamValidate(u *ddl.TeamRequest) error
 	CreateScheduleValidate(u *ddl.UserScheduleRequest) error
 	ScheduleHashKeyValidate(u *ddl.UserSchedule) error
@@ -25,7 +28,7 @@ func NewUserValidator() IUserValidator {
 	return &UserValidator{}
 }
 
-func (v *UserValidator) CreateValidate(u *ddl.User) error {
+func (v *UserValidator) Create(u *request.UserCreate) error {
 	return validation.ValidateStruct(
 		u,
 		validation.Field(
@@ -40,11 +43,35 @@ func (v *UserValidator) CreateValidate(u *ddl.User) error {
 			is.Email,
 		),
 		validation.Field(
-			&u.RoleID,
+			&u.RoleHashKey,
 			validation.Required,
 		),
 	)
 }
+
+func (v *UserValidator) CreateManagement(u *request.UserCreate) error {
+	return validation.ValidateStruct(
+		u,
+		validation.Field(
+			&u.Teams,
+			validation.Required,
+			validation.Length(1, 0),
+			validation.Each(validation.Required),
+			UniqueValidator{},
+		),
+	)
+}
+
+func (v *UserValidator) Search(u *request.UserSearch) error {
+	return validation.ValidateStruct(
+		u,
+		validation.Field(
+			&u.HashKey,
+			validation.Required,
+		),
+	)
+}
+
 func (v *UserValidator) CreateTeamValidate(u *ddl.TeamRequest) error {
 	return validation.ValidateStruct(
 		u,
@@ -55,12 +82,15 @@ func (v *UserValidator) CreateTeamValidate(u *ddl.TeamRequest) error {
 		),
 	)
 }
+
 func (v *UserValidator) CreateScheduleValidate(u *ddl.UserScheduleRequest) error {
 	return validation.ValidateStruct(
 		u,
 		validation.Field(
 			&u.FreqID,
-			validation.By(validateUintRange(0, uint(enum.FREQ_NONE))),
+			validation.Min(0),
+			validation.Max(uint(static.FREQ_NONE)),
+			IsUintValidator{},
 		),
 		validation.Field(
 			&u.Start,

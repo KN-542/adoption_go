@@ -3,7 +3,7 @@ package main
 import (
 	"api/src/infra"
 	"api/src/model/ddl"
-	"api/src/model/enum"
+	"api/src/model/static"
 	"api/src/repository"
 	"api/src/service"
 	"flag"
@@ -30,7 +30,6 @@ func main() {
 			&ddl.Role{},
 			&ddl.Sidebar{},
 			&ddl.SidebarRoleAssociation{},
-			&ddl.ApplicantStatus{},
 			&ddl.CalendarFreqStatus{},
 			&ddl.ApplyVariable{},
 			&ddl.OperationLogEvent{},
@@ -45,9 +44,11 @@ func main() {
 			&ddl.User{},
 			&ddl.Team{},
 			&ddl.TeamAssociation{},
+			&ddl.SelectStatus{},
 			&ddl.UserSchedule{},
 			&ddl.UserScheduleAssociation{},
 			&ddl.Applicant{},
+			&ddl.ApplicantUserAssociation{},
 			&ddl.MailTemplate{},
 			&ddl.Variable{},
 			&ddl.MailPreview{},
@@ -65,9 +66,10 @@ func main() {
 			log.Println(err)
 		}
 		mLoginType := map[string]string{
-			"id":   "ID",
-			"type": "ログイン種別",
-			"path": "遷移パス",
+			"id":       "ID",
+			"hash_key": "ハッシュキー",
+			"type":     "ログイン種別",
+			"path":     "遷移パス",
 		}
 		if err := AddColumnComments(dbConn, "m_login_type", mLoginType); err != nil {
 			log.Println(err)
@@ -79,6 +81,7 @@ func main() {
 		}
 		mRole := map[string]string{
 			"id":        "ID",
+			"hash_key":  "ハッシュキー",
 			"name_ja":   "ロール名_日本語",
 			"name_en":   "ロール名_英語",
 			"role_type": "ロール種別",
@@ -92,8 +95,16 @@ func main() {
 			log.Println(err)
 		}
 		mSite := map[string]string{
-			"id":        "ID",
-			"site_name": "媒体名",
+			"id":              "ID",
+			"hash_key":        "ハッシュキー",
+			"site_name":       "媒体名",
+			"outer_id_index":  "媒体側ID_index",
+			"name_index":      "氏名_index",
+			"email_index":     "メールアドレス_index",
+			"tel_index":       "TEL_index",
+			"age_index":       "年齢_index",
+			"name_check_type": "氏名_チェックタイプ",
+			"num_of_column":   "カラム数",
 		}
 		if err := AddColumnComments(dbConn, "m_site", mSite); err != nil {
 			log.Println(err)
@@ -105,6 +116,7 @@ func main() {
 		}
 		mSidebar := map[string]string{
 			"id":        "ID",
+			"hash_key":  "ハッシュキー",
 			"name_ja":   "機能名_日本語",
 			"name_en":   "機能名_英語",
 			"path":      "遷移パス",
@@ -126,28 +138,16 @@ func main() {
 			log.Println(err)
 		}
 
-		// m_applicant_status
-		if err := AddTableComment(dbConn, "m_applicant_status", "選考状況マスタ"); err != nil {
-			log.Println(err)
-		}
-		mApplicantStatus := map[string]string{
-			"id":             "ID",
-			"status_name_ja": "ステータス名_日本語",
-			"status_name_en": "ステータス名_英語",
-		}
-		if err := AddColumnComments(dbConn, "m_applicant_status", mApplicantStatus); err != nil {
-			log.Println(err)
-		}
-
 		// m_calendar_freq_status
 		if err := AddTableComment(dbConn, "m_calendar_freq_status", "予定頻度マスタ"); err != nil {
 			log.Println(err)
 		}
 		mCalendarFreqStatus := map[string]string{
-			"id":      "ID",
-			"freq":    "頻度",
-			"name_ja": "名前_日本語",
-			"name_en": "名前_英語",
+			"id":       "ID",
+			"hash_key": "ハッシュキー",
+			"freq":     "頻度",
+			"name_ja":  "名前_日本語",
+			"name_en":  "名前_英語",
 		}
 		if err := AddColumnComments(dbConn, "m_calendar_freq_status", mCalendarFreqStatus); err != nil {
 			log.Println(err)
@@ -158,8 +158,9 @@ func main() {
 			log.Println(err)
 		}
 		mApplyVariable := map[string]string{
-			"id":   "ID",
-			"name": "種別名",
+			"id":       "ID",
+			"hash_key": "ハッシュキー",
+			"name":     "種別名",
 		}
 		if err := AddColumnComments(dbConn, "m_apply_variable", mApplyVariable); err != nil {
 			log.Println(err)
@@ -170,8 +171,9 @@ func main() {
 			log.Println(err)
 		}
 		mOperationLogEvent := map[string]string{
-			"id":    "ID",
-			"event": "通知内容",
+			"id":       "ID",
+			"hash_key": "ハッシュキー",
+			"event":    "通知内容",
 		}
 		if err := AddColumnComments(dbConn, "m_operation_log_event", mOperationLogEvent); err != nil {
 			log.Println(err)
@@ -182,8 +184,9 @@ func main() {
 			log.Println(err)
 		}
 		mNotice := map[string]string{
-			"id":     "ID",
-			"notice": "通知内容",
+			"id":       "ID",
+			"hash_key": "ハッシュキー",
+			"notice":   "通知内容",
 		}
 		if err := AddColumnComments(dbConn, "m_notice", mNotice); err != nil {
 			log.Println(err)
@@ -194,9 +197,10 @@ func main() {
 			log.Println(err)
 		}
 		mAnalysisTerm := map[string]string{
-			"id":      "ID",
-			"term_ja": "項目_日本語",
-			"term_en": "項目_英語",
+			"id":       "ID",
+			"hash_key": "ハッシュキー",
+			"term_ja":  "項目_日本語",
+			"term_en":  "項目_英語",
 		}
 		if err := AddColumnComments(dbConn, "m_analysis_term", mAnalysisTerm); err != nil {
 			log.Println(err)
@@ -207,8 +211,9 @@ func main() {
 			log.Println(err)
 		}
 		mHashKeyPre := map[string]string{
-			"id":  "ID",
-			"pre": "プレビュー",
+			"id":       "ID",
+			"hash_key": "ハッシュキー",
+			"pre":      "プレビュー",
 		}
 		if err := AddColumnComments(dbConn, "m_hash_key_pre", mHashKeyPre); err != nil {
 			log.Println(err)
@@ -219,8 +224,9 @@ func main() {
 			log.Println(err)
 		}
 		mS3NamePre := map[string]string{
-			"id":  "ID",
-			"pre": "プレビュー",
+			"id":       "ID",
+			"hash_key": "ハッシュキー",
+			"pre":      "プレビュー",
 		}
 		if err := AddColumnComments(dbConn, "m_s3_name_pre", mS3NamePre); err != nil {
 			log.Println(err)
@@ -323,6 +329,23 @@ func main() {
 			log.Println(err)
 		}
 
+		// t_select_status
+		if err := AddTableComment(dbConn, "t_select_status", "選考状況"); err != nil {
+			log.Println(err)
+		}
+		selectStatus := map[string]string{
+			"team_id":     "チームID",
+			"id":          "ID",
+			"hash_key":    "ハッシュキー",
+			"company_id":  "企業ID",
+			"status_name": "ステータス名",
+			"created_at":  "登録日時",
+			"updated_at":  "更新日時",
+		}
+		if err := AddColumnComments(dbConn, "t_select_status", selectStatus); err != nil {
+			log.Println(err)
+		}
+
 		// t_user_schedule
 		if err := AddTableComment(dbConn, "t_user_schedule", "ユーザー予定"); err != nil {
 			log.Println(err)
@@ -384,6 +407,22 @@ func main() {
 			"updated_at":       "更新日時",
 		}
 		if err := AddColumnComments(dbConn, fmt.Sprintf("t_applicant_%d_%02d", year, month), applicant); err != nil {
+			log.Println(err)
+		}
+
+		// t_applicant_user_association
+		if err := AddTableComment(
+			dbConn,
+			fmt.Sprintf("t_applicant_user_association_%d_%02d", year, month),
+			fmt.Sprintf("応募者ユーザー紐づけ_%d_%02d", year, month),
+		); err != nil {
+			log.Println(err)
+		}
+		applicantUserAssociation := map[string]string{
+			"applicant_id": "応募者ID",
+			"user_id":      "ユーザーID",
+		}
+		if err := AddColumnComments(dbConn, fmt.Sprintf("t_applicant_user_association_%d_%02d", year, month), applicantUserAssociation); err != nil {
 			log.Println(err)
 		}
 
@@ -508,7 +547,6 @@ func main() {
 			&ddl.Role{},
 			&ddl.Sidebar{},
 			&ddl.SidebarRoleAssociation{},
-			&ddl.ApplicantStatus{},
 			&ddl.CalendarFreqStatus{},
 			&ddl.ApplyVariable{},
 			&ddl.OperationLogEvent{},
@@ -523,9 +561,11 @@ func main() {
 			&ddl.User{},
 			&ddl.Team{},
 			&ddl.TeamAssociation{},
+			&ddl.SelectStatus{},
 			&ddl.UserSchedule{},
 			&ddl.UserScheduleAssociation{},
 			&ddl.Applicant{},
+			&ddl.ApplicantUserAssociation{},
 			&ddl.MailTemplate{},
 			&ddl.Variable{},
 			&ddl.MailPreview{},
@@ -568,20 +608,22 @@ func CreateData(db *gorm.DB) {
 	loginTypes := []*ddl.LoginType{
 		{
 			AbstractMasterModel: ddl.AbstractMasterModel{
-				ID: uint(enum.LOGIN_TYPE_ADMIN),
+				ID: uint(static.LOGIN_TYPE_ADMIN),
 			},
 			Type: "システム管理者",
 			Path: "admin",
 		},
 		{
 			AbstractMasterModel: ddl.AbstractMasterModel{
-				ID: uint(enum.LOGIN_TYPE_MANAGEMENT),
+				ID: uint(static.LOGIN_TYPE_MANAGEMENT),
 			},
 			Type: "一般",
 			Path: "management",
 		},
 	}
 	for _, row := range loginTypes {
+		_, hash, _ := service.GenerateHash(1, 25)
+		row.HashKey = "m_login_type" + "_" + *hash
 		if err := master.InsertLoginType(tx, row); err != nil {
 			if err := tx.Rollback().Error; err != nil {
 				log.Printf("%v", err)
@@ -595,30 +637,48 @@ func CreateData(db *gorm.DB) {
 	sites := []*ddl.Site{
 		{
 			AbstractMasterModel: ddl.AbstractMasterModel{
-				ID: uint(enum.RECRUIT),
+				ID: uint(static.RECRUIT),
 			},
-			SiteName: "リクナビNEXT",
+			SiteName:      "リクナビNEXT",
+			FileName:      static.FILE_NAME_RECRUIT,
+			OuterIDIndex:  static.INDEX_RECRUIT_OUTER_ID,
+			NameIndex:     static.INDEX_RECRUIT_NAME,
+			EmailIndex:    static.INDEX_RECRUIT_EMAIL,
+			TELIndex:      static.INDEX_RECRUIT_TEL,
+			AgeIndex:      static.INDEX_RECRUIT_AGE,
+			NameCheckType: 1,
+			NumOfColumn:   static.COLUMNS_RECRUIT,
 		},
 		{
 			AbstractMasterModel: ddl.AbstractMasterModel{
-				ID: uint(enum.MYNAVI),
+				ID: uint(static.MYNAVI),
 			},
-			SiteName: "マイナビ",
+			SiteName:     "マイナビ",
+			FileName:     static.FILE_NAME_MYNAVI,
+			OuterIDIndex: static.INDEX_MYNAVI_OUTER_ID,
+			NameIndex:    static.INDEX_MYNAVI_NAME,
+			EmailIndex:   static.INDEX_MYNAVI_EMAIL,
+			TELIndex:     static.INDEX_MYNAVI_TEL,
+			AgeIndex:     static.INDEX_MYNAVI_AGE,
+			NumOfColumn:  static.COLUMNS_MYNAVI,
 		},
 		{
 			AbstractMasterModel: ddl.AbstractMasterModel{
-				ID: uint(enum.DODA),
+				ID: uint(static.DODA),
 			},
-			SiteName: "DODA",
-		},
-		{
-			AbstractMasterModel: ddl.AbstractMasterModel{
-				ID: uint(enum.OTHER),
-			},
-			SiteName: "その他",
+			SiteName:     "DODA",
+			FileName:     static.FILE_NAME_DODA,
+			OuterIDIndex: static.INDEX_DODA_OUTER_ID,
+			NameIndex:    static.INDEX_DODA_NAME,
+			EmailIndex:   static.INDEX_DODA_EMAIL,
+			TELIndex:     static.INDEX_DODA_TEL,
+			AgeIndex:     static.INDEX_DODA_AGE,
+			NumOfColumn:  static.COLUMNS_DODA,
 		},
 	}
 	for _, row := range sites {
+		_, hash, _ := service.GenerateHash(1, 25)
+		row.HashKey = "m_site" + "_" + *hash
 		if err := master.InsertSite(tx, row); err != nil {
 			if err := tx.Rollback().Error; err != nil {
 				log.Printf("%v", err)
@@ -633,357 +693,359 @@ func CreateData(db *gorm.DB) {
 		// admin_ロール関連
 		{
 			AbstractMasterModel: ddl.AbstractMasterModel{
-				ID: uint(enum.ROLE_ADMIN_ROLE_CREATE),
+				ID: uint(static.ROLE_ADMIN_ROLE_CREATE),
 			},
 			NameJa:   "システム管理者ロール作成",
 			NameEn:   "AdminRoleCreate",
-			RoleType: uint(enum.LOGIN_TYPE_ADMIN),
+			RoleType: uint(static.LOGIN_TYPE_ADMIN),
 		},
 		{
 			AbstractMasterModel: ddl.AbstractMasterModel{
-				ID: uint(enum.ROLE_ADMIN_ROLE_READ),
+				ID: uint(static.ROLE_ADMIN_ROLE_READ),
 			},
 			NameJa:   "システム管理者ロール閲覧",
 			NameEn:   "AdminRoleRead",
-			RoleType: uint(enum.LOGIN_TYPE_ADMIN),
+			RoleType: uint(static.LOGIN_TYPE_ADMIN),
 		},
 		{
 			AbstractMasterModel: ddl.AbstractMasterModel{
-				ID: uint(enum.ROLE_ADMIN_ROLE_DETAIL_READ),
+				ID: uint(static.ROLE_ADMIN_ROLE_DETAIL_READ),
 			},
 			NameJa:   "システム管理者ロール詳細閲覧",
 			NameEn:   "AdminRoleDetailRead",
-			RoleType: uint(enum.LOGIN_TYPE_ADMIN),
+			RoleType: uint(static.LOGIN_TYPE_ADMIN),
 		},
 		{
 			AbstractMasterModel: ddl.AbstractMasterModel{
-				ID: uint(enum.ROLE_ADMIN_ROLE_EDIT),
+				ID: uint(static.ROLE_ADMIN_ROLE_EDIT),
 			},
 			NameJa:   "システム管理者ロール編集",
 			NameEn:   "AdminRoleEdit",
-			RoleType: uint(enum.LOGIN_TYPE_ADMIN),
+			RoleType: uint(static.LOGIN_TYPE_ADMIN),
 		},
 		{
 			AbstractMasterModel: ddl.AbstractMasterModel{
-				ID: uint(enum.ROLE_ADMIN_ROLE_DELETE),
+				ID: uint(static.ROLE_ADMIN_ROLE_DELETE),
 			},
 			NameJa:   "システム管理者ロール削除",
 			NameEn:   "AdminRoleDelete",
-			RoleType: uint(enum.LOGIN_TYPE_ADMIN),
+			RoleType: uint(static.LOGIN_TYPE_ADMIN),
 		},
 		{
 			AbstractMasterModel: ddl.AbstractMasterModel{
-				ID: uint(enum.ROLE_ADMIN_ROLE_ASSIGN),
+				ID: uint(static.ROLE_ADMIN_ROLE_ASSIGN),
 			},
 			NameJa:   "システム管理者ロール変更",
 			NameEn:   "AdminRoleAssign",
-			RoleType: uint(enum.LOGIN_TYPE_ADMIN),
+			RoleType: uint(static.LOGIN_TYPE_ADMIN),
 		},
 		// admin_企業関連
 		{
 			AbstractMasterModel: ddl.AbstractMasterModel{
-				ID: uint(enum.ROLE_ADMIN_COMPANY_CREATE),
+				ID: uint(static.ROLE_ADMIN_COMPANY_CREATE),
 			},
 			NameJa:   "システム管理者企業作成",
 			NameEn:   "AdminCompanyCreate",
-			RoleType: uint(enum.LOGIN_TYPE_ADMIN),
+			RoleType: uint(static.LOGIN_TYPE_ADMIN),
 		},
 		{
 			AbstractMasterModel: ddl.AbstractMasterModel{
-				ID: uint(enum.ROLE_ADMIN_COMPANY_READ),
+				ID: uint(static.ROLE_ADMIN_COMPANY_READ),
 			},
 			NameJa:   "システム管理者企業閲覧",
 			NameEn:   "AdminCompanyRead",
-			RoleType: uint(enum.LOGIN_TYPE_ADMIN),
+			RoleType: uint(static.LOGIN_TYPE_ADMIN),
 		},
 		{
 			AbstractMasterModel: ddl.AbstractMasterModel{
-				ID: uint(enum.ROLE_ADMIN_COMPANY_DETAIL_READ),
+				ID: uint(static.ROLE_ADMIN_COMPANY_DETAIL_READ),
 			},
 			NameJa:   "システム管理者企業詳細閲覧",
 			NameEn:   "AdminCompanyDetailRead",
-			RoleType: uint(enum.LOGIN_TYPE_ADMIN),
+			RoleType: uint(static.LOGIN_TYPE_ADMIN),
 		},
 		{
 			AbstractMasterModel: ddl.AbstractMasterModel{
-				ID: uint(enum.ROLE_ADMIN_COMPANY_EDIT),
+				ID: uint(static.ROLE_ADMIN_COMPANY_EDIT),
 			},
 			NameJa:   "システム管理者企業編集",
 			NameEn:   "AdminCompanyEdit",
-			RoleType: uint(enum.LOGIN_TYPE_ADMIN),
+			RoleType: uint(static.LOGIN_TYPE_ADMIN),
 		},
 		{
 			AbstractMasterModel: ddl.AbstractMasterModel{
-				ID: uint(enum.ROLE_ADMIN_COMPANY_DELETE),
+				ID: uint(static.ROLE_ADMIN_COMPANY_DELETE),
 			},
 			NameJa:   "システム管理者企業削除",
 			NameEn:   "AdminCompanyDelete",
-			RoleType: uint(enum.LOGIN_TYPE_ADMIN),
+			RoleType: uint(static.LOGIN_TYPE_ADMIN),
 		},
 		// admin_ユーザー関連
 		{
 			AbstractMasterModel: ddl.AbstractMasterModel{
-				ID: uint(enum.ROLE_ADMIN_USER_CREATE),
+				ID: uint(static.ROLE_ADMIN_USER_CREATE),
 			},
 			NameJa:   "システム管理者ユーザー作成",
 			NameEn:   "AdminUserCreate",
-			RoleType: uint(enum.LOGIN_TYPE_ADMIN),
+			RoleType: uint(static.LOGIN_TYPE_ADMIN),
 		},
 		{
 			AbstractMasterModel: ddl.AbstractMasterModel{
-				ID: uint(enum.ROLE_ADMIN_USER_READ),
+				ID: uint(static.ROLE_ADMIN_USER_READ),
 			},
 			NameJa:   "システム管理者ユーザー閲覧",
 			NameEn:   "AdminUserRead",
-			RoleType: uint(enum.LOGIN_TYPE_ADMIN),
+			RoleType: uint(static.LOGIN_TYPE_ADMIN),
 		},
 		{
 			AbstractMasterModel: ddl.AbstractMasterModel{
-				ID: uint(enum.ROLE_ADMIN_USER_DETAIL_READ),
+				ID: uint(static.ROLE_ADMIN_USER_DETAIL_READ),
 			},
 			NameJa:   "システム管理者ユーザー詳細閲覧",
 			NameEn:   "AdminUserDetailRead",
-			RoleType: uint(enum.LOGIN_TYPE_ADMIN),
+			RoleType: uint(static.LOGIN_TYPE_ADMIN),
 		},
 		{
 			AbstractMasterModel: ddl.AbstractMasterModel{
-				ID: uint(enum.ROLE_ADMIN_USER_EDIT),
+				ID: uint(static.ROLE_ADMIN_USER_EDIT),
 			},
 			NameJa:   "システム管理者ユーザー編集",
 			NameEn:   "AdminUserEdit",
-			RoleType: uint(enum.LOGIN_TYPE_ADMIN),
+			RoleType: uint(static.LOGIN_TYPE_ADMIN),
 		},
 		{
 			AbstractMasterModel: ddl.AbstractMasterModel{
-				ID: uint(enum.ROLE_ADMIN_USER_DELETE),
+				ID: uint(static.ROLE_ADMIN_USER_DELETE),
 			},
 			NameJa:   "システム管理者ユーザー削除",
 			NameEn:   "AdminUserDelete",
-			RoleType: uint(enum.LOGIN_TYPE_ADMIN),
+			RoleType: uint(static.LOGIN_TYPE_ADMIN),
 		},
 		// management_ロール関連
 		{
 			AbstractMasterModel: ddl.AbstractMasterModel{
-				ID: uint(enum.ROLE_MANAGEMENT_ROLE_CREATE),
+				ID: uint(static.ROLE_MANAGEMENT_ROLE_CREATE),
 			},
 			NameJa:   "管理者ロール作成",
 			NameEn:   "ManagementRoleCreate",
-			RoleType: uint(enum.LOGIN_TYPE_MANAGEMENT),
+			RoleType: uint(static.LOGIN_TYPE_MANAGEMENT),
 		},
 		{
 			AbstractMasterModel: ddl.AbstractMasterModel{
-				ID: uint(enum.ROLE_MANAGEMENT_ROLE_READ),
+				ID: uint(static.ROLE_MANAGEMENT_ROLE_READ),
 			},
 			NameJa:   "管理者ロール閲覧",
 			NameEn:   "ManagementRoleRead",
-			RoleType: uint(enum.LOGIN_TYPE_MANAGEMENT),
+			RoleType: uint(static.LOGIN_TYPE_MANAGEMENT),
 		},
 		{
 			AbstractMasterModel: ddl.AbstractMasterModel{
-				ID: uint(enum.ROLE_MANAGEMENT_ROLE_DETAIL_READ),
+				ID: uint(static.ROLE_MANAGEMENT_ROLE_DETAIL_READ),
 			},
 			NameJa:   "管理者ロール詳細閲覧",
 			NameEn:   "ManagementRoleDetailRead",
-			RoleType: uint(enum.LOGIN_TYPE_MANAGEMENT),
+			RoleType: uint(static.LOGIN_TYPE_MANAGEMENT),
 		},
 		{
 			AbstractMasterModel: ddl.AbstractMasterModel{
-				ID: uint(enum.ROLE_MANAGEMENT_ROLE_EDIT),
+				ID: uint(static.ROLE_MANAGEMENT_ROLE_EDIT),
 			},
 			NameJa:   "管理者ロール編集",
 			NameEn:   "ManagementRoleEdit",
-			RoleType: uint(enum.LOGIN_TYPE_MANAGEMENT),
+			RoleType: uint(static.LOGIN_TYPE_MANAGEMENT),
 		},
 		{
 			AbstractMasterModel: ddl.AbstractMasterModel{
-				ID: uint(enum.ROLE_MANAGEMENT_ROLE_DELETE),
+				ID: uint(static.ROLE_MANAGEMENT_ROLE_DELETE),
 			},
 			NameJa:   "管理者ロール削除",
 			NameEn:   "ManagementRoleDelete",
-			RoleType: uint(enum.LOGIN_TYPE_MANAGEMENT),
+			RoleType: uint(static.LOGIN_TYPE_MANAGEMENT),
 		},
 		{
 			AbstractMasterModel: ddl.AbstractMasterModel{
-				ID: uint(enum.ROLE_MANAGEMENT_ROLE_ASSIGN),
+				ID: uint(static.ROLE_MANAGEMENT_ROLE_ASSIGN),
 			},
 			NameJa:   "管理者ロール割振",
 			NameEn:   "ManagementRoleAssign",
-			RoleType: uint(enum.LOGIN_TYPE_MANAGEMENT),
+			RoleType: uint(static.LOGIN_TYPE_MANAGEMENT),
 		},
 		// management_ユーザー関連
 		{
 			AbstractMasterModel: ddl.AbstractMasterModel{
-				ID: uint(enum.ROLE_MANAGEMENT_USER_CREATE),
+				ID: uint(static.ROLE_MANAGEMENT_USER_CREATE),
 			},
 			NameJa:   "管理者ユーザー作成",
 			NameEn:   "ManagementUserCreate",
-			RoleType: uint(enum.LOGIN_TYPE_MANAGEMENT),
+			RoleType: uint(static.LOGIN_TYPE_MANAGEMENT),
 		},
 		{
 			AbstractMasterModel: ddl.AbstractMasterModel{
-				ID: uint(enum.ROLE_MANAGEMENT_USER_READ),
+				ID: uint(static.ROLE_MANAGEMENT_USER_READ),
 			},
 			NameJa:   "管理者ユーザー閲覧",
 			NameEn:   "ManagementUserRead",
-			RoleType: uint(enum.LOGIN_TYPE_MANAGEMENT),
+			RoleType: uint(static.LOGIN_TYPE_MANAGEMENT),
 		},
 		{
 			AbstractMasterModel: ddl.AbstractMasterModel{
-				ID: uint(enum.ROLE_MANAGEMENT_USER_DETAIL_READ),
+				ID: uint(static.ROLE_MANAGEMENT_USER_DETAIL_READ),
 			},
 			NameJa:   "管理者ユーザー詳細閲覧",
 			NameEn:   "ManagementUserDetailRead",
-			RoleType: uint(enum.LOGIN_TYPE_MANAGEMENT),
+			RoleType: uint(static.LOGIN_TYPE_MANAGEMENT),
 		},
 		{
 			AbstractMasterModel: ddl.AbstractMasterModel{
-				ID: uint(enum.ROLE_MANAGEMENT_USER_EDIT),
+				ID: uint(static.ROLE_MANAGEMENT_USER_EDIT),
 			},
 			NameJa:   "管理者ユーザー編集",
 			NameEn:   "ManagementUserEdit",
-			RoleType: uint(enum.LOGIN_TYPE_MANAGEMENT),
+			RoleType: uint(static.LOGIN_TYPE_MANAGEMENT),
 		},
 		{
 			AbstractMasterModel: ddl.AbstractMasterModel{
-				ID: uint(enum.ROLE_MANAGEMENT_USER_DELETE),
+				ID: uint(static.ROLE_MANAGEMENT_USER_DELETE),
 			},
 			NameJa:   "管理者ユーザー削除",
 			NameEn:   "ManagementUserDelete",
-			RoleType: uint(enum.LOGIN_TYPE_MANAGEMENT),
+			RoleType: uint(static.LOGIN_TYPE_MANAGEMENT),
 		},
 		// management_チーム関連
 		{
 			AbstractMasterModel: ddl.AbstractMasterModel{
-				ID: uint(enum.ROLE_MANAGEMENT_TEAM_CREATE),
+				ID: uint(static.ROLE_MANAGEMENT_TEAM_CREATE),
 			},
 			NameJa:   "管理者チーム作成",
 			NameEn:   "ManagementTeamCreate",
-			RoleType: uint(enum.LOGIN_TYPE_MANAGEMENT),
+			RoleType: uint(static.LOGIN_TYPE_MANAGEMENT),
 		},
 		{
 			AbstractMasterModel: ddl.AbstractMasterModel{
-				ID: uint(enum.ROLE_MANAGEMENT_TEAM_READ),
+				ID: uint(static.ROLE_MANAGEMENT_TEAM_READ),
 			},
 			NameJa:   "管理者チーム閲覧",
 			NameEn:   "ManagementTeamRead",
-			RoleType: uint(enum.LOGIN_TYPE_MANAGEMENT),
+			RoleType: uint(static.LOGIN_TYPE_MANAGEMENT),
 		},
 		{
 			AbstractMasterModel: ddl.AbstractMasterModel{
-				ID: uint(enum.ROLE_MANAGEMENT_TEAM_DETAIL_READ),
+				ID: uint(static.ROLE_MANAGEMENT_TEAM_DETAIL_READ),
 			},
 			NameJa:   "管理者チーム詳細閲覧",
 			NameEn:   "ManagementTeamDetailRead",
-			RoleType: uint(enum.LOGIN_TYPE_MANAGEMENT),
+			RoleType: uint(static.LOGIN_TYPE_MANAGEMENT),
 		},
 		{
 			AbstractMasterModel: ddl.AbstractMasterModel{
-				ID: uint(enum.ROLE_MANAGEMENT_TEAM_EDIT),
+				ID: uint(static.ROLE_MANAGEMENT_TEAM_EDIT),
 			},
 			NameJa:   "管理者チーム編集",
 			NameEn:   "ManagementTeamEdit",
-			RoleType: uint(enum.LOGIN_TYPE_MANAGEMENT),
+			RoleType: uint(static.LOGIN_TYPE_MANAGEMENT),
 		},
 		{
 			AbstractMasterModel: ddl.AbstractMasterModel{
-				ID: uint(enum.ROLE_MANAGEMENT_TEAM_DELETE),
+				ID: uint(static.ROLE_MANAGEMENT_TEAM_DELETE),
 			},
 			NameJa:   "管理者チーム削除",
 			NameEn:   "ManagementTeamDelete",
-			RoleType: uint(enum.LOGIN_TYPE_MANAGEMENT),
+			RoleType: uint(static.LOGIN_TYPE_MANAGEMENT),
 		},
 		// management_カレンダー関連
 		{
 			AbstractMasterModel: ddl.AbstractMasterModel{
-				ID: uint(enum.ROLE_MANAGEMENT_CALENDAR_CREATE),
+				ID: uint(static.ROLE_MANAGEMENT_CALENDAR_CREATE),
 			},
 			NameJa:   "管理者カレンダー作成",
 			NameEn:   "ManagementCalendarCreate",
-			RoleType: uint(enum.LOGIN_TYPE_MANAGEMENT),
+			RoleType: uint(static.LOGIN_TYPE_MANAGEMENT),
 		},
 		{
 			AbstractMasterModel: ddl.AbstractMasterModel{
-				ID: uint(enum.ROLE_MANAGEMENT_CALENDAR_READ),
+				ID: uint(static.ROLE_MANAGEMENT_CALENDAR_READ),
 			},
 			NameJa:   "管理者カレンダー閲覧",
 			NameEn:   "ManagementCalendarRead",
-			RoleType: uint(enum.LOGIN_TYPE_MANAGEMENT),
+			RoleType: uint(static.LOGIN_TYPE_MANAGEMENT),
 		},
 		{
 			AbstractMasterModel: ddl.AbstractMasterModel{
-				ID: uint(enum.ROLE_MANAGEMENT_CALENDAR_DETAIL_READ),
+				ID: uint(static.ROLE_MANAGEMENT_CALENDAR_DETAIL_READ),
 			},
 			NameJa:   "管理者カレンダー詳細閲覧",
 			NameEn:   "ManagementCalendarDetailRead",
-			RoleType: uint(enum.LOGIN_TYPE_MANAGEMENT),
+			RoleType: uint(static.LOGIN_TYPE_MANAGEMENT),
 		},
 		{
 			AbstractMasterModel: ddl.AbstractMasterModel{
-				ID: uint(enum.ROLE_MANAGEMENT_CALENDAR_EDIT),
+				ID: uint(static.ROLE_MANAGEMENT_CALENDAR_EDIT),
 			},
 			NameJa:   "管理者カレンダー編集",
 			NameEn:   "ManagementCalendarEdit",
-			RoleType: uint(enum.LOGIN_TYPE_MANAGEMENT),
+			RoleType: uint(static.LOGIN_TYPE_MANAGEMENT),
 		},
 		{
 			AbstractMasterModel: ddl.AbstractMasterModel{
-				ID: uint(enum.ROLE_MANAGEMENT_CALENDAR_DELETE),
+				ID: uint(static.ROLE_MANAGEMENT_CALENDAR_DELETE),
 			},
 			NameJa:   "管理者カレンダー削除",
 			NameEn:   "ManagementCalendarDelete",
-			RoleType: uint(enum.LOGIN_TYPE_MANAGEMENT),
+			RoleType: uint(static.LOGIN_TYPE_MANAGEMENT),
 		},
 		// management_応募者関連
 		{
 			AbstractMasterModel: ddl.AbstractMasterModel{
-				ID: uint(enum.ROLE_MANAGEMENT_APPLICANT_CREATE),
+				ID: uint(static.ROLE_MANAGEMENT_APPLICANT_CREATE),
 			},
 			NameJa:   "管理者応募者作成",
 			NameEn:   "ManagementApplicantCreate",
-			RoleType: uint(enum.LOGIN_TYPE_MANAGEMENT),
+			RoleType: uint(static.LOGIN_TYPE_MANAGEMENT),
 		},
 		{
 			AbstractMasterModel: ddl.AbstractMasterModel{
-				ID: uint(enum.ROLE_MANAGEMENT_APPLICANT_READ),
+				ID: uint(static.ROLE_MANAGEMENT_APPLICANT_READ),
 			},
 			NameJa:   "管理者応募者閲覧",
 			NameEn:   "ManagementApplicantRead",
-			RoleType: uint(enum.LOGIN_TYPE_MANAGEMENT),
+			RoleType: uint(static.LOGIN_TYPE_MANAGEMENT),
 		},
 		{
 			AbstractMasterModel: ddl.AbstractMasterModel{
-				ID: uint(enum.ROLE_MANAGEMENT_APPLICANT_DETAIL_READ),
+				ID: uint(static.ROLE_MANAGEMENT_APPLICANT_DETAIL_READ),
 			},
 			NameJa:   "管理者応募者詳細閲覧",
 			NameEn:   "ManagementApplicantDetailRead",
-			RoleType: uint(enum.LOGIN_TYPE_MANAGEMENT),
+			RoleType: uint(static.LOGIN_TYPE_MANAGEMENT),
 		},
 		{
 			AbstractMasterModel: ddl.AbstractMasterModel{
-				ID: uint(enum.ROLE_MANAGEMENT_APPLICANT_DOWNLOAD),
+				ID: uint(static.ROLE_MANAGEMENT_APPLICANT_DOWNLOAD),
 			},
 			NameJa:   "管理者応募者ダウンロード",
 			NameEn:   "ManagementApplicantDownload",
-			RoleType: uint(enum.LOGIN_TYPE_MANAGEMENT),
+			RoleType: uint(static.LOGIN_TYPE_MANAGEMENT),
 		},
 		{
 			AbstractMasterModel: ddl.AbstractMasterModel{
-				ID: uint(enum.ROLE_MANAGEMENT_APPLICANT_CREATE_MEET_URL),
+				ID: uint(static.ROLE_MANAGEMENT_APPLICANT_CREATE_MEET_URL),
 			},
 			NameJa:   "管理者面接URL作成",
 			NameEn:   "ManagementApplicantCreateMeetURL",
-			RoleType: uint(enum.LOGIN_TYPE_MANAGEMENT),
+			RoleType: uint(static.LOGIN_TYPE_MANAGEMENT),
 		},
 		{
 			AbstractMasterModel: ddl.AbstractMasterModel{
-				ID: uint(enum.ROLE_MANAGEMENT_APPLICANT_ASSIGN_USER),
+				ID: uint(static.ROLE_MANAGEMENT_APPLICANT_ASSIGN_USER),
 			},
 			NameJa:   "管理者応募者割振",
 			NameEn:   "ManagementApplicantAssignUser",
-			RoleType: uint(enum.LOGIN_TYPE_MANAGEMENT),
+			RoleType: uint(static.LOGIN_TYPE_MANAGEMENT),
 		},
 	}
 	for _, row := range roles {
+		_, hash, _ := service.GenerateHash(1, 25)
+		row.HashKey = "m_role" + "_" + *hash
 		if err := master.InsertRole(tx, row); err != nil {
 			if err := tx.Rollback().Error; err != nil {
 				log.Printf("%v", err)
@@ -997,96 +1059,98 @@ func CreateData(db *gorm.DB) {
 	sidebar := []*ddl.Sidebar{
 		{
 			AbstractMasterModel: ddl.AbstractMasterModel{
-				ID: uint(enum.SIDEBAR_ADMIN_COMPANY),
+				ID: uint(static.SIDEBAR_ADMIN_COMPANY),
 			},
 			NameJa:   "企業",
 			NameEn:   "Companies",
 			Path:     "/admin/company",
-			FuncType: uint(enum.LOGIN_TYPE_ADMIN),
+			FuncType: uint(static.LOGIN_TYPE_ADMIN),
 		},
 		{
 			AbstractMasterModel: ddl.AbstractMasterModel{
-				ID: uint(enum.SIDEBAR_ADMIN_USER),
+				ID: uint(static.SIDEBAR_ADMIN_USER),
 			},
 			NameJa:   "ユーザー",
 			NameEn:   "Users",
 			Path:     "/admin/user",
-			FuncType: uint(enum.LOGIN_TYPE_ADMIN),
+			FuncType: uint(static.LOGIN_TYPE_ADMIN),
 		},
 		{
 			AbstractMasterModel: ddl.AbstractMasterModel{
-				ID: uint(enum.SIDEBAR_ADMIN_ROLE),
+				ID: uint(static.SIDEBAR_ADMIN_ROLE),
 			},
 			NameJa:   "ロール",
 			NameEn:   "Roles",
 			Path:     "/admin/role",
-			FuncType: uint(enum.LOGIN_TYPE_ADMIN),
+			FuncType: uint(static.LOGIN_TYPE_ADMIN),
 		},
 		{
 			AbstractMasterModel: ddl.AbstractMasterModel{
-				ID: uint(enum.SIDEBAR_ADMIN_LOG),
+				ID: uint(static.SIDEBAR_ADMIN_LOG),
 			},
 			NameJa:   "操作ログ",
 			NameEn:   "Logs",
 			Path:     "/admin/log",
-			FuncType: uint(enum.LOGIN_TYPE_ADMIN),
+			FuncType: uint(static.LOGIN_TYPE_ADMIN),
 		},
 		{
 			AbstractMasterModel: ddl.AbstractMasterModel{
-				ID: uint(enum.SIDEBAR_MANAGEMENT_APPLICANT),
+				ID: uint(static.SIDEBAR_MANAGEMENT_APPLICANT),
 			},
 			NameJa:   "応募者",
 			NameEn:   "Applicant",
 			Path:     "/management/applicant",
-			FuncType: uint(enum.LOGIN_TYPE_MANAGEMENT),
+			FuncType: uint(static.LOGIN_TYPE_MANAGEMENT),
 		},
 		{
 			AbstractMasterModel: ddl.AbstractMasterModel{
-				ID: uint(enum.SIDEBAR_MANAGEMENT_USER),
+				ID: uint(static.SIDEBAR_MANAGEMENT_USER),
 			},
 			NameJa:   "ユーザー",
 			NameEn:   "Users",
 			Path:     "/management/user",
-			FuncType: uint(enum.LOGIN_TYPE_MANAGEMENT),
+			FuncType: uint(static.LOGIN_TYPE_MANAGEMENT),
 		},
 		{
 			AbstractMasterModel: ddl.AbstractMasterModel{
-				ID: uint(enum.SIDEBAR_MANAGEMENT_ROLE),
+				ID: uint(static.SIDEBAR_MANAGEMENT_ROLE),
 			},
 			NameJa:   "ロール",
 			NameEn:   "Roles",
 			Path:     "/management/role",
-			FuncType: uint(enum.LOGIN_TYPE_MANAGEMENT),
+			FuncType: uint(static.LOGIN_TYPE_MANAGEMENT),
 		},
 		{
 			AbstractMasterModel: ddl.AbstractMasterModel{
-				ID: uint(enum.SIDEBAR_MANAGEMENT_MAIL),
+				ID: uint(static.SIDEBAR_MANAGEMENT_MAIL),
 			},
 			NameJa:   "メールテンプレート",
 			NameEn:   "Mail Template",
 			Path:     "/management/mail",
-			FuncType: uint(enum.LOGIN_TYPE_MANAGEMENT),
+			FuncType: uint(static.LOGIN_TYPE_MANAGEMENT),
 		},
 		{
 			AbstractMasterModel: ddl.AbstractMasterModel{
-				ID: uint(enum.SIDEBAR_MANAGEMENT_ANALYSIS),
+				ID: uint(static.SIDEBAR_MANAGEMENT_ANALYSIS),
 			},
 			NameJa:   "分析",
 			NameEn:   "Analysis",
 			Path:     "/management/analysis",
-			FuncType: uint(enum.LOGIN_TYPE_MANAGEMENT),
+			FuncType: uint(static.LOGIN_TYPE_MANAGEMENT),
 		},
 		{
 			AbstractMasterModel: ddl.AbstractMasterModel{
-				ID: uint(enum.SIDEBAR_MANAGEMENT_LOG),
+				ID: uint(static.SIDEBAR_MANAGEMENT_LOG),
 			},
 			NameJa:   "操作ログ",
 			NameEn:   "Logs",
 			Path:     "/management/log",
-			FuncType: uint(enum.LOGIN_TYPE_MANAGEMENT),
+			FuncType: uint(static.LOGIN_TYPE_MANAGEMENT),
 		},
 	}
 	for _, row := range sidebar {
+		_, hash, _ := service.GenerateHash(1, 25)
+		row.HashKey = "m_sidebar" + "_" + *hash
 		if err := master.InsertSidebar(tx, row); err != nil {
 			if err := tx.Rollback().Error; err != nil {
 				log.Printf("%v", err)
@@ -1100,183 +1164,183 @@ func CreateData(db *gorm.DB) {
 	sidebarRoleAssociation := []*ddl.SidebarRoleAssociation{
 		// admin_企業関連
 		{
-			SidebarID: uint(enum.SIDEBAR_ADMIN_COMPANY),
-			RoleID:    uint(enum.ROLE_ADMIN_COMPANY_CREATE),
+			SidebarID: uint(static.SIDEBAR_ADMIN_COMPANY),
+			RoleID:    uint(static.ROLE_ADMIN_COMPANY_CREATE),
 		},
 		{
-			SidebarID: uint(enum.SIDEBAR_ADMIN_COMPANY),
-			RoleID:    uint(enum.ROLE_ADMIN_COMPANY_READ),
+			SidebarID: uint(static.SIDEBAR_ADMIN_COMPANY),
+			RoleID:    uint(static.ROLE_ADMIN_COMPANY_READ),
 		},
 		{
-			SidebarID: uint(enum.SIDEBAR_ADMIN_COMPANY),
-			RoleID:    uint(enum.ROLE_ADMIN_COMPANY_DETAIL_READ),
+			SidebarID: uint(static.SIDEBAR_ADMIN_COMPANY),
+			RoleID:    uint(static.ROLE_ADMIN_COMPANY_DETAIL_READ),
 		},
 		{
-			SidebarID: uint(enum.SIDEBAR_ADMIN_COMPANY),
-			RoleID:    uint(enum.ROLE_ADMIN_COMPANY_EDIT),
+			SidebarID: uint(static.SIDEBAR_ADMIN_COMPANY),
+			RoleID:    uint(static.ROLE_ADMIN_COMPANY_EDIT),
 		},
 		{
-			SidebarID: uint(enum.SIDEBAR_ADMIN_COMPANY),
-			RoleID:    uint(enum.ROLE_ADMIN_COMPANY_DELETE),
+			SidebarID: uint(static.SIDEBAR_ADMIN_COMPANY),
+			RoleID:    uint(static.ROLE_ADMIN_COMPANY_DELETE),
 		},
 		// admin_ユーザー関連
 		{
-			SidebarID: uint(enum.SIDEBAR_ADMIN_USER),
-			RoleID:    uint(enum.ROLE_ADMIN_USER_CREATE),
+			SidebarID: uint(static.SIDEBAR_ADMIN_USER),
+			RoleID:    uint(static.ROLE_ADMIN_USER_CREATE),
 		},
 		{
-			SidebarID: uint(enum.SIDEBAR_ADMIN_USER),
-			RoleID:    uint(enum.ROLE_ADMIN_USER_READ),
+			SidebarID: uint(static.SIDEBAR_ADMIN_USER),
+			RoleID:    uint(static.ROLE_ADMIN_USER_READ),
 		},
 		{
-			SidebarID: uint(enum.SIDEBAR_ADMIN_USER),
-			RoleID:    uint(enum.ROLE_ADMIN_USER_DETAIL_READ),
+			SidebarID: uint(static.SIDEBAR_ADMIN_USER),
+			RoleID:    uint(static.ROLE_ADMIN_USER_DETAIL_READ),
 		},
 		{
-			SidebarID: uint(enum.SIDEBAR_ADMIN_USER),
-			RoleID:    uint(enum.ROLE_ADMIN_USER_EDIT),
+			SidebarID: uint(static.SIDEBAR_ADMIN_USER),
+			RoleID:    uint(static.ROLE_ADMIN_USER_EDIT),
 		},
 		{
-			SidebarID: uint(enum.SIDEBAR_ADMIN_USER),
-			RoleID:    uint(enum.ROLE_ADMIN_USER_DELETE),
+			SidebarID: uint(static.SIDEBAR_ADMIN_USER),
+			RoleID:    uint(static.ROLE_ADMIN_USER_DELETE),
 		},
 		// admin_ロール関連
 		{
-			SidebarID: uint(enum.SIDEBAR_ADMIN_ROLE),
-			RoleID:    uint(enum.ROLE_ADMIN_ROLE_CREATE),
+			SidebarID: uint(static.SIDEBAR_ADMIN_ROLE),
+			RoleID:    uint(static.ROLE_ADMIN_ROLE_CREATE),
 		},
 		{
-			SidebarID: uint(enum.SIDEBAR_ADMIN_ROLE),
-			RoleID:    uint(enum.ROLE_ADMIN_ROLE_READ),
+			SidebarID: uint(static.SIDEBAR_ADMIN_ROLE),
+			RoleID:    uint(static.ROLE_ADMIN_ROLE_READ),
 		},
 		{
-			SidebarID: uint(enum.SIDEBAR_ADMIN_ROLE),
-			RoleID:    uint(enum.ROLE_ADMIN_ROLE_DETAIL_READ),
+			SidebarID: uint(static.SIDEBAR_ADMIN_ROLE),
+			RoleID:    uint(static.ROLE_ADMIN_ROLE_DETAIL_READ),
 		},
 		{
-			SidebarID: uint(enum.SIDEBAR_ADMIN_ROLE),
-			RoleID:    uint(enum.ROLE_ADMIN_ROLE_EDIT),
+			SidebarID: uint(static.SIDEBAR_ADMIN_ROLE),
+			RoleID:    uint(static.ROLE_ADMIN_ROLE_EDIT),
 		},
 		{
-			SidebarID: uint(enum.SIDEBAR_ADMIN_ROLE),
-			RoleID:    uint(enum.ROLE_ADMIN_ROLE_DELETE),
+			SidebarID: uint(static.SIDEBAR_ADMIN_ROLE),
+			RoleID:    uint(static.ROLE_ADMIN_ROLE_DELETE),
 		},
 		{
-			SidebarID: uint(enum.SIDEBAR_ADMIN_ROLE),
-			RoleID:    uint(enum.ROLE_ADMIN_ROLE_ASSIGN),
+			SidebarID: uint(static.SIDEBAR_ADMIN_ROLE),
+			RoleID:    uint(static.ROLE_ADMIN_ROLE_ASSIGN),
 		},
 		// management_ロール関連
 		{
-			SidebarID: uint(enum.SIDEBAR_MANAGEMENT_ROLE),
-			RoleID:    uint(enum.ROLE_MANAGEMENT_ROLE_CREATE),
+			SidebarID: uint(static.SIDEBAR_MANAGEMENT_ROLE),
+			RoleID:    uint(static.ROLE_MANAGEMENT_ROLE_CREATE),
 		},
 		{
-			SidebarID: uint(enum.SIDEBAR_MANAGEMENT_ROLE),
-			RoleID:    uint(enum.ROLE_MANAGEMENT_ROLE_READ),
+			SidebarID: uint(static.SIDEBAR_MANAGEMENT_ROLE),
+			RoleID:    uint(static.ROLE_MANAGEMENT_ROLE_READ),
 		},
 		{
-			SidebarID: uint(enum.SIDEBAR_MANAGEMENT_ROLE),
-			RoleID:    uint(enum.ROLE_MANAGEMENT_ROLE_DETAIL_READ),
+			SidebarID: uint(static.SIDEBAR_MANAGEMENT_ROLE),
+			RoleID:    uint(static.ROLE_MANAGEMENT_ROLE_DETAIL_READ),
 		},
 		{
-			SidebarID: uint(enum.SIDEBAR_MANAGEMENT_ROLE),
-			RoleID:    uint(enum.ROLE_MANAGEMENT_ROLE_EDIT),
+			SidebarID: uint(static.SIDEBAR_MANAGEMENT_ROLE),
+			RoleID:    uint(static.ROLE_MANAGEMENT_ROLE_EDIT),
 		},
 		{
-			SidebarID: uint(enum.SIDEBAR_MANAGEMENT_ROLE),
-			RoleID:    uint(enum.ROLE_MANAGEMENT_ROLE_DELETE),
+			SidebarID: uint(static.SIDEBAR_MANAGEMENT_ROLE),
+			RoleID:    uint(static.ROLE_MANAGEMENT_ROLE_DELETE),
 		},
 		{
-			SidebarID: uint(enum.SIDEBAR_MANAGEMENT_ROLE),
-			RoleID:    uint(enum.ROLE_MANAGEMENT_ROLE_ASSIGN),
+			SidebarID: uint(static.SIDEBAR_MANAGEMENT_ROLE),
+			RoleID:    uint(static.ROLE_MANAGEMENT_ROLE_ASSIGN),
 		},
 		// management_ユーザー関連
 		{
-			SidebarID: uint(enum.SIDEBAR_MANAGEMENT_USER),
-			RoleID:    uint(enum.ROLE_MANAGEMENT_USER_CREATE),
+			SidebarID: uint(static.SIDEBAR_MANAGEMENT_USER),
+			RoleID:    uint(static.ROLE_MANAGEMENT_USER_CREATE),
 		},
 		{
-			SidebarID: uint(enum.SIDEBAR_MANAGEMENT_USER),
-			RoleID:    uint(enum.ROLE_MANAGEMENT_USER_READ),
+			SidebarID: uint(static.SIDEBAR_MANAGEMENT_USER),
+			RoleID:    uint(static.ROLE_MANAGEMENT_USER_READ),
 		},
 		{
-			SidebarID: uint(enum.SIDEBAR_MANAGEMENT_USER),
-			RoleID:    uint(enum.ROLE_MANAGEMENT_USER_DETAIL_READ),
+			SidebarID: uint(static.SIDEBAR_MANAGEMENT_USER),
+			RoleID:    uint(static.ROLE_MANAGEMENT_USER_DETAIL_READ),
 		},
 		{
-			SidebarID: uint(enum.SIDEBAR_MANAGEMENT_USER),
-			RoleID:    uint(enum.ROLE_MANAGEMENT_USER_EDIT),
+			SidebarID: uint(static.SIDEBAR_MANAGEMENT_USER),
+			RoleID:    uint(static.ROLE_MANAGEMENT_USER_EDIT),
 		},
 		{
-			SidebarID: uint(enum.SIDEBAR_MANAGEMENT_USER),
-			RoleID:    uint(enum.ROLE_MANAGEMENT_USER_DELETE),
+			SidebarID: uint(static.SIDEBAR_MANAGEMENT_USER),
+			RoleID:    uint(static.ROLE_MANAGEMENT_USER_DELETE),
 		},
 		// management_チーム関連
 		{
-			SidebarID: uint(enum.SIDEBAR_MANAGEMENT_USER),
-			RoleID:    uint(enum.ROLE_MANAGEMENT_TEAM_CREATE),
+			SidebarID: uint(static.SIDEBAR_MANAGEMENT_USER),
+			RoleID:    uint(static.ROLE_MANAGEMENT_TEAM_CREATE),
 		},
 		{
-			SidebarID: uint(enum.SIDEBAR_MANAGEMENT_USER),
-			RoleID:    uint(enum.ROLE_MANAGEMENT_TEAM_READ),
+			SidebarID: uint(static.SIDEBAR_MANAGEMENT_USER),
+			RoleID:    uint(static.ROLE_MANAGEMENT_TEAM_READ),
 		},
 		{
-			SidebarID: uint(enum.SIDEBAR_MANAGEMENT_USER),
-			RoleID:    uint(enum.ROLE_MANAGEMENT_TEAM_DETAIL_READ),
+			SidebarID: uint(static.SIDEBAR_MANAGEMENT_USER),
+			RoleID:    uint(static.ROLE_MANAGEMENT_TEAM_DETAIL_READ),
 		},
 		{
-			SidebarID: uint(enum.SIDEBAR_MANAGEMENT_USER),
-			RoleID:    uint(enum.ROLE_MANAGEMENT_TEAM_EDIT),
+			SidebarID: uint(static.SIDEBAR_MANAGEMENT_USER),
+			RoleID:    uint(static.ROLE_MANAGEMENT_TEAM_EDIT),
 		},
 		{
-			SidebarID: uint(enum.SIDEBAR_MANAGEMENT_USER),
-			RoleID:    uint(enum.ROLE_MANAGEMENT_TEAM_DELETE),
-		},
-		// management_カレンダー関連
-		{
-			SidebarID: uint(enum.SIDEBAR_MANAGEMENT_USER),
-			RoleID:    uint(enum.ROLE_MANAGEMENT_CALENDAR_CREATE),
-		},
-		{
-			SidebarID: uint(enum.SIDEBAR_MANAGEMENT_USER),
-			RoleID:    uint(enum.ROLE_MANAGEMENT_CALENDAR_READ),
-		},
-		{
-			SidebarID: uint(enum.SIDEBAR_MANAGEMENT_USER),
-			RoleID:    uint(enum.ROLE_MANAGEMENT_CALENDAR_DETAIL_READ),
-		},
-		{
-			SidebarID: uint(enum.SIDEBAR_MANAGEMENT_USER),
-			RoleID:    uint(enum.ROLE_MANAGEMENT_CALENDAR_EDIT),
-		},
-		{
-			SidebarID: uint(enum.SIDEBAR_MANAGEMENT_USER),
-			RoleID:    uint(enum.ROLE_MANAGEMENT_CALENDAR_DELETE),
+			SidebarID: uint(static.SIDEBAR_MANAGEMENT_USER),
+			RoleID:    uint(static.ROLE_MANAGEMENT_TEAM_DELETE),
 		},
 		// management_カレンダー関連
 		{
-			SidebarID: uint(enum.SIDEBAR_MANAGEMENT_APPLICANT),
-			RoleID:    uint(enum.ROLE_MANAGEMENT_APPLICANT_CREATE),
+			SidebarID: uint(static.SIDEBAR_MANAGEMENT_USER),
+			RoleID:    uint(static.ROLE_MANAGEMENT_CALENDAR_CREATE),
 		},
 		{
-			SidebarID: uint(enum.SIDEBAR_MANAGEMENT_APPLICANT),
-			RoleID:    uint(enum.ROLE_MANAGEMENT_APPLICANT_READ),
+			SidebarID: uint(static.SIDEBAR_MANAGEMENT_USER),
+			RoleID:    uint(static.ROLE_MANAGEMENT_CALENDAR_READ),
 		},
 		{
-			SidebarID: uint(enum.SIDEBAR_MANAGEMENT_APPLICANT),
-			RoleID:    uint(enum.ROLE_MANAGEMENT_APPLICANT_DETAIL_READ),
+			SidebarID: uint(static.SIDEBAR_MANAGEMENT_USER),
+			RoleID:    uint(static.ROLE_MANAGEMENT_CALENDAR_DETAIL_READ),
 		},
 		{
-			SidebarID: uint(enum.SIDEBAR_MANAGEMENT_APPLICANT),
-			RoleID:    uint(enum.ROLE_MANAGEMENT_APPLICANT_DOWNLOAD),
+			SidebarID: uint(static.SIDEBAR_MANAGEMENT_USER),
+			RoleID:    uint(static.ROLE_MANAGEMENT_CALENDAR_EDIT),
 		},
 		{
-			SidebarID: uint(enum.SIDEBAR_MANAGEMENT_APPLICANT),
-			RoleID:    uint(enum.ROLE_MANAGEMENT_APPLICANT_CREATE_MEET_URL),
+			SidebarID: uint(static.SIDEBAR_MANAGEMENT_USER),
+			RoleID:    uint(static.ROLE_MANAGEMENT_CALENDAR_DELETE),
+		},
+		// management_カレンダー関連
+		{
+			SidebarID: uint(static.SIDEBAR_MANAGEMENT_APPLICANT),
+			RoleID:    uint(static.ROLE_MANAGEMENT_APPLICANT_CREATE),
 		},
 		{
-			SidebarID: uint(enum.SIDEBAR_MANAGEMENT_APPLICANT),
-			RoleID:    uint(enum.ROLE_MANAGEMENT_APPLICANT_ASSIGN_USER),
+			SidebarID: uint(static.SIDEBAR_MANAGEMENT_APPLICANT),
+			RoleID:    uint(static.ROLE_MANAGEMENT_APPLICANT_READ),
+		},
+		{
+			SidebarID: uint(static.SIDEBAR_MANAGEMENT_APPLICANT),
+			RoleID:    uint(static.ROLE_MANAGEMENT_APPLICANT_DETAIL_READ),
+		},
+		{
+			SidebarID: uint(static.SIDEBAR_MANAGEMENT_APPLICANT),
+			RoleID:    uint(static.ROLE_MANAGEMENT_APPLICANT_DOWNLOAD),
+		},
+		{
+			SidebarID: uint(static.SIDEBAR_MANAGEMENT_APPLICANT),
+			RoleID:    uint(static.ROLE_MANAGEMENT_APPLICANT_CREATE_MEET_URL),
+		},
+		{
+			SidebarID: uint(static.SIDEBAR_MANAGEMENT_APPLICANT),
+			RoleID:    uint(static.ROLE_MANAGEMENT_APPLICANT_ASSIGN_USER),
 		},
 	}
 	for _, row := range sidebarRoleAssociation {
@@ -1295,22 +1359,24 @@ func CreateData(db *gorm.DB) {
 			AbstractMasterModel: ddl.AbstractMasterModel{
 				ID: 1,
 			},
-			Pre: string(enum.PRE_COMPANY),
+			Pre: string(static.PRE_COMPANY),
 		},
 		{
 			AbstractMasterModel: ddl.AbstractMasterModel{
 				ID: 2,
 			},
-			Pre: string(enum.PRE_ROLE),
+			Pre: string(static.PRE_ROLE),
 		},
 		{
 			AbstractMasterModel: ddl.AbstractMasterModel{
 				ID: 3,
 			},
-			Pre: string(enum.PRE_USER),
+			Pre: string(static.PRE_USER),
 		},
 	}
 	for _, row := range preHashKeys {
+		_, hash, _ := service.GenerateHash(1, 25)
+		row.HashKey = "m_hash_key_pre" + "_" + *hash
 		if err := master.InsertHashKeyPre(tx, row); err != nil {
 			if err := tx.Rollback().Error; err != nil {
 				log.Printf("%v", err)
@@ -1324,7 +1390,7 @@ func CreateData(db *gorm.DB) {
 	calendarFreqStatus := []*ddl.CalendarFreqStatus{
 		{
 			AbstractMasterModel: ddl.AbstractMasterModel{
-				ID: uint(enum.FREQ_NONE),
+				ID: uint(static.FREQ_NONE),
 			},
 			Freq:   "",
 			NameJa: "なし",
@@ -1332,7 +1398,7 @@ func CreateData(db *gorm.DB) {
 		},
 		{
 			AbstractMasterModel: ddl.AbstractMasterModel{
-				ID: uint(enum.FREQ_DAILY),
+				ID: uint(static.FREQ_DAILY),
 			},
 			Freq:   "daily",
 			NameJa: "毎日",
@@ -1340,7 +1406,7 @@ func CreateData(db *gorm.DB) {
 		},
 		{
 			AbstractMasterModel: ddl.AbstractMasterModel{
-				ID: uint(enum.FREQ_WEEKLY),
+				ID: uint(static.FREQ_WEEKLY),
 			},
 			Freq:   "weekly",
 			NameJa: "毎週",
@@ -1348,7 +1414,7 @@ func CreateData(db *gorm.DB) {
 		},
 		{
 			AbstractMasterModel: ddl.AbstractMasterModel{
-				ID: uint(enum.FREQ_MONTHLY),
+				ID: uint(static.FREQ_MONTHLY),
 			},
 			Freq:   "monthly",
 			NameJa: "毎月",
@@ -1356,7 +1422,7 @@ func CreateData(db *gorm.DB) {
 		},
 		{
 			AbstractMasterModel: ddl.AbstractMasterModel{
-				ID: uint(enum.FREQ_YEARLY),
+				ID: uint(static.FREQ_YEARLY),
 			},
 			Freq:   "yearly",
 			NameJa: "毎年",
@@ -1364,6 +1430,8 @@ func CreateData(db *gorm.DB) {
 		},
 	}
 	for _, row := range calendarFreqStatus {
+		_, hash, _ := service.GenerateHash(1, 25)
+		row.HashKey = "m_calendar_freq_status" + "_" + *hash
 		if err := master.InsertCalendarFreqStatus(tx, row); err != nil {
 			if err := tx.Rollback().Error; err != nil {
 				log.Printf("%v", err)
@@ -1381,7 +1449,7 @@ func CreateData(db *gorm.DB) {
 	}
 	for _, row := range companies {
 		_, hash, _ := service.GenerateHash(1, 25)
-		row.HashKey = string(enum.PRE_COMPANY) + "_" + *hash
+		row.HashKey = string(static.PRE_COMPANY) + "_" + *hash
 
 		if err := admin.InsertCompany(tx, row); err != nil {
 			if err := tx.Rollback().Error; err != nil {
@@ -1399,15 +1467,15 @@ func CreateData(db *gorm.DB) {
 				CompanyID: 1,
 			},
 			AbstractTransactionFlgModel: ddl.AbstractTransactionFlgModel{
-				EditFlg:   uint(enum.ON),
-				DeleteFlg: uint(enum.ON),
+				EditFlg:   uint(static.ON),
+				DeleteFlg: uint(static.ON),
 			},
 			Name: "Initial role",
 		},
 	}
 	for _, row := range customRoles {
 		_, hash, _ := service.GenerateHash(1, 25)
-		row.HashKey = string(enum.PRE_ROLE) + "_" + *hash
+		row.HashKey = string(static.PRE_ROLE) + "_" + *hash
 
 		_, err := role.Insert(tx, row)
 		if err != nil {
@@ -1421,7 +1489,7 @@ func CreateData(db *gorm.DB) {
 
 	// t_role_association
 	for _, row := range roles {
-		if row.RoleType == uint(enum.LOGIN_TYPE_ADMIN) {
+		if row.RoleType == uint(static.LOGIN_TYPE_ADMIN) {
 			if err := role.InsertAssociation(tx, &ddl.RoleAssociation{
 				RoleID:       1,
 				MasterRoleID: row.ID,
@@ -1444,13 +1512,13 @@ func CreateData(db *gorm.DB) {
 			Name:     "Initial user",
 			Email:    os.Getenv("INIT_USER_EMAIL"),
 			RoleID:   1,
-			UserType: uint(enum.LOGIN_TYPE_ADMIN),
+			UserType: uint(static.LOGIN_TYPE_ADMIN),
 		},
 	}
 	for index, row := range users {
 		password, hashPassword, _ := service.GenerateHash(8, 16)
 		_, hash, _ := service.GenerateHash(1, 25)
-		row.HashKey = string(enum.PRE_USER) + "_" + *hash
+		row.HashKey = string(static.PRE_USER) + "_" + *hash
 		row.Password = *hashPassword
 		row.InitPassword = *hashPassword
 

@@ -1,10 +1,10 @@
 package controller
 
 import (
-	"api/resources/static"
 	"api/src/model/ddl"
-	"api/src/model/enum"
+	"api/src/model/request"
 	"api/src/model/response"
+	"api/src/model/static"
 	"api/src/service"
 	"fmt"
 	"log"
@@ -15,43 +15,189 @@ import (
 )
 
 type IApplicantController interface {
-	/*
-		OAuth2.0用(削除予定)
-	*/
-	// 認証URL作成
-	GetOauthURL(e echo.Context) error
-	// 応募者ダウンロード
-	Download(e echo.Context) error
-	// 応募者取得(1件)
-	Get(e echo.Context) error
 	// 検索
 	Search(e echo.Context) error
-	// 書類アップロード
-	DocumentsUpload(e echo.Context) error
-	// 書類ダウンロード
-	DocumentDownload(e echo.Context) error
-	// 面接希望日登録
-	InsertDesiredAt(e echo.Context) error
-	// 応募者ステータス一覧取得
-	GetApplicantStatus(e echo.Context) error
 	// サイト一覧取得
 	GetSites(e echo.Context) error
-	// Google Meet Url 発行
+	// 応募者ステータス一覧取得
+	GetStatusList(e echo.Context) error
+	// 応募者ダウンロード
+	Download(e echo.Context) error
+	// 認証URL作成*
+	GetOauthURL(e echo.Context) error
+	// 応募者取得(1件)*
+	Get(e echo.Context) error
+	// 書類アップロード*
+	DocumentsUpload(e echo.Context) error
+	// 書類ダウンロード*
+	DocumentDownload(e echo.Context) error
+	// 面接希望日登録*
+	InsertDesiredAt(e echo.Context) error
+	// Google Meet Url 発行*
 	GetGoogleMeetUrl(e echo.Context) error
 }
 
 type ApplicantController struct {
-	s  service.IApplicantService
-	su service.IUserService
+	s     service.IApplicantService
+	user  service.IUserService
+	login service.ILoginService
+	role  service.IRoleService
 }
 
-func NewApplicantController(s service.IApplicantService, su service.IUserService) IApplicantController {
-	return &ApplicantController{s, su}
+func NewApplicantController(
+	s service.IApplicantService,
+	user service.IUserService,
+	login service.ILoginService,
+	role service.IRoleService,
+) IApplicantController {
+	return &ApplicantController{s, user, login, role}
 }
 
-/*
-	OAuth2.0用(削除予定)
-*/
+func (c *ApplicantController) GetLoginService() service.ILoginService {
+	return c.login
+}
+
+// 検索
+func (c *ApplicantController) Search(e echo.Context) error {
+	req := request.ApplicantSearch{}
+	if err := e.Bind(&req); err != nil {
+		log.Printf("%v", err)
+		return e.JSON(http.StatusBadRequest, fmt.Errorf(static.MESSAGE_BAD_REQUEST))
+	}
+
+	// JWT検証
+	if err := JWTDecodeCommon(
+		c,
+		e,
+		req.UserHashKey,
+		JWT_TOKEN,
+		JWT_SECRET,
+	); err != nil {
+		return err
+	}
+
+	// ロールチェック
+	exist, roleErr := c.role.Check(&request.RoleCheck{
+		Abstract: request.Abstract{
+			UserHashKey: req.UserHashKey,
+		},
+		ID: static.ROLE_MANAGEMENT_APPLICANT_READ,
+	})
+	if roleErr != nil {
+		return e.JSON(roleErr.Status, response.ErrorConvert(*roleErr))
+	}
+	if !exist {
+		err := &response.Error{
+			Status: http.StatusNoContent,
+		}
+		return e.JSON(err.Status, response.ErrorConvert(*err))
+	}
+
+	// 検索
+	res, sErr := c.s.Search(&req)
+	if sErr != nil {
+		return e.JSON(sErr.Status, response.ErrorConvert(*sErr))
+	}
+
+	return e.JSON(http.StatusOK, res)
+}
+
+// サイト一覧取得
+func (c *ApplicantController) GetSites(e echo.Context) error {
+	res, err := c.s.GetSites()
+	if err != nil {
+		return e.JSON(err.Status, response.ErrorConvert(*err))
+	}
+	return e.JSON(http.StatusOK, res)
+}
+
+// 応募者ステータス一覧取得
+func (c *ApplicantController) GetStatusList(e echo.Context) error {
+	req := request.ApplicantStatusList{}
+	if err := e.Bind(&req); err != nil {
+		log.Printf("%v", err)
+		return e.JSON(http.StatusBadRequest, fmt.Errorf(static.MESSAGE_BAD_REQUEST))
+	}
+
+	// JWT検証
+	if err := JWTDecodeCommon(
+		c,
+		e,
+		req.UserHashKey,
+		JWT_TOKEN,
+		JWT_SECRET,
+	); err != nil {
+		return err
+	}
+
+	// ロールチェック
+	exist, roleErr := c.role.Check(&request.RoleCheck{
+		Abstract: request.Abstract{
+			UserHashKey: req.UserHashKey,
+		},
+		ID: static.ROLE_MANAGEMENT_APPLICANT_READ,
+	})
+	if roleErr != nil {
+		return e.JSON(roleErr.Status, response.ErrorConvert(*roleErr))
+	}
+	if !exist {
+		err := &response.Error{
+			Status: http.StatusNoContent,
+		}
+		return e.JSON(err.Status, response.ErrorConvert(*err))
+	}
+
+	res, err := c.s.GetStatusList(&req)
+	if err != nil {
+		return e.JSON(err.Status, response.ErrorConvert(*err))
+	}
+
+	return e.JSON(http.StatusOK, res)
+}
+
+// 応募者ダウンロード
+func (c *ApplicantController) Download(e echo.Context) error {
+	req := request.ApplicantDownloadRequest{}
+	if err := e.Bind(&req); err != nil {
+		log.Printf("%v", err)
+		return e.JSON(http.StatusBadRequest, fmt.Errorf(static.MESSAGE_BAD_REQUEST))
+	}
+
+	// JWT検証
+	if err := JWTDecodeCommon(
+		c,
+		e,
+		req.UserHashKey,
+		JWT_TOKEN,
+		JWT_SECRET,
+	); err != nil {
+		return err
+	}
+
+	// ロールチェック
+	exist, roleErr := c.role.Check(&request.RoleCheck{
+		Abstract: request.Abstract{
+			UserHashKey: req.UserHashKey,
+		},
+		ID: static.ROLE_MANAGEMENT_APPLICANT_DOWNLOAD,
+	})
+	if roleErr != nil {
+		return e.JSON(roleErr.Status, response.ErrorConvert(*roleErr))
+	}
+	if !exist {
+		err := &response.Error{
+			Status: http.StatusUnauthorized,
+		}
+		return e.JSON(err.Status, response.ErrorConvert(*err))
+	}
+
+	if err := c.s.Download(&req); err != nil {
+		return e.JSON(err.Status, response.ErrorConvert(*err))
+	}
+
+	return e.JSON(http.StatusOK, "OK")
+}
+
 // 認証URL作成
 func (c *ApplicantController) GetOauthURL(e echo.Context) error {
 	request := ddl.ApplicantAndUser{}
@@ -68,21 +214,6 @@ func (c *ApplicantController) GetOauthURL(e echo.Context) error {
 	return e.JSON(http.StatusOK, res)
 }
 
-// 応募者ダウンロード
-func (c *ApplicantController) Download(e echo.Context) error {
-	request := ddl.ApplicantsDownload{}
-	if err := e.Bind(&request); err != nil {
-		log.Printf("%v", err)
-		return e.JSON(http.StatusBadRequest, fmt.Errorf(static.MESSAGE_BAD_REQUEST))
-	}
-
-	if err := c.s.Download(&request); err != nil {
-		return e.JSON(err.Status, response.ErrorConvert(*err))
-	}
-
-	return e.JSON(http.StatusOK, "OK")
-}
-
 // 応募者取得(1件)
 func (c *ApplicantController) Get(e echo.Context) error {
 	request := ddl.Applicant{}
@@ -92,22 +223,6 @@ func (c *ApplicantController) Get(e echo.Context) error {
 	}
 
 	res, err := c.s.Get(&request)
-	if err != nil {
-		return e.JSON(err.Status, response.ErrorConvert(*err))
-	}
-
-	return e.JSON(http.StatusOK, res)
-}
-
-// 検索
-func (c *ApplicantController) Search(e echo.Context) error {
-	request := ddl.ApplicantSearchRequest{}
-	if err := e.Bind(&request); err != nil {
-		log.Printf("%v", err)
-		return e.JSON(http.StatusBadRequest, fmt.Errorf(static.MESSAGE_BAD_REQUEST))
-	}
-
-	res, err := c.s.Search(&request)
 	if err != nil {
 		return e.JSON(err.Status, response.ErrorConvert(*err))
 	}
@@ -184,13 +299,13 @@ func (c *ApplicantController) InsertDesiredAt(e echo.Context) error {
 
 	uReq := &ddl.UserScheduleRequest{
 		Title:        request.Title,
-		FreqID:       uint(enum.FREQ_NONE),
-		InterviewFlg: uint(enum.USER_INTERVIEW),
+		FreqID:       uint(static.FREQ_NONE),
+		InterviewFlg: uint(static.USER_INTERVIEW),
 		Start:        request.DesiredAt,
 		End:          request.DesiredAt.Add(1 * time.Hour),
 	}
 
-	hashKey, err := c.su.CreateSchedule(uReq)
+	hashKey, err := c.user.CreateSchedule(uReq)
 	if err != nil {
 		return e.JSON(err.Status, response.ErrorConvert(*err))
 	}
@@ -202,24 +317,6 @@ func (c *ApplicantController) InsertDesiredAt(e echo.Context) error {
 	}
 
 	return e.JSON(http.StatusOK, "OK")
-}
-
-// 応募者ステータス一覧取得
-func (c *ApplicantController) GetApplicantStatus(e echo.Context) error {
-	res, err := c.s.GetApplicantStatus()
-	if err != nil {
-		return e.JSON(err.Status, response.ErrorConvert(*err))
-	}
-	return e.JSON(http.StatusOK, res)
-}
-
-// サイト一覧取得
-func (c *ApplicantController) GetSites(e echo.Context) error {
-	res, err := c.s.GetSites()
-	if err != nil {
-		return e.JSON(err.Status, response.ErrorConvert(*err))
-	}
-	return e.JSON(http.StatusOK, res)
 }
 
 // Google Meet Url 発行
