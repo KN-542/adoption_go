@@ -1,9 +1,9 @@
 package controller
 
 import (
-	"api/resources/static"
 	"api/src/model/request"
 	"api/src/model/response"
+	"api/src/model/static"
 	"api/src/service"
 	"fmt"
 	"log"
@@ -20,13 +20,15 @@ type ICompanyController interface {
 type CompanyController struct {
 	company service.ICompanyService
 	login   service.ILoginService
+	role    service.IRoleService
 }
 
 func NewCompanyController(
 	company service.ICompanyService,
 	login service.ILoginService,
+	role service.IRoleService,
 ) ICompanyController {
-	return &CompanyController{company, login}
+	return &CompanyController{company, login, role}
 }
 
 func (c *CompanyController) GetLoginService() service.ILoginService {
@@ -52,9 +54,28 @@ func (c *CompanyController) Create(e echo.Context) error {
 		return err
 	}
 
-	user, err := c.company.Create(&req)
-	if err != nil {
+	// ロールチェック
+	exist, roleErr := c.role.Check(&request.RoleCheck{
+		Abstract: request.Abstract{
+			UserHashKey: req.UserHashKey,
+		},
+		ID: static.ROLE_ADMIN_COMPANY_CREATE,
+	})
+	if roleErr != nil {
+		return e.JSON(roleErr.Status, response.ErrorConvert(*roleErr))
+	}
+
+	if !exist {
+		err := &response.Error{
+			Status: http.StatusUnauthorized,
+		}
 		return e.JSON(err.Status, response.ErrorConvert(*err))
+	}
+
+	// 登録
+	user, sErr := c.company.Create(&req)
+	if sErr != nil {
+		return e.JSON(sErr.Status, response.ErrorConvert(*sErr))
 	}
 
 	return e.JSON(http.StatusOK, user)

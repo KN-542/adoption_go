@@ -38,9 +38,9 @@ t_mail_preview
 */
 type MailPreview struct {
 	// テンプレートID
-	TemplateID uint `json:"template_id" gorm:"primaryKey"`
+	TemplateID uint64 `json:"template_id" gorm:"primaryKey"`
 	// 変数ID
-	VariableID uint `json:"variable_id" gorm:"primaryKey"`
+	VariableID uint64 `json:"variable_id" gorm:"primaryKey"`
 	// ハッシュキー
 	HashKey string `json:"hash_key" gorm:"not null;unique;check:hash_key <> '';type:text;index"`
 	// メールプレビュー名
@@ -48,7 +48,7 @@ type MailPreview struct {
 	// 説明
 	Desc string `json:"desc" gorm:"type:text"`
 	// 企業ID
-	CompanyID uint `json:"company_id" gorm:"index"`
+	CompanyID uint64 `json:"company_id" gorm:"index"`
 	// 登録日時
 	CreatedAt time.Time `json:"created_at"`
 	// 更新日時

@@ -16,3 +16,9 @@ type MFA struct {
 	// パスワード変更_必要性
 	IsPasswordChange bool `json:"is_password_change"`
 }
+
+// GetLoginType
+type GetLoginType struct {
+	// ログイン種別
+	LoginType uint `json:"login_type"`
+}

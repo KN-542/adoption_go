@@ -2,16 +2,19 @@ package validator
 
 import (
 	"api/src/model/ddl"
-	"api/src/model/enum"
-	"errors"
-	"fmt"
+	"api/src/model/request"
+	"api/src/model/static"
 
 	validation "github.com/go-ozzo/ozzo-validation/v4"
+	"github.com/go-ozzo/ozzo-validation/v4/is"
 )
 
 type IApplicantValidator interface {
+	Search(a *request.ApplicantSearch) error
+	Download(a *request.ApplicantDownloadRequest) error
+	DownloadSub(a *request.ApplicantDownloadSubRequest) error
+	GetStatusList(a *request.ApplicantStatusList) error
 	HashKeyValidate(a *ddl.Applicant) error
-	SearchValidator(a *ddl.ApplicantSearchRequest) error
 	S3UploadValidator(a *ddl.FileUpload) error
 	S3DownloadValidator(a *ddl.FileDownload) error
 	InsertDesiredAtValidator(a *ddl.ApplicantDesired) error
@@ -23,18 +26,90 @@ func NewApplicantValidator() IApplicantValidator {
 	return &ApplicantValidator{}
 }
 
-// uint型の検証
-func validateUintRange(min, max uint) validation.RuleFunc {
-	return func(value interface{}) error {
-		u, ok := value.(uint)
-		if !ok {
-			return errors.New("invalid type to uint")
-		}
-		if u < min || u > max {
-			return fmt.Errorf("must be between %d and %d", min, max)
-		}
-		return nil
-	}
+func (v *ApplicantValidator) Search(a *request.ApplicantSearch) error {
+	return validation.ValidateStruct(
+		a,
+		validation.Field(
+			&a.Sites,
+			validation.Each(validation.Required),
+			validation.Each(UniqueValidator{}),
+		),
+		validation.Field(
+			&a.ApplicantStatusList,
+			validation.Each(validation.Required),
+			validation.Each(UniqueValidator{}),
+		),
+		validation.Field(
+			&a.ResumeFlg,
+			validation.Min(0),
+			validation.Max(uint(static.DOCUMENT_EXIST)),
+			IsUintValidator{},
+		),
+		validation.Field(
+			&a.CurriculumVitaeFlg,
+			validation.Min(0),
+			validation.Max(uint(static.DOCUMENT_EXIST)),
+			IsUintValidator{},
+		),
+		validation.Field(
+			&a.Users,
+			validation.Each(validation.Required),
+			validation.Each(UniqueValidator{}),
+		),
+	)
+}
+
+func (v *ApplicantValidator) Download(a *request.ApplicantDownloadRequest) error {
+	return validation.ValidateStruct(
+		a,
+		validation.Field(
+			&a.SiteHashKey,
+			validation.Required,
+		),
+	)
+}
+
+func (v *ApplicantValidator) DownloadSub(a *request.ApplicantDownloadSubRequest) error {
+	return validation.ValidateStruct(
+		a,
+		validation.Field(
+			&a.OuterID,
+			validation.Required,
+			validation.Length(1, 100),
+		),
+		validation.Field(
+			&a.Name,
+			validation.Required,
+			validation.Length(1, 50),
+		),
+		validation.Field(
+			&a.Email,
+			validation.Required,
+			validation.Length(1, 100),
+			is.Email,
+		),
+		validation.Field(
+			&a.Tel,
+			validation.Required,
+			validation.Length(1, 100),
+			is.UTFNumeric,
+		),
+		validation.Field(
+			&a.Age,
+			validation.Min(12),
+			validation.Max(100),
+		),
+	)
+}
+
+func (v *ApplicantValidator) GetStatusList(a *request.ApplicantStatusList) error {
+	return validation.ValidateStruct(
+		a,
+		validation.Field(
+			&a.UserHashKey,
+			validation.Required,
+		),
+	)
 }
 
 func (v *ApplicantValidator) HashKeyValidate(a *ddl.Applicant) error {
@@ -43,20 +118,6 @@ func (v *ApplicantValidator) HashKeyValidate(a *ddl.Applicant) error {
 		validation.Field(
 			&a.HashKey,
 			validation.Required,
-		),
-	)
-}
-
-func (v *ApplicantValidator) SearchValidator(a *ddl.ApplicantSearchRequest) error {
-	return validation.ValidateStruct(
-		a,
-		validation.Field(
-			&a.Resume,
-			validation.By(validateUintRange(0, uint(enum.DOCUMENT_NOT_EXIST))),
-		),
-		validation.Field(
-			&a.CurriculumVitae,
-			validation.By(validateUintRange(0, uint(enum.DOCUMENT_NOT_EXIST))),
 		),
 	)
 }

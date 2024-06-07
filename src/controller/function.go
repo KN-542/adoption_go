@@ -1,10 +1,10 @@
 package controller
 
 import (
-	"api/resources/static"
 	"api/src/model/ddl"
 	"api/src/model/request"
 	"api/src/model/response"
+	"api/src/model/static"
 	"api/src/service"
 	"fmt"
 	"log"
@@ -41,9 +41,9 @@ func JWTDecodeCommon[T any](c *T, e echo.Context, hash_key string, token string,
 		return e.JSON(http.StatusUnauthorized, err)
 	}
 
-	cookie, err := e.Cookie(token)
-	if err != nil {
-		log.Printf("%v", err)
+	cookie, err2 := e.Cookie(token)
+	if err2 != nil {
+		log.Printf("%v", err2)
 		return e.JSON(http.StatusUnauthorized, fmt.Errorf(static.MESSAGE_UNEXPECTED_COOKIE))
 	}
 	if err := s.JWTDecode(cookie, secret); err != nil {
@@ -63,9 +63,9 @@ func JWTDecodeCommon[T any](c *T, e echo.Context, hash_key string, token string,
 	}
 
 	// JWT＆Cookie 更新
-	cookie, err2 := s.JWT(&hash_key, token, secret)
-	if err2 != nil {
-		return e.JSON(err2.Status, response.ErrorConvert(*err2))
+	cookie, err3 := s.JWT(&hash_key, token, secret)
+	if err3 != nil {
+		return e.JSON(err3.Status, response.ErrorConvert(*err3))
 	}
 	e.SetCookie(cookie)
 

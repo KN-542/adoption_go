@@ -17,7 +17,7 @@ type CustomRole struct {
 */
 type RoleAssociation struct {
 	// ロールID
-	RoleID uint `json:"role_id" gorm:"primaryKey"`
+	RoleID uint64 `json:"role_id" gorm:"primaryKey"`
 	// マスターロールID
 	MasterRoleID uint `json:"master_role_id" gorm:"primaryKey"`
 	// ロール(外部キー)

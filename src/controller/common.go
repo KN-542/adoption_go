@@ -1,9 +1,9 @@
 package controller
 
 import (
-	"api/resources/static"
 	"api/src/model/request"
 	"api/src/model/response"
+	"api/src/model/static"
 	"api/src/service"
 	"fmt"
 	"log"
@@ -17,6 +17,8 @@ type ICommonController interface {
 	Sidebar(e echo.Context) error
 	// 使用可能ロール一覧
 	Roles(e echo.Context) error
+	// チーム切り替え
+	// ChangeTeam(e echo.Context) error
 }
 
 type CommonController struct {
@@ -54,9 +56,9 @@ func (c *CommonController) Sidebar(e echo.Context) error {
 		return err
 	}
 
-	res, err := c.common.Sidebar(&req)
-	if err != nil {
-		return e.JSON(err.Status, response.ErrorConvert(*err))
+	res, sErr := c.common.Sidebar(&req)
+	if sErr != nil {
+		return e.JSON(sErr.Status, response.ErrorConvert(*sErr))
 	}
 
 	return e.JSON(http.StatusOK, res)
@@ -81,9 +83,9 @@ func (c *CommonController) Roles(e echo.Context) error {
 		return err
 	}
 
-	res, err := c.common.Roles(&req)
-	if err != nil {
-		return e.JSON(err.Status, response.ErrorConvert(*err))
+	res, sErr := c.common.Roles(&req)
+	if sErr != nil {
+		return e.JSON(sErr.Status, response.ErrorConvert(*sErr))
 	}
 
 	return e.JSON(http.StatusOK, res)

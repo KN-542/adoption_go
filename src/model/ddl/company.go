@@ -12,7 +12,7 @@ type Company struct {
 	// ハッシュキー
 	HashKey string `json:"hash_key" gorm:"unique;not null;unique;check:hash_key <> '';type:text;index"`
 	// 企業名
-	Name string `json:"name" gorm:"not null;type:varchar(30)"`
+	Name string `json:"name" gorm:"not null;unique;check:name <> '';type:varchar(30)"`
 	// ロゴファイル名
 	Logo string `json:"logo" gorm:"not null;type:varchar(30)"`
 	// 削除フラグ

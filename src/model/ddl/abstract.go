@@ -5,6 +5,8 @@ import "time"
 type AbstractMasterModel struct {
 	// ID
 	ID uint `json:"id" gorm:"primaryKey"`
+	// ハッシュキー
+	HashKey string `json:"hash_key" gorm:"not null;unique;check:hash_key <> '';type:text;index"`
 }
 
 type AbstractTransactionModel struct {
@@ -13,7 +15,7 @@ type AbstractTransactionModel struct {
 	// ハッシュキー
 	HashKey string `json:"hash_key" gorm:"not null;unique;check:hash_key <> '';type:text;index"`
 	// 企業ID
-	CompanyID uint `json:"company_id" gorm:"index"`
+	CompanyID uint64 `json:"company_id" gorm:"index"`
 	// 登録日時
 	CreatedAt time.Time `json:"created_at"`
 	// 更新日時

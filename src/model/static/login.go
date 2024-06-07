@@ -1,4 +1,4 @@
-package enum
+package static
 
 type LoginStatus int8
 type PasswordChangeFlg int8

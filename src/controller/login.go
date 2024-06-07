@@ -1,11 +1,11 @@
 package controller
 
 import (
-	"api/resources/static"
 	"api/src/infra"
 	"api/src/model/ddl"
 	"api/src/model/request"
 	"api/src/model/response"
+	"api/src/model/static"
 	"api/src/service"
 	"fmt"
 	"log"
@@ -18,8 +18,6 @@ const JWT_TOKEN string = "jwt_token"
 const JWT_SECRET string = "JWT_SECRET"
 
 type ILoginController interface {
-	// Hello World Test By Batch
-	HelloWorld(e echo.Context) error
 	// ログイン
 	Login(e echo.Context) error
 	// MFA 認証コード生成
@@ -34,15 +32,15 @@ type ILoginController interface {
 	PasswordChange(e echo.Context) error
 	// ログアウト
 	Logout(e echo.Context) error
-	// ログイン(応募者)
+	// ログイン(応募者)*
 	LoginApplicant(e echo.Context) error
-	// MFA Applicant
+	// MFA Applicant*
 	MFAApplicant(e echo.Context) error
-	// JWT 検証(応募者)
+	// JWT 検証(応募者)*
 	JWTDecodeApplicant(e echo.Context) error
-	// MFA 認証コード生成(応募者)
+	// MFA 認証コード生成(応募者)*
 	CodeGenerateApplicant(e echo.Context) error
-	// ログアウト(応募者)
+	// ログアウト(応募者)*
 	LogoutApplicant(e echo.Context) error
 }
 
@@ -58,13 +56,6 @@ func (c *LoginController) GetLoginService() service.ILoginService {
 	return c.s
 }
 
-// Hello World Test By Batch
-func (c *LoginController) HelloWorld(e echo.Context) error {
-	fmt.Println("Hello World!")
-
-	return e.JSON(http.StatusOK, "OK")
-}
-
 // ログイン
 func (c *LoginController) Login(e echo.Context) error {
 	req := request.Login{}
@@ -74,9 +65,9 @@ func (c *LoginController) Login(e echo.Context) error {
 	}
 
 	// ログイン
-	user, err := c.s.Login(&req)
-	if err != nil {
-		return e.JSON(err.Status, response.ErrorConvert(*err))
+	user, sErr := c.s.Login(&req)
+	if sErr != nil {
+		return e.JSON(sErr.Status, response.ErrorConvert(*sErr))
 	}
 
 	return e.JSON(http.StatusOK, user)
@@ -105,9 +96,9 @@ func (c *LoginController) MFA(e echo.Context) error {
 	}
 
 	// MFA
-	mfa, err := c.s.MFA(&req)
-	if err != nil {
-		return e.JSON(err.Status, response.ErrorConvert(*err))
+	mfa, sErr := c.s.MFA(&req)
+	if sErr != nil {
+		return e.JSON(sErr.Status, response.ErrorConvert(*sErr))
 	}
 
 	if !mfa.IsPasswordChange {

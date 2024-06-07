@@ -16,35 +16,57 @@ type Applicant struct {
 	// サイトID
 	SiteID uint `json:"site_id" gorm:"index"`
 	// ステータス
-	Status uint `json:"status" gorm:"index"`
+	Status uint64 `json:"status" gorm:"index"`
 	// 氏名
 	Name string `json:"name" gorm:"not null;check:name <> '';type:varchar(50);index"`
 	// メールアドレス
-	Email string `json:"email" gorm:"not null;unique;type:varchar(255);check:email ~ '^[a-zA-Z0-9_+-]+(\\.[a-zA-Z0-9_+-]+)*@([a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]*\\.)+[a-zA-Z]{2,}$';index"`
+	Email string `json:"email" gorm:"not null;type:varchar(255);check:email ~ '^[a-zA-Z0-9_+-]+(\\.[a-zA-Z0-9_+-]+)*@([a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]*\\.)+[a-zA-Z]{2,}$';index"`
 	// TEL
 	Tel string `json:"tel" gorm:"type:varchar(20);check:tel ~ '^[0-9]{0,20}$'"`
 	// 年齢
-	Age int `json:"age" gorm:"check:(age >= 18 AND age <= 100) OR age = -1;index"`
+	Age uint `json:"age" gorm:"check:(age >= 18 AND age <= 100) OR age = 0;index"`
 	// 履歴書
 	Resume string `json:"resume" gorm:"type:varchar(255);index"`
 	// 職務経歴書
 	CurriculumVitae string `json:"curriculum_vitae" gorm:"type:varchar(255);index"`
 	// Google Meet URL
 	GoogleMeetURL string `json:"google_meet_url" gorm:"type:text"`
+	// チームID
+	TeamID uint64 `json:"team_id"`
 	// カレンダーID
-	CalendarID uint `json:"calendar_id"`
+	CalendarID uint64 `json:"calendar_id"`
 	// サイト(外部キー)
 	Site Site `gorm:"foreignKey:site_id;references:id"`
 	// ステータス(外部キー)
-	ApplicantStatus ApplicantStatus `gorm:"foreignKey:status;references:id"`
-	// スケジュール(外部キー)
-	Schedule UserSchedule `gorm:"foreignKey:calendar_id;references:id"`
+	ApplicantStatus SelectStatus `gorm:"foreignKey:status;references:id"`
+	// チーム(外部キー)
+	Team Team `gorm:"foreignKey:team_id;references:id"`
+}
+
+/*
+t_applicant_user_association
+応募者ユーザー紐づけ
+*/
+type ApplicantUserAssociation struct {
+	// 応募者ID
+	ApplicantID uint64 `json:"applicant_id" gorm:"primaryKey"`
+	// ユーザーID
+	UserID uint64 `json:"user_id" gorm:"primaryKey"`
+	// 応募者(外部キー)
+	Applicant Applicant `gorm:"foreignKey:applicant_id;references:id"`
+	// ユーザー(外部キー)
+	User User `gorm:"foreignKey:user_id;references:id"`
 }
 
 func (t Applicant) TableName() string {
 	year := time.Now().Year()
 	month := time.Now().Month()
 	return fmt.Sprintf("t_applicant_%d_%02d", year, month)
+}
+func (t ApplicantUserAssociation) TableName() string {
+	year := time.Now().Year()
+	month := time.Now().Month()
+	return fmt.Sprintf("t_applicant_user_association_%d_%02d", year, month)
 }
 
 type GetOauthURLResponse struct {
@@ -58,40 +80,6 @@ type GetOauthURLResponse struct {
 type ApplicantsDownload struct {
 	Values [][]string `json:"values"`
 	Site   int        `json:"site"`
-}
-
-// 応募者ダウンロード Response
-type ApplicantsDownloadResponse struct {
-	Applicants []ApplicantWith `json:"applicants"`
-}
-
-type ApplicantWith struct {
-	Applicant
-	StatusNameJa string    `json:"status_name_ja"`
-	SiteNameJa   string    `json:"site_name_ja"`
-	UserNames    string    `json:"user_names"`
-	Start        time.Time `json:"start"`
-}
-
-type ApplicantSearchRequest struct {
-	// サイトID
-	SiteIDList []uint `json:"site_id_list"`
-	// 応募者ステータス
-	ApplicantStatusList []uint `json:"applicant_status_list"`
-	// 履歴書
-	Resume uint `json:"resume"`
-	// 職務経歴書
-	CurriculumVitae uint `json:"curriculum_vitae"`
-	// 氏名
-	Name string `json:"name"`
-	// メールアドレス
-	Email string `json:"email"`
-	// 面接官
-	Users string `json:"users"`
-	// ソート(key)
-	SortKey string `json:"sort_key"`
-	// ソート(向き)
-	SortAsc bool `json:"sort_asc"`
 }
 
 type ApplicantDesired struct {

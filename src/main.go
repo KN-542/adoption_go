@@ -34,11 +34,13 @@ func main() {
 	applicantValidator := validator.NewApplicantValidator()
 	loginValidator := validator.NewLoginValidator()
 	companyValidator := validator.NewCompanyValidator()
+	roleValidator := validator.NewRoleValidator()
 
 	// Service
 	commonService := service.NewCommonService(
 		masterRepository,
 		roleRepository,
+		userRepository,
 		commonValidator,
 		redisRepository,
 	)
@@ -61,14 +63,24 @@ func main() {
 		dbRepository,
 	)
 	loginService := service.NewLoginService(userRepository, applicantRepository, redisRepository, loginValidator, userValidator, dbRepository)
-	userService := service.NewUserService(userRepository, applicantRepository, masterRepository, userValidator, dbRepository, outerRepository)
+	userService := service.NewUserService(
+		userRepository,
+		roleRepository,
+		applicantRepository,
+		masterRepository,
+		userValidator,
+		dbRepository,
+		outerRepository,
+		redisRepository,
+	)
+	roleService := service.NewRoleService(roleRepository, redisRepository, roleValidator)
 
 	// Controller
 	commonController := controller.NewCommonController(commonService, loginService)
-	companyController := controller.NewCompanyController(companyService, loginService)
+	companyController := controller.NewCompanyController(companyService, loginService, roleService)
 	loginController := controller.NewLoginController(loginService)
-	applicantController := controller.NewApplicantController(applicantService, userService)
-	userController := controller.NewUserController(userService)
+	applicantController := controller.NewApplicantController(applicantService, userService, loginService, roleService)
+	userController := controller.NewUserController(userService, loginService, roleService)
 
 	e := router.NewRouter(
 		commonController,

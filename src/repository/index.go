@@ -12,7 +12,7 @@ import (
 
 // DB, Redis, AWS, Google以外のIF
 type IOuterIFRepository interface {
-	// 日本の休日取得
+	// 日本の休日取得*
 	HolidaysJp(year int) ([]time.Time, error)
 }
 
@@ -26,10 +26,10 @@ func NewOuterRepository() IOuterIFRepository {
 func (o *OuterIFRepository) HolidaysJp(year int) ([]time.Time, error) {
 	url := "https://holidays-jp.github.io/api/v1/date.json"
 
-	result, err := http.Get(url)
-	if err != nil {
-		log.Printf("%v", err)
-		return nil, err
+	result, resultErr := http.Get(url)
+	if resultErr != nil {
+		log.Printf("%v", resultErr)
+		return nil, resultErr
 	}
 	defer result.Body.Close()
 

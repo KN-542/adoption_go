@@ -1,10 +1,11 @@
 package service
 
 import (
-	"api/resources/static"
 	"api/src/model/ddl"
+	"api/src/model/entity"
 	"api/src/model/request"
 	"api/src/model/response"
+	"api/src/model/static"
 	"api/src/repository"
 	"api/src/validator"
 	"context"
@@ -18,11 +19,14 @@ type ICommonService interface {
 	Sidebar(req *request.Sidebar) (*response.Sidebar, *response.Error)
 	// 使用可能ロール一覧
 	Roles(req *request.Roles) (*response.Roles, *response.Error)
+	// 所属チーム一覧
+	Teams(req *request.TeamsBelong) (*response.TeamsBelong, *response.Error)
 }
 
 type CommonService struct {
 	master repository.IMasterRepository
 	role   repository.IRoleRepository
+	user   repository.IUserRepository
 	v      validator.ICommonValidator
 	redis  repository.IRedisRepository
 }
@@ -30,10 +34,11 @@ type CommonService struct {
 func NewCommonService(
 	master repository.IMasterRepository,
 	role repository.IRoleRepository,
+	user repository.IUserRepository,
 	v validator.ICommonValidator,
 	redis repository.IRedisRepository,
 ) ICommonService {
-	return &CommonService{master, role, v, redis}
+	return &CommonService{master, role, user, v, redis}
 }
 
 // サイドバー表示
@@ -49,43 +54,43 @@ func (c *CommonService) Sidebar(req *request.Sidebar) (*response.Sidebar, *respo
 
 	// ロールID、ログイン種別取得
 	ctx := context.Background()
-	role, err := c.redis.Get(ctx, req.HashKey, static.REDIS_USER_ROLE)
-	if err != nil {
+	role, roleErr := c.redis.Get(ctx, req.HashKey, static.REDIS_USER_ROLE)
+	if roleErr != nil {
 		return nil, &response.Error{
 			Status: http.StatusUnauthorized,
 			Code:   static.CODE_LOGIN_REQUIRED,
 		}
 	}
-	roleID, err := strconv.ParseUint(*role, 10, 64)
-	if err != nil {
-		log.Printf("%v", err)
+	roleID, roleParseErr := strconv.ParseUint(*role, 10, 64)
+	if roleParseErr != nil {
+		log.Printf("%v", roleParseErr)
 		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
 
-	loginType_0, err := c.redis.Get(ctx, req.HashKey, static.REDIS_USER_LOGIN_TYPE)
-	if err != nil {
+	loginType_0, loginTypeErr := c.redis.Get(ctx, req.HashKey, static.REDIS_USER_LOGIN_TYPE)
+	if loginTypeErr != nil {
 		return nil, &response.Error{
 			Status: http.StatusUnauthorized,
 			Code:   static.CODE_LOGIN_REQUIRED,
 		}
 	}
-	loginType, err := strconv.ParseUint(*loginType_0, 10, 64)
-	if err != nil {
-		log.Printf("%v", err)
+	loginType, loginTypeParseErr := strconv.ParseUint(*loginType_0, 10, 64)
+	if loginTypeParseErr != nil {
+		log.Printf("%v", loginTypeParseErr)
 		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
 
 	// 該当ロールのマスタID取得
-	roleAssociate, err := c.role.GetRoleIDs(&ddl.CustomRole{
+	roleAssociate, rolesErr := c.role.GetRoleIDs(&ddl.CustomRole{
 		AbstractTransactionModel: ddl.AbstractTransactionModel{
 			ID: roleID,
 		},
 	})
-	if err != nil {
+	if rolesErr != nil {
 		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
 		}
@@ -100,19 +105,33 @@ func (c *CommonService) Sidebar(req *request.Sidebar) (*response.Sidebar, *respo
 			},
 		})
 	}
-	sidebars, err := c.master.ListSidebar(roles, &ddl.LoginType{
+	sidebars, sidebarsErr := c.master.ListSidebar(roles, &ddl.LoginType{
 		AbstractMasterModel: ddl.AbstractMasterModel{
 			ID: uint(loginType),
 		},
 	})
-	if err != nil {
+	if sidebarsErr != nil {
 		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
 
+	var res []entity.Sidebar
+	for _, row := range sidebars {
+		flg := false
+		for _, row2 := range res {
+			if row.NameJa == row2.NameJa {
+				flg = true
+			}
+		}
+
+		if !flg {
+			res = append(res, row)
+		}
+	}
+
 	return &response.Sidebar{
-		Sidebars: sidebars,
+		Sidebars: res,
 	}, nil
 }
 
@@ -129,53 +148,53 @@ func (c *CommonService) Roles(req *request.Roles) (*response.Roles, *response.Er
 
 	// ロールID、ログイン種別取得
 	ctx := context.Background()
-	role, err := c.redis.Get(ctx, req.HashKey, static.REDIS_USER_ROLE)
-	if err != nil {
+	role, roleErr := c.redis.Get(ctx, req.HashKey, static.REDIS_USER_ROLE)
+	if roleErr != nil {
 		return nil, &response.Error{
 			Status: http.StatusUnauthorized,
 			Code:   static.CODE_LOGIN_REQUIRED,
 		}
 	}
-	roleID, err := strconv.ParseUint(*role, 10, 64)
-	if err != nil {
-		log.Printf("%v", err)
+	roleID, roleParseErr := strconv.ParseUint(*role, 10, 64)
+	if roleParseErr != nil {
+		log.Printf("%v", roleParseErr)
 		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
 
-	loginType_0, err := c.redis.Get(ctx, req.HashKey, static.REDIS_USER_LOGIN_TYPE)
-	if err != nil {
+	loginType_0, loginTypeErr := c.redis.Get(ctx, req.HashKey, static.REDIS_USER_LOGIN_TYPE)
+	if loginTypeErr != nil {
 		return nil, &response.Error{
 			Status: http.StatusUnauthorized,
 			Code:   static.CODE_LOGIN_REQUIRED,
 		}
 	}
-	loginType, err := strconv.ParseUint(*loginType_0, 10, 64)
-	if err != nil {
-		log.Printf("%v", err)
+	loginType, loginTypeParseErr := strconv.ParseUint(*loginType_0, 10, 64)
+	if loginTypeParseErr != nil {
+		log.Printf("%v", loginTypeParseErr)
 		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
 
 	// 該当ロールのマスタID取得
-	roleAssociates, err := c.role.GetRoleIDs(&ddl.CustomRole{
+	roleAssociates, rolesErr := c.role.GetRoleIDs(&ddl.CustomRole{
 		AbstractTransactionModel: ddl.AbstractTransactionModel{
 			ID: roleID,
 		},
 	})
-	if err != nil {
+	if rolesErr != nil {
 		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
 
 	// ロール一覧
-	roles, err := c.master.ListRole(&ddl.Role{
+	roles, masterRoleErr := c.master.ListRole(&ddl.Role{
 		RoleType: uint(loginType),
 	})
-	if err != nil {
+	if masterRoleErr != nil {
 		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
 		}
@@ -196,4 +215,40 @@ func (c *CommonService) Roles(req *request.Roles) (*response.Roles, *response.Er
 	return &response.Roles{
 		Map: m,
 	}, nil
+}
+
+// 所属チーム一覧
+func (c *CommonService) Teams(req *request.TeamsBelong) (*response.TeamsBelong, *response.Error) {
+	// バリデーション
+	if err := c.v.Teams(req); err != nil {
+		log.Printf("%v", err)
+		return nil, &response.Error{
+			Status: http.StatusBadRequest,
+			Code:   static.CODE_BAD_REQUEST,
+		}
+	}
+
+	// ユーザーID取得
+	user, userErr := c.user.Get(&ddl.User{
+		AbstractTransactionModel: ddl.AbstractTransactionModel{
+			HashKey: req.HashKey,
+		},
+	})
+	if userErr != nil {
+		return nil, &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// 所属チーム一覧
+	teams, teamsErr := c.user.ListBelongTeam(&ddl.TeamAssociation{
+		UserID: user.ID,
+	})
+	if teamsErr != nil {
+		return nil, &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	return &response.TeamsBelong{List: teams}, nil
 }

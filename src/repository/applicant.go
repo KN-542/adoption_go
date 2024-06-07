@@ -2,7 +2,10 @@ package repository
 
 import (
 	"api/src/model/ddl"
-	"api/src/model/enum"
+	"api/src/model/dto"
+	"api/src/model/entity"
+	"api/src/model/static"
+	"fmt"
 	"log"
 	"time"
 
@@ -14,20 +17,22 @@ type IApplicantRepository interface {
 	// 登録
 	Insert(tx *gorm.DB, applicant *ddl.Applicant) error
 	// 検索
-	Search(m *ddl.ApplicantSearchRequest) ([]ddl.ApplicantWith, error)
+	Search(m *dto.ApplicantSearch) ([]entity.ApplicantSearch, error)
+	// 応募者ステータス一覧
+	ListStatus(m *ddl.SelectStatus) ([]entity.ApplicantStatus, error)
 	// 取得(Email)
-	GetByEmail(applicant *ddl.Applicant) ([]ddl.Applicant, error)
-	// PK検索(カウント)
+	GetByEmail(applicant *ddl.Applicant) ([]entity.Applicant, error)
+	// PK検索(カウント)*
 	CountByPrimaryKey(key *string) (*int64, error)
-	// 応募者取得(ハッシュキー)
+	// 応募者取得(ハッシュキー)*
 	GetByHashKey(m *ddl.Applicant) (*ddl.Applicant, error)
-	// 面接希望日取得
+	// 面接希望日取得*
 	GetDesiredAt(m *ddl.Applicant) (*ddl.UserSchedule, error)
-	// Google Meet Url 格納
+	// Google Meet Url 格納*
 	UpdateGoogleMeet(tx *gorm.DB, m *ddl.Applicant) error
-	// 書類登録状況更新
+	// 書類登録状況更新*
 	UpdateDocument(tx *gorm.DB, m *ddl.Applicant) error
-	// 面接希望日更新
+	// 面接希望日更新*
 	UpdateDesiredAt(tx *gorm.DB, m *ddl.Applicant) error
 }
 
@@ -49,51 +54,73 @@ func (a *ApplicantRepository) Insert(tx *gorm.DB, applicant *ddl.Applicant) erro
 	return nil
 }
 
-// 検索 TODO 検索仕様追加
-func (a *ApplicantRepository) Search(m *ddl.ApplicantSearchRequest) ([]ddl.ApplicantWith, error) {
-	var applicants []ddl.ApplicantWith
+// 検索
+func (a *ApplicantRepository) Search(m *dto.ApplicantSearch) ([]entity.ApplicantSearch, error) {
+	var applicants []entity.ApplicantSearch
 
-	query := a.db.Model(&ddl.Applicant{}).
-		Select(`
-			t_applicant.name,
-			t_applicant.email,
-			t_applicant.age,
-			t_applicant.resume,
-			t_applicant.curriculum_vitae,
-			t_applicant.google_meet_url,
-			t_applicant.calendar_id,
-			m_applicant_status.status_name_ja as status_name_ja,
-			m_site.site_name_ja as site_name_ja,
-			t_user_schedule.start as start
-		`).
-		Joins("left join m_applicant_status on t_applicant.status = m_applicant_status.id").
-		Joins("left join m_site on t_applicant.site_id = m_site.id").
-		Joins("left join t_user_schedule on t_applicant.calendar_id = t_user_schedule.id")
+	year := time.Now().Year()
+	month := time.Now().Month()
+	tApplicant := fmt.Sprintf("t_applicant_%d_%02d", year, month)
+	tApplicantUserAssociation := fmt.Sprintf("t_applicant_user_association_%d_%02d", year, month)
 
-	if len(m.SiteIDList) > 0 {
-		query = query.Where("t_applicant.site_id IN ?", m.SiteIDList)
+	query := a.db.Table(tApplicant).
+		Select(fmt.Sprintf(`
+				%s.id,
+				%s.hash_key,
+				%s.name,
+				%s.email,
+				%s.resume,
+				%s.curriculum_vitae,
+				%s.google_meet_url,
+				%s.calendar_id,
+				t_select_status.status_name as status_name,
+				m_site.site_name as site_name,
+				t_user_schedule.hash_key as calendar_hash_key,
+				t_user_schedule.start as start
+			`,
+			tApplicant,
+			tApplicant,
+			tApplicant,
+			tApplicant,
+			tApplicant,
+			tApplicant,
+			tApplicant,
+			tApplicant,
+		)).
+		Joins(fmt.Sprintf("left join t_select_status on %s.status = t_select_status.id", tApplicant)).
+		Joins(fmt.Sprintf("left join %s on %s.id = %s.applicant_id", tApplicantUserAssociation, tApplicant, tApplicantUserAssociation)).
+		Joins(fmt.Sprintf("left join m_site on %s.site_id = m_site.id", tApplicant)).
+		Joins(fmt.Sprintf("left join t_user_schedule on %s.calendar_id = t_user_schedule.id", tApplicant)).
+		Where(fmt.Sprintf("%s.team_id = ?", tApplicant), m.TeamID)
+
+	if len(m.Sites) > 0 {
+		query = query.Where("m_site.hash_key IN ?", m.Sites)
 	}
 
 	if len(m.ApplicantStatusList) > 0 {
-		query = query.Where("t_applicant.status IN ?", m.ApplicantStatusList)
+		query = query.Where("t_select_status.hash_key IN ?", m.ApplicantStatusList)
 	}
 
-	if m.Resume == uint(enum.DOCUMENT_EXIST) {
-		query = query.Where("t_applicant.resume != ''")
-	} else if m.Resume == uint(enum.DOCUMENT_NOT_EXIST) {
-		query = query.Where("t_applicant.resume = ''")
+	if m.ResumeFlg == uint(static.DOCUMENT_EXIST) {
+		query = query.Where(fmt.Sprintf("%s.resume != ''", tApplicant))
+	} else if m.ResumeFlg == uint(static.DOCUMENT_NOT_EXIST) {
+		query = query.Where(fmt.Sprintf("%s.resume = ''", tApplicant))
 	}
-	if m.CurriculumVitae == uint(enum.DOCUMENT_EXIST) {
-		query = query.Where("t_applicant.curriculum_vitae != ''")
-	} else if m.CurriculumVitae == uint(enum.DOCUMENT_NOT_EXIST) {
-		query = query.Where("t_applicant.curriculum_vitae = ''")
+	if m.CurriculumVitaeFlg == uint(static.DOCUMENT_EXIST) {
+		query = query.Where(fmt.Sprintf("%s.curriculum_vitae != ''", tApplicant))
+	} else if m.CurriculumVitaeFlg == uint(static.DOCUMENT_NOT_EXIST) {
+		query = query.Where(fmt.Sprintf("%s.curriculum_vitae = ''", tApplicant))
 	}
 
 	if m.Name != "" {
-		query = query.Where("name LIKE ?", "%"+m.Name+"%")
+		query = query.Where(fmt.Sprintf("%s.name LIKE ?", tApplicant), "%"+m.Name+"%")
 	}
 	if m.Email != "" {
-		query = query.Where("email LIKE ?", "%"+m.Email+"%")
+		query = query.Where(fmt.Sprintf("%s.email LIKE ?", tApplicant), "%"+m.Email+"%")
+	}
+
+	if len(m.UserIDs) > 0 {
+		query = query.Where(fmt.Sprintf("%s.user_id IN ?", tApplicantUserAssociation), m.UserIDs)
 	}
 
 	if m.SortKey != "" {
@@ -111,6 +138,22 @@ func (a *ApplicantRepository) Search(m *ddl.ApplicantSearchRequest) ([]ddl.Appli
 	return applicants, nil
 }
 
+// 応募者ステータス一覧
+func (a *ApplicantRepository) ListStatus(m *ddl.SelectStatus) ([]entity.ApplicantStatus, error) {
+	var res []entity.ApplicantStatus
+
+	if err := a.db.Where(
+		&ddl.SelectStatus{
+			TeamID: m.TeamID,
+		},
+	).Find(&res).Error; err != nil {
+		log.Printf("%v", err)
+		return nil, err
+	}
+
+	return res, nil
+}
+
 // PK検索(カウント)
 func (a *ApplicantRepository) CountByPrimaryKey(key *string) (*int64, error) {
 	var count int64
@@ -122,9 +165,11 @@ func (a *ApplicantRepository) CountByPrimaryKey(key *string) (*int64, error) {
 }
 
 // 取得(Email)
-func (a *ApplicantRepository) GetByEmail(applicant *ddl.Applicant) ([]ddl.Applicant, error) {
-	var l []ddl.Applicant
-	if err := a.db.Where(applicant).Find(&l).Error; err != nil {
+func (a *ApplicantRepository) GetByEmail(m *ddl.Applicant) ([]entity.Applicant, error) {
+	var l []entity.Applicant
+	if err := a.db.Where(&ddl.Applicant{
+		Email: m.Email,
+	}).Find(&l).Error; err != nil {
 		log.Printf("%v", err)
 		return nil, err
 	}

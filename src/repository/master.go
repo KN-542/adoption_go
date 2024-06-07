@@ -17,12 +17,12 @@ type IMasterRepository interface {
 	/*
 		m_site
 	*/
-	// insert
+	// list
 	InsertSite(tx *gorm.DB, m *ddl.Site) error
 	// select
-	SelectSite() ([]ddl.Site, error)
-	// select by primary key
-	SelectSiteByPrimaryKey(key int) (*ddl.Site, error)
+	ListSite() ([]entity.Site, error)
+	// select by hash key
+	SelectSiteByHashKey(m *ddl.Site) (*ddl.Site, error)
 	/*
 		m_role
 	*/
@@ -49,13 +49,6 @@ type IMasterRepository interface {
 	InsertHashKeyPre(tx *gorm.DB, m *ddl.HashKeyPre) error
 	// select
 	SelectHashKeyPre() ([]ddl.HashKeyPre, error)
-	/*
-		m_applicant_status
-	*/
-	// insert
-	InsertApplicantStatus(tx *gorm.DB, m *ddl.ApplicantStatus) error
-	// select
-	SelectApplicantStatus() ([]ddl.ApplicantStatus, error)
 	/*
 		m_calendar_freq_status
 	*/
@@ -97,10 +90,10 @@ func (r *MasterRepository) InsertSite(tx *gorm.DB, m *ddl.Site) error {
 	return nil
 }
 
-// select
-func (r *MasterRepository) SelectSite() ([]ddl.Site, error) {
-	var res []ddl.Site
-	if err := r.db.Find(res).Error; err != nil {
+// list
+func (r *MasterRepository) ListSite() ([]entity.Site, error) {
+	var res []entity.Site
+	if err := r.db.Find(&res).Error; err != nil {
 		log.Printf("%v", err)
 		return nil, err
 	}
@@ -108,9 +101,13 @@ func (r *MasterRepository) SelectSite() ([]ddl.Site, error) {
 }
 
 // select by primary key
-func (r *MasterRepository) SelectSiteByPrimaryKey(key int) (*ddl.Site, error) {
+func (r *MasterRepository) SelectSiteByHashKey(m *ddl.Site) (*ddl.Site, error) {
 	var res ddl.Site
-	if err := r.db.First(res, key).Error; err != nil {
+	if err := r.db.Model(&ddl.Site{}).Where(&ddl.Site{
+		AbstractMasterModel: ddl.AbstractMasterModel{
+			HashKey: m.HashKey,
+		},
+	}).First(&res).Error; err != nil {
 		log.Printf("%v", err)
 		return nil, err
 	}
@@ -208,29 +205,7 @@ func (r *MasterRepository) InsertHashKeyPre(tx *gorm.DB, m *ddl.HashKeyPre) erro
 // select
 func (r *MasterRepository) SelectHashKeyPre() ([]ddl.HashKeyPre, error) {
 	var res []ddl.HashKeyPre
-	if err := r.db.Find(res).Error; err != nil {
-		log.Printf("%v", err)
-		return nil, err
-	}
-	return res, nil
-}
-
-/*
-	m_applicant_status
-*/
-// insert
-func (r *MasterRepository) InsertApplicantStatus(tx *gorm.DB, m *ddl.ApplicantStatus) error {
-	if err := tx.Create(m).Error; err != nil {
-		log.Printf("%v", err)
-		return err
-	}
-	return nil
-}
-
-// select
-func (r *MasterRepository) SelectApplicantStatus() ([]ddl.ApplicantStatus, error) {
-	var res []ddl.ApplicantStatus
-	if err := r.db.Find(res).Error; err != nil {
+	if err := r.db.Find(&res).Error; err != nil {
 		log.Printf("%v", err)
 		return nil, err
 	}
@@ -252,7 +227,7 @@ func (r *MasterRepository) InsertCalendarFreqStatus(tx *gorm.DB, m *ddl.Calendar
 // select
 func (r *MasterRepository) SelectCalendarFreqStatus() ([]ddl.CalendarFreqStatus, error) {
 	var res []ddl.CalendarFreqStatus
-	if err := r.db.Find(res).Error; err != nil {
+	if err := r.db.Find(&res).Error; err != nil {
 		log.Printf("%v", err)
 		return nil, err
 	}

@@ -9,7 +9,7 @@ type OperationLog struct {
 	// イベントID
 	EventID uint `json:"event_id"`
 	// 対象ユーザーID
-	UserID uint `json:"user_id"`
+	UserID uint64 `json:"user_id"`
 	// ログ
 	Log string `json:"log" gorm:"type:text"`
 	// イベント

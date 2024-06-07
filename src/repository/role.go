@@ -11,6 +11,8 @@ import (
 type IRoleRepository interface {
 	// 登録
 	Insert(tx *gorm.DB, m *ddl.CustomRole) (*entity.CustomRole, error)
+	// 取得
+	Get(m *ddl.CustomRole) (*entity.CustomRole, error)
 	// 付与ロール登録
 	InsertAssociation(tx *gorm.DB, m *ddl.RoleAssociation) error
 	// 該当ロールのマスタID取得
@@ -34,6 +36,23 @@ func (r *RoleRepository) Insert(tx *gorm.DB, m *ddl.CustomRole) (*entity.CustomR
 	return &entity.CustomRole{
 		CustomRole: *m,
 	}, nil
+}
+
+// 取得
+func (r *RoleRepository) Get(m *ddl.CustomRole) (*entity.CustomRole, error) {
+	var res entity.CustomRole
+	if err := r.db.Where(
+		&ddl.CustomRole{
+			AbstractTransactionModel: ddl.AbstractTransactionModel{
+				HashKey: m.HashKey,
+			},
+		},
+	).First(&res).Error; err != nil {
+		log.Printf("%v", err)
+		return nil, err
+	}
+
+	return &res, nil
 }
 
 // 付与ロール登録
