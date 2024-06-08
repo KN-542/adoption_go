@@ -157,7 +157,7 @@ func (c *ApplicantController) GetStatusList(e echo.Context) error {
 
 // 応募者ダウンロード
 func (c *ApplicantController) Download(e echo.Context) error {
-	req := request.ApplicantDownloadRequest{}
+	req := request.ApplicantDownload{}
 	if err := e.Bind(&req); err != nil {
 		log.Printf("%v", err)
 		return e.JSON(http.StatusBadRequest, fmt.Errorf(static.MESSAGE_BAD_REQUEST))
@@ -191,11 +191,12 @@ func (c *ApplicantController) Download(e echo.Context) error {
 		return e.JSON(err.Status, response.ErrorConvert(*err))
 	}
 
-	if err := c.s.Download(&req); err != nil {
+	res, err := c.s.Download(&req)
+	if err != nil {
 		return e.JSON(err.Status, response.ErrorConvert(*err))
 	}
 
-	return e.JSON(http.StatusOK, "OK")
+	return e.JSON(http.StatusOK, res)
 }
 
 // 認証URL作成
