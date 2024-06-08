@@ -11,8 +11,8 @@ import (
 
 type IApplicantValidator interface {
 	Search(a *request.ApplicantSearch) error
-	Download(a *request.ApplicantDownloadRequest) error
-	DownloadSub(a *request.ApplicantDownloadSubRequest) error
+	Download(a *request.ApplicantDownload) error
+	DownloadSub(a *request.ApplicantDownloadSub) error
 	GetStatusList(a *request.ApplicantStatusList) error
 	HashKeyValidate(a *ddl.Applicant) error
 	S3UploadValidator(a *ddl.FileUpload) error
@@ -59,7 +59,7 @@ func (v *ApplicantValidator) Search(a *request.ApplicantSearch) error {
 	)
 }
 
-func (v *ApplicantValidator) Download(a *request.ApplicantDownloadRequest) error {
+func (v *ApplicantValidator) Download(a *request.ApplicantDownload) error {
 	return validation.ValidateStruct(
 		a,
 		validation.Field(
@@ -69,7 +69,7 @@ func (v *ApplicantValidator) Download(a *request.ApplicantDownloadRequest) error
 	)
 }
 
-func (v *ApplicantValidator) DownloadSub(a *request.ApplicantDownloadSubRequest) error {
+func (v *ApplicantValidator) DownloadSub(a *request.ApplicantDownloadSub) error {
 	return validation.ValidateStruct(
 		a,
 		validation.Field(

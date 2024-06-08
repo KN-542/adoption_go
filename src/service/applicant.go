@@ -26,7 +26,7 @@ type IApplicantService interface {
 	// 応募者ステータス一覧取得
 	GetStatusList(req *request.ApplicantStatusList) (*response.ApplicantStatusList, *response.Error)
 	// 応募者ダウンロード
-	Download(req *request.ApplicantDownloadRequest) *response.Error
+	Download(req *request.ApplicantDownload) (*response.ApplicantDownload, *response.Error)
 	// Google 認証URL作成*
 	GetOauthURL(req *ddl.ApplicantAndUser) (*ddl.GetOauthURLResponse, *response.Error)
 	// 応募者取得(1件)*
@@ -140,10 +140,16 @@ func (s *ApplicantService) Search(req *request.ApplicantSearch) (*response.Appli
 		}
 		row.Users = strings.Join(userHashKeys, ",")
 		row.UserNames = strings.Join(userNames, ",")
+		row.ID = 0
+	}
+
+	var res []entity.ApplicantSearch
+	for _, row := range applicants {
+		res = append(res, *row)
 	}
 
 	return &response.ApplicantSearch{
-		List: applicants,
+		List: res,
 	}, nil
 }
 
@@ -218,11 +224,11 @@ func (s *ApplicantService) GetStatusList(req *request.ApplicantStatusList) (*res
 }
 
 // 応募者ダウンロード
-func (s *ApplicantService) Download(req *request.ApplicantDownloadRequest) *response.Error {
+func (s *ApplicantService) Download(req *request.ApplicantDownload) (*response.ApplicantDownload, *response.Error) {
 	// バリデーション
 	if err := s.v.Download(req); err != nil {
 		log.Printf("%v", err)
-		return &response.Error{
+		return nil, &response.Error{
 			Status: http.StatusBadRequest,
 			Code:   static.CODE_BAD_REQUEST,
 		}
@@ -230,10 +236,26 @@ func (s *ApplicantService) Download(req *request.ApplicantDownloadRequest) *resp
 	for _, row := range req.Applicants {
 		if err := s.v.DownloadSub(&row); err != nil {
 			log.Printf("%v", err)
-			return &response.Error{
+			return nil, &response.Error{
 				Status: http.StatusBadRequest,
 				Code:   static.CODE_BAD_REQUEST,
 			}
+		}
+	}
+
+	// 重複チェック
+	var request request.ApplicantDownload
+	for _, row := range req.Applicants {
+		count, err := s.r.CheckDuplByOuterId(&ddl.Applicant{
+			OuterID: row.OuterID,
+		})
+		if err != nil {
+			return nil, &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+		if *count == 0 {
+			request.Applicants = append(request.Applicants, row)
 		}
 	}
 
@@ -241,27 +263,27 @@ func (s *ApplicantService) Download(req *request.ApplicantDownloadRequest) *resp
 	ctx := context.Background()
 	team, teamErr := s.redis.Get(ctx, req.UserHashKey, static.REDIS_USER_TEAM_ID)
 	if teamErr != nil {
-		return &response.Error{
+		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
 	teamID, teamIDErr := strconv.ParseUint(*team, 10, 64)
 	if teamIDErr != nil {
-		return &response.Error{
+		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
 
 	company, companyErr := s.redis.Get(ctx, req.UserHashKey, static.REDIS_USER_COMPANY_ID)
 	if companyErr != nil {
-		return &response.Error{
+		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
 	companyID, companyParseErr := strconv.ParseUint(*company, 10, 64)
 	if companyParseErr != nil {
 		log.Printf("%v", companyParseErr)
-		return &response.Error{
+		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
@@ -273,31 +295,31 @@ func (s *ApplicantService) Download(req *request.ApplicantDownloadRequest) *resp
 		},
 	})
 	if siteErr != nil {
-		return &response.Error{
+		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
 
 	tx, txErr := s.d.TxStart()
 	if txErr != nil {
-		return &response.Error{
+		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
 
 	// 一括登録
-	for _, row := range req.Applicants {
+	for _, row := range request.Applicants {
 		// ハッシュキー生成
 		_, hash, hashErr := GenerateHash(1, 25)
 		if hashErr != nil {
 			if err := s.d.TxRollback(tx); err != nil {
-				return &response.Error{
+				return nil, &response.Error{
 					Status: http.StatusInternalServerError,
 				}
 			}
 
 			log.Printf("%v", hashErr)
-			return &response.Error{
+			return nil, &response.Error{
 				Status: http.StatusInternalServerError,
 			}
 		}
@@ -318,23 +340,25 @@ func (s *ApplicantService) Download(req *request.ApplicantDownloadRequest) *resp
 			TeamID:  teamID,
 		}); err != nil {
 			if err := s.d.TxRollback(tx); err != nil {
-				return &response.Error{
+				return nil, &response.Error{
 					Status: http.StatusInternalServerError,
 				}
 			}
-			return &response.Error{
+			return nil, &response.Error{
 				Status: http.StatusInternalServerError,
 			}
 		}
 	}
 
 	if err := s.d.TxCommit(tx); err != nil {
-		return &response.Error{
+		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
 
-	return nil
+	return &response.ApplicantDownload{
+		UpdateNum: len(request.Applicants),
+	}, nil
 }
 
 // 認証URL作成

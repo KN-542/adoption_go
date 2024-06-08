@@ -16,3 +16,8 @@ type ApplicantSites struct {
 type ApplicantStatusList struct {
 	List []entity.ApplicantStatus `json:"list"`
 }
+
+// 応募者ダウンロード
+type ApplicantDownload struct {
+	UpdateNum int `json:"update_num"`
+}

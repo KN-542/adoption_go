@@ -28,7 +28,7 @@ type ApplicantStatusList struct {
 }
 
 // 応募者ダウンロード sub request
-type ApplicantDownloadSubRequest struct {
+type ApplicantDownloadSub struct {
 	// 媒体側ID
 	OuterID string `json:"outer_id"`
 	// 氏名
@@ -42,10 +42,10 @@ type ApplicantDownloadSubRequest struct {
 }
 
 // 応募者ダウンロード
-type ApplicantDownloadRequest struct {
+type ApplicantDownload struct {
 	Abstract
 	// サイトハッシュキー
 	SiteHashKey string `json:"site_hash_key"`
 	// 応募者
-	Applicants []ApplicantDownloadSubRequest `json:"applicants"`
+	Applicants []ApplicantDownloadSub `json:"applicants"`
 }

@@ -17,11 +17,13 @@ type IApplicantRepository interface {
 	// 登録
 	Insert(tx *gorm.DB, applicant *ddl.Applicant) error
 	// 検索
-	Search(m *dto.ApplicantSearch) ([]entity.ApplicantSearch, error)
+	Search(m *dto.ApplicantSearch) ([]*entity.ApplicantSearch, error)
 	// 応募者ステータス一覧
 	ListStatus(m *ddl.SelectStatus) ([]entity.ApplicantStatus, error)
 	// 取得(Email)
 	GetByEmail(applicant *ddl.Applicant) ([]entity.Applicant, error)
+	// 応募者重複チェック(outer_id)
+	CheckDuplByOuterId(m *ddl.Applicant) (*int64, error)
 	// PK検索(カウント)*
 	CountByPrimaryKey(key *string) (*int64, error)
 	// 応募者取得(ハッシュキー)*
@@ -55,8 +57,8 @@ func (a *ApplicantRepository) Insert(tx *gorm.DB, applicant *ddl.Applicant) erro
 }
 
 // 検索
-func (a *ApplicantRepository) Search(m *dto.ApplicantSearch) ([]entity.ApplicantSearch, error) {
-	var applicants []entity.ApplicantSearch
+func (a *ApplicantRepository) Search(m *dto.ApplicantSearch) ([]*entity.ApplicantSearch, error) {
+	var applicants []*entity.ApplicantSearch
 
 	year := time.Now().Year()
 	month := time.Now().Month()
@@ -192,6 +194,16 @@ func (a *ApplicantRepository) GetByHashKey(m *ddl.Applicant) (*ddl.Applicant, er
 	}
 
 	return &res, nil
+}
+
+// 応募者重複チェック(outer_id)
+func (a *ApplicantRepository) CheckDuplByOuterId(m *ddl.Applicant) (*int64, error) {
+	var count int64
+	if err := a.db.Model(&ddl.Applicant{}).Where("outer_id = ?", m.OuterID).Count(&count).Error; err != nil {
+		log.Printf("%v", err)
+		return nil, err
+	}
+	return &count, nil
 }
 
 // 面接希望日取得
