@@ -3,7 +3,7 @@ package request
 import "api/src/model/ddl"
 
 // 登録
-type UserCreate struct {
+type CreateUser struct {
 	ddl.User
 	// 所属チーム
 	Teams []string `json:"teams"`
@@ -11,7 +11,54 @@ type UserCreate struct {
 	RoleHashKey string `json:"role_hash_key"`
 }
 
-// チーム所属ユーザー一覧
-type UserSearch struct {
+// 検索
+type SearchUser struct {
 	ddl.User
+}
+
+// 取得
+type GetUser struct {
+	ddl.User
+}
+
+// チーム登録
+type CreateTeam struct {
+	Abstract
+	ddl.Team
+	// ユーザーリスト
+	Users []string `json:"users"`
+}
+
+// チーム検索
+type SearchTeam struct {
+	Abstract
+	ddl.Team
+}
+
+// 予定登録
+type CreateSchedule struct {
+	Abstract
+	ddl.UserSchedule
+	// ユーザーリスト
+	Users []string `json:"users"`
+}
+
+// 予定更新
+type UpdateSchedule struct {
+	Abstract
+	ddl.UserSchedule
+	// ユーザーリスト
+	Users []string `json:"users"`
+}
+
+// 予定検索
+type SearchSchedule struct {
+	Abstract
+	ddl.UserSchedule
+}
+
+// 予定削除
+type DeleteSchedule struct {
+	Abstract
+	ddl.UserSchedule
 }

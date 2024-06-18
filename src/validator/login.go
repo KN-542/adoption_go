@@ -23,6 +23,14 @@ type ILoginValidator interface {
 	Logout(u *request.Logout) error
 	// ログイン種別取得
 	GetLoginType(u *request.GetLoginType) error
+	// ログイン(応募者)
+	LoginApplicant(u *request.LoginApplicant) error
+	// MFA 認証コード生成(応募者)
+	CodeGenerateApplicant(u *request.CodeGenerateApplicant) error
+	// MFA(応募者)
+	MFAApplicant(u *request.MFAApplicant) error
+	// ログアウト(応募者)
+	LogoutApplicant(u *request.LogoutApplicant) error
 }
 
 type LoginValidator struct{}
@@ -132,6 +140,58 @@ func (v *LoginValidator) Logout(u *request.Logout) error {
 
 // ログイン種別取得
 func (v *LoginValidator) GetLoginType(u *request.GetLoginType) error {
+	return validation.ValidateStruct(
+		u,
+		validation.Field(
+			&u.HashKey,
+			validation.Required,
+		),
+	)
+}
+
+// ログイン(応募者)
+func (v *LoginValidator) LoginApplicant(u *request.LoginApplicant) error {
+	return validation.ValidateStruct(
+		u,
+		validation.Field(
+			&u.Email,
+			validation.Required,
+			validation.Length(1, 100),
+			is.Email,
+		),
+	)
+}
+
+// MFA 認証コード生成(応募者)
+func (v *LoginValidator) CodeGenerateApplicant(u *request.CodeGenerateApplicant) error {
+	return validation.ValidateStruct(
+		u,
+		validation.Field(
+			&u.HashKey,
+			validation.Required,
+		),
+	)
+}
+
+// MFA(応募者)
+func (v *LoginValidator) MFAApplicant(u *request.MFAApplicant) error {
+	return validation.ValidateStruct(
+		u,
+		validation.Field(
+			&u.HashKey,
+			validation.Required,
+		),
+		validation.Field(
+			&u.Code,
+			validation.Required,
+			validation.Length(6, 6),
+			is.UTFNumeric,
+		),
+	)
+}
+
+// ログアウト(応募者)
+func (v *LoginValidator) LogoutApplicant(u *request.LogoutApplicant) error {
 	return validation.ValidateStruct(
 		u,
 		validation.Field(

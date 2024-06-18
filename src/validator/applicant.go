@@ -1,7 +1,6 @@
 package validator
 
 import (
-	"api/src/model/ddl"
 	"api/src/model/request"
 	"api/src/model/static"
 
@@ -10,14 +9,28 @@ import (
 )
 
 type IApplicantValidator interface {
-	Search(a *request.ApplicantSearch) error
+	// 検索
+	Search(a *request.SearchApplicant) error
+	// 応募者ダウンロード
 	Download(a *request.ApplicantDownload) error
+	// 応募者ダウンロード_サブ構造体
 	DownloadSub(a *request.ApplicantDownloadSub) error
+	// 応募者ステータス一覧取得
 	GetStatusList(a *request.ApplicantStatusList) error
-	HashKeyValidate(a *ddl.Applicant) error
-	S3UploadValidator(a *ddl.FileUpload) error
-	S3DownloadValidator(a *ddl.FileDownload) error
-	InsertDesiredAtValidator(a *ddl.ApplicantDesired) error
+	// 予約表表示
+	ReserveTable(a *request.ReserveTable) error
+	// 書類アップロード(S3)
+	S3Upload(a *request.FileUpload) error
+	// 書類ダウンロード(S3)
+	S3Download(a *request.FileDownload) error
+	// 取得
+	Get(a *request.GetApplicant) error
+	// 認証URL作成
+	GetOauthURL(a *request.GetOauthURL) error
+	// GetGoogleMeetUrl発行
+	GetGoogleMeetUrl(a *request.GetGoogleMeetUrl) error
+	// 面接希望日登録
+	InsertDesiredAt(a *request.InsertDesiredAt) error
 }
 
 type ApplicantValidator struct{}
@@ -26,7 +39,8 @@ func NewApplicantValidator() IApplicantValidator {
 	return &ApplicantValidator{}
 }
 
-func (v *ApplicantValidator) Search(a *request.ApplicantSearch) error {
+// 検索
+func (v *ApplicantValidator) Search(a *request.SearchApplicant) error {
 	return validation.ValidateStruct(
 		a,
 		validation.Field(
@@ -59,6 +73,7 @@ func (v *ApplicantValidator) Search(a *request.ApplicantSearch) error {
 	)
 }
 
+// 応募者ダウンロード
 func (v *ApplicantValidator) Download(a *request.ApplicantDownload) error {
 	return validation.ValidateStruct(
 		a,
@@ -69,6 +84,7 @@ func (v *ApplicantValidator) Download(a *request.ApplicantDownload) error {
 	)
 }
 
+// 応募者ダウンロード_サブ構造体
 func (v *ApplicantValidator) DownloadSub(a *request.ApplicantDownloadSub) error {
 	return validation.ValidateStruct(
 		a,
@@ -102,6 +118,7 @@ func (v *ApplicantValidator) DownloadSub(a *request.ApplicantDownloadSub) error 
 	)
 }
 
+// 応募者ステータス一覧取得
 func (v *ApplicantValidator) GetStatusList(a *request.ApplicantStatusList) error {
 	return validation.ValidateStruct(
 		a,
@@ -112,7 +129,8 @@ func (v *ApplicantValidator) GetStatusList(a *request.ApplicantStatusList) error
 	)
 }
 
-func (v *ApplicantValidator) HashKeyValidate(a *ddl.Applicant) error {
+// 予約表表示
+func (v *ApplicantValidator) ReserveTable(a *request.ReserveTable) error {
 	return validation.ValidateStruct(
 		a,
 		validation.Field(
@@ -122,7 +140,8 @@ func (v *ApplicantValidator) HashKeyValidate(a *ddl.Applicant) error {
 	)
 }
 
-func (v *ApplicantValidator) S3UploadValidator(a *ddl.FileUpload) error {
+// 書類アップロード(S3)
+func (v *ApplicantValidator) S3Upload(a *request.FileUpload) error {
 	return validation.ValidateStruct(
 		a,
 		validation.Field(
@@ -139,7 +158,9 @@ func (v *ApplicantValidator) S3UploadValidator(a *ddl.FileUpload) error {
 		),
 	)
 }
-func (v *ApplicantValidator) S3DownloadValidator(a *ddl.FileDownload) error {
+
+// 書類ダウンロード(S3)
+func (v *ApplicantValidator) S3Download(a *request.FileDownload) error {
 	return validation.ValidateStruct(
 		a,
 		validation.Field(
@@ -149,15 +170,45 @@ func (v *ApplicantValidator) S3DownloadValidator(a *ddl.FileDownload) error {
 	)
 }
 
-func (v *ApplicantValidator) InsertDesiredAtValidator(a *ddl.ApplicantDesired) error {
+// 取得
+func (v *ApplicantValidator) Get(a *request.GetApplicant) error {
 	return validation.ValidateStruct(
 		a,
 		validation.Field(
 			&a.HashKey,
 			validation.Required,
 		),
+	)
+}
+
+// 認証URL作成
+func (v *ApplicantValidator) GetOauthURL(a *request.GetOauthURL) error {
+	return validation.ValidateStruct(
+		a,
 		validation.Field(
-			&a.DesiredAt,
+			&a.HashKey,
+			validation.Required,
+		),
+	)
+}
+
+// GetGoogleMeetUrl発行
+func (v *ApplicantValidator) GetGoogleMeetUrl(a *request.GetGoogleMeetUrl) error {
+	return validation.ValidateStruct(
+		a,
+		validation.Field(
+			&a.HashKey,
+			validation.Required,
+		),
+	)
+}
+
+// 面接希望日登録
+func (v *ApplicantValidator) InsertDesiredAt(a *request.InsertDesiredAt) error {
+	return validation.ValidateStruct(
+		a,
+		validation.Field(
+			&a.HashKey,
 			validation.Required,
 		),
 	)

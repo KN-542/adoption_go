@@ -38,3 +38,30 @@ type Logout struct {
 type GetLoginType struct {
 	ddl.User
 }
+
+// LoginApplicant
+type LoginApplicant struct {
+	ddl.Applicant
+}
+
+// CodeGenerateApplicant
+type CodeGenerateApplicant struct {
+	ddl.Applicant
+}
+
+// MFAApplicant
+type MFAApplicant struct {
+	ddl.Applicant
+	// 認証コード
+	Code string `json:"code"`
+}
+
+// JWTDecodeApplicant
+type JWTDecodeApplicant struct {
+	ddl.Applicant
+}
+
+// LogoutApplicant
+type LogoutApplicant struct {
+	ddl.Applicant
+}

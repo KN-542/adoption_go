@@ -16,24 +16,22 @@ import (
 type IUserController interface {
 	// 登録
 	Create(e echo.Context) error
-	// 検索*
+	// 検索
 	Search(e echo.Context) error
-	// 検索(チーム)*
-	SearchTeams(e echo.Context) error
-	// チーム登録*
+	// チーム検索
+	SearchTeam(e echo.Context) error
+	// チーム登録
 	InsertTeam(e echo.Context) error
-	// スケジュール登録種別一覧*
-	ListScheduleType(e echo.Context) error
-	// スケジュール登録*
+	// 予定登録種別一覧
+	SearchScheduleType(e echo.Context) error
+	// 予定登録
 	InsertSchedules(e echo.Context) error
-	// スケジュール更新*
+	// 予定更新
 	UpdateSchedule(e echo.Context) error
-	// スケジュール一覧*
-	Schedules(e echo.Context) error
-	// スケジュール削除*
+	// 予定検索
+	SearchSchedule(e echo.Context) error
+	// 予定削除
 	DeleteSchedule(e echo.Context) error
-	// 予約表提示*
-	DispReserveTable(e echo.Context) error
 }
 
 type UserController struct {
@@ -56,7 +54,7 @@ func (c *UserController) GetLoginService() service.ILoginService {
 
 // 登録
 func (c *UserController) Create(e echo.Context) error {
-	req := request.UserCreate{}
+	req := request.CreateUser{}
 	if err := e.Bind(&req); err != nil {
 		log.Printf("%v", err)
 		return e.JSON(http.StatusBadRequest, fmt.Errorf(static.MESSAGE_BAD_REQUEST))
@@ -69,6 +67,7 @@ func (c *UserController) Create(e echo.Context) error {
 		req.HashKey,
 		JWT_TOKEN,
 		JWT_SECRET,
+		true,
 	); err != nil {
 		return err
 	}
@@ -91,7 +90,7 @@ func (c *UserController) Create(e echo.Context) error {
 	}
 
 	// ロールチェック
-	exist, roleErr := c.role.Check(&request.RoleCheck{
+	exist, roleErr := c.role.Check(&request.CheckRole{
 		Abstract: request.Abstract{
 			UserHashKey: req.HashKey,
 		},
@@ -117,7 +116,7 @@ func (c *UserController) Create(e echo.Context) error {
 
 // 検索
 func (c *UserController) Search(e echo.Context) error {
-	req := request.UserSearch{}
+	req := request.SearchUser{}
 	if err := e.Bind(&req); err != nil {
 		log.Printf("%v", err)
 		return e.JSON(http.StatusBadRequest, fmt.Errorf(static.MESSAGE_BAD_REQUEST))
@@ -130,6 +129,7 @@ func (c *UserController) Search(e echo.Context) error {
 		req.HashKey,
 		JWT_TOKEN,
 		JWT_SECRET,
+		true,
 	); err != nil {
 		return err
 	}
@@ -152,7 +152,7 @@ func (c *UserController) Search(e echo.Context) error {
 	}
 
 	// ロールチェック
-	exist, roleErr := c.role.Check(&request.RoleCheck{
+	exist, roleErr := c.role.Check(&request.CheckRole{
 		Abstract: request.Abstract{
 			UserHashKey: req.HashKey,
 		},
@@ -175,9 +175,44 @@ func (c *UserController) Search(e echo.Context) error {
 	return e.JSON(http.StatusOK, res)
 }
 
-// 検索(チーム)
-func (c *UserController) SearchTeams(e echo.Context) error {
-	res, err := c.s.SearchTeams()
+// チーム検索
+func (c *UserController) SearchTeam(e echo.Context) error {
+	req := request.SearchTeam{}
+	if err := e.Bind(&req); err != nil {
+		log.Printf("%v", err)
+		return e.JSON(http.StatusBadRequest, fmt.Errorf(static.MESSAGE_BAD_REQUEST))
+	}
+
+	// JWT検証
+	if err := JWTDecodeCommon(
+		c,
+		e,
+		req.UserHashKey,
+		JWT_TOKEN,
+		JWT_SECRET,
+		true,
+	); err != nil {
+		return err
+	}
+
+	// ロールチェック
+	exist, roleErr := c.role.Check(&request.CheckRole{
+		Abstract: request.Abstract{
+			UserHashKey: req.UserHashKey,
+		},
+		ID: static.ROLE_MANAGEMENT_TEAM_READ,
+	})
+	if roleErr != nil {
+		return e.JSON(roleErr.Status, response.ErrorConvert(*roleErr))
+	}
+	if !exist {
+		err := &response.Error{
+			Status: http.StatusNoContent,
+		}
+		return e.JSON(err.Status, response.ErrorConvert(*err))
+	}
+
+	res, err := c.s.SearchTeam(&req)
 	if err != nil {
 		return e.JSON(err.Status, response.ErrorConvert(*err))
 	}
@@ -186,10 +221,39 @@ func (c *UserController) SearchTeams(e echo.Context) error {
 
 // チーム登録
 func (c *UserController) InsertTeam(e echo.Context) error {
-	req := ddl.TeamRequest{}
+	req := request.CreateTeam{}
 	if err := e.Bind(&req); err != nil {
 		log.Printf("%v", err)
 		return e.JSON(http.StatusBadRequest, fmt.Errorf(static.MESSAGE_BAD_REQUEST))
+	}
+
+	// JWT検証
+	if err := JWTDecodeCommon(
+		c,
+		e,
+		req.UserHashKey,
+		JWT_TOKEN,
+		JWT_SECRET,
+		true,
+	); err != nil {
+		return err
+	}
+
+	// ロールチェック
+	exist, roleErr := c.role.Check(&request.CheckRole{
+		Abstract: request.Abstract{
+			UserHashKey: req.UserHashKey,
+		},
+		ID: static.ROLE_MANAGEMENT_TEAM_CREATE,
+	})
+	if roleErr != nil {
+		return e.JSON(roleErr.Status, response.ErrorConvert(*roleErr))
+	}
+	if !exist {
+		err := &response.Error{
+			Status: http.StatusUnauthorized,
+		}
+		return e.JSON(err.Status, response.ErrorConvert(*err))
 	}
 
 	if err := c.s.CreateTeam(&req); err != nil {
@@ -198,21 +262,50 @@ func (c *UserController) InsertTeam(e echo.Context) error {
 	return e.JSON(http.StatusOK, "OK")
 }
 
-// スケジュール登録種別一覧
-func (c *UserController) ListScheduleType(e echo.Context) error {
-	res, err := c.s.ListScheduleType()
+// 予定登録種別一覧
+func (c *UserController) SearchScheduleType(e echo.Context) error {
+	res, err := c.s.SearchScheduleType()
 	if err != nil {
 		return e.JSON(err.Status, response.ErrorConvert(*err))
 	}
 	return e.JSON(http.StatusOK, res)
 }
 
-// スケジュール登録
+// 予定登録
 func (c *UserController) InsertSchedules(e echo.Context) error {
-	req := ddl.UserScheduleRequest{}
+	req := request.CreateSchedule{}
 	if err := e.Bind(&req); err != nil {
 		log.Printf("%v", err)
 		return e.JSON(http.StatusBadRequest, fmt.Errorf(static.MESSAGE_BAD_REQUEST))
+	}
+
+	// JWT検証
+	if err := JWTDecodeCommon(
+		c,
+		e,
+		req.UserHashKey,
+		JWT_TOKEN,
+		JWT_SECRET,
+		true,
+	); err != nil {
+		return err
+	}
+
+	// ロールチェック
+	exist, roleErr := c.role.Check(&request.CheckRole{
+		Abstract: request.Abstract{
+			UserHashKey: req.UserHashKey,
+		},
+		ID: static.ROLE_MANAGEMENT_CALENDAR_CREATE,
+	})
+	if roleErr != nil {
+		return e.JSON(roleErr.Status, response.ErrorConvert(*roleErr))
+	}
+	if !exist {
+		err := &response.Error{
+			Status: http.StatusUnauthorized,
+		}
+		return e.JSON(err.Status, response.ErrorConvert(*err))
 	}
 
 	_, err := c.s.CreateSchedule(&req)
@@ -222,12 +315,41 @@ func (c *UserController) InsertSchedules(e echo.Context) error {
 	return e.JSON(http.StatusOK, "OK")
 }
 
-// スケジュール更新
+// 予定更新
 func (c *UserController) UpdateSchedule(e echo.Context) error {
-	req := ddl.UserScheduleRequest{}
+	req := request.UpdateSchedule{}
 	if err := e.Bind(&req); err != nil {
 		log.Printf("%v", err)
 		return e.JSON(http.StatusBadRequest, fmt.Errorf(static.MESSAGE_BAD_REQUEST))
+	}
+
+	// JWT検証
+	if err := JWTDecodeCommon(
+		c,
+		e,
+		req.UserHashKey,
+		JWT_TOKEN,
+		JWT_SECRET,
+		true,
+	); err != nil {
+		return err
+	}
+
+	// ロールチェック
+	exist, roleErr := c.role.Check(&request.CheckRole{
+		Abstract: request.Abstract{
+			UserHashKey: req.UserHashKey,
+		},
+		ID: static.ROLE_MANAGEMENT_CALENDAR_EDIT,
+	})
+	if roleErr != nil {
+		return e.JSON(roleErr.Status, response.ErrorConvert(*roleErr))
+	}
+	if !exist {
+		err := &response.Error{
+			Status: http.StatusUnauthorized,
+		}
+		return e.JSON(err.Status, response.ErrorConvert(*err))
 	}
 
 	if err := c.s.UpdateSchedule(&req); err != nil {
@@ -236,34 +358,89 @@ func (c *UserController) UpdateSchedule(e echo.Context) error {
 	return e.JSON(http.StatusOK, "OK")
 }
 
-// スケジュール一覧
-func (c *UserController) Schedules(e echo.Context) error {
-	res, err := c.s.Schedules()
+// 予定検索
+func (c *UserController) SearchSchedule(e echo.Context) error {
+	req := request.SearchSchedule{}
+	if err := e.Bind(&req); err != nil {
+		log.Printf("%v", err)
+		return e.JSON(http.StatusBadRequest, fmt.Errorf(static.MESSAGE_BAD_REQUEST))
+	}
+
+	// JWT検証
+	if err := JWTDecodeCommon(
+		c,
+		e,
+		req.UserHashKey,
+		JWT_TOKEN,
+		JWT_SECRET,
+		true,
+	); err != nil {
+		return err
+	}
+
+	// ロールチェック
+	exist, roleErr := c.role.Check(&request.CheckRole{
+		Abstract: request.Abstract{
+			UserHashKey: req.UserHashKey,
+		},
+		ID: static.ROLE_MANAGEMENT_CALENDAR_READ,
+	})
+	if roleErr != nil {
+		return e.JSON(roleErr.Status, response.ErrorConvert(*roleErr))
+	}
+	if !exist {
+		err := &response.Error{
+			Status: http.StatusNoContent,
+		}
+		return e.JSON(err.Status, response.ErrorConvert(*err))
+	}
+
+	res, err := c.s.SearchSchedule(&req)
 	if err != nil {
 		return e.JSON(err.Status, response.ErrorConvert(*err))
 	}
 	return e.JSON(http.StatusOK, res)
 }
 
-// スケジュール削除
+// 予定削除
 func (c *UserController) DeleteSchedule(e echo.Context) error {
-	req := ddl.UserSchedule{}
+	req := request.DeleteSchedule{}
 	if err := e.Bind(&req); err != nil {
 		log.Printf("%v", err)
 		return e.JSON(http.StatusBadRequest, fmt.Errorf(static.MESSAGE_BAD_REQUEST))
+	}
+
+	// JWT検証
+	if err := JWTDecodeCommon(
+		c,
+		e,
+		req.UserHashKey,
+		JWT_TOKEN,
+		JWT_SECRET,
+		true,
+	); err != nil {
+		return err
+	}
+
+	// ロールチェック
+	exist, roleErr := c.role.Check(&request.CheckRole{
+		Abstract: request.Abstract{
+			UserHashKey: req.UserHashKey,
+		},
+		ID: static.ROLE_MANAGEMENT_CALENDAR_DELETE,
+	})
+	if roleErr != nil {
+		return e.JSON(roleErr.Status, response.ErrorConvert(*roleErr))
+	}
+	if !exist {
+		err := &response.Error{
+			Status: http.StatusUnauthorized,
+		}
+		return e.JSON(err.Status, response.ErrorConvert(*err))
 	}
 
 	if err := c.s.DeleteSchedule(&req); err != nil {
 		return e.JSON(err.Status, response.ErrorConvert(*err))
 	}
 	return e.JSON(http.StatusOK, "OK")
-}
-
-// 予約表提示
-func (c *UserController) DispReserveTable(e echo.Context) error {
-	res, err := c.s.DispReserveTable()
-	if err != nil {
-		return e.JSON(err.Status, response.ErrorConvert(*err))
-	}
-	return e.JSON(http.StatusOK, res)
 }

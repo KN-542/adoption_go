@@ -15,7 +15,7 @@ type User struct {
 }
 
 // Search
-type UserSearch struct {
+type SearchUser struct {
 	ddl.User
 	// TODO
 }
@@ -25,7 +25,24 @@ type Team struct {
 	ddl.Team
 }
 
+// Team Search
+type SearchTeam struct {
+	ddl.Team
+	// 所属ユーザー
+	Users []string `json:"users"`
+}
+
+// UserSchedule
+type UserSchedule struct {
+	ddl.UserSchedule
+}
+
 // Team Association
 type TeamAssociation struct {
 	ddl.TeamAssociation
+}
+
+// UserScheduleAssociation
+type UserScheduleAssociation struct {
+	ddl.UserScheduleAssociation
 }

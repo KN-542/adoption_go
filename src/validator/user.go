@@ -1,7 +1,6 @@
 package validator
 
 import (
-	"api/src/model/ddl"
 	"api/src/model/request"
 	"api/src/model/static"
 
@@ -9,17 +8,27 @@ import (
 	"github.com/go-ozzo/ozzo-validation/v4/is"
 )
 
-// TODO 名前の末尾からValidateを除去
 type IUserValidator interface {
-	Create(u *request.UserCreate) error
-	CreateManagement(u *request.UserCreate) error
-	Search(u *request.UserSearch) error
-	CreateTeamValidate(u *ddl.TeamRequest) error
-	CreateScheduleValidate(u *ddl.UserScheduleRequest) error
-	ScheduleHashKeyValidate(u *ddl.UserSchedule) error
-	LoginApplicantValidate(u *ddl.Applicant) error
-	HashKeyValidateApplicant(u *ddl.Applicant) error
-	HashKeyValidate(u *ddl.User) error
+	// 登録
+	Create(u *request.CreateUser) error
+	// 登録_管理者
+	CreateManagement(u *request.CreateUser) error
+	// 検索
+	Search(u *request.SearchUser) error
+	// 取得
+	Get(u *request.GetUser) error
+	// チーム検索
+	SearchTeam(u *request.SearchTeam) error
+	// チーム登録
+	CreateTeam(u *request.CreateTeam) error
+	// 予定登録
+	CreateSchedule(u *request.CreateSchedule) error
+	// 予定更新
+	UpdateSchedule(u *request.UpdateSchedule) error
+	// 予定検索
+	SearchSchedule(u *request.SearchSchedule) error
+	// 予定削除
+	DeleteSchedule(u *request.DeleteSchedule) error
 }
 
 type UserValidator struct{}
@@ -28,7 +37,8 @@ func NewUserValidator() IUserValidator {
 	return &UserValidator{}
 }
 
-func (v *UserValidator) Create(u *request.UserCreate) error {
+// 登録
+func (v *UserValidator) Create(u *request.CreateUser) error {
 	return validation.ValidateStruct(
 		u,
 		validation.Field(
@@ -49,7 +59,8 @@ func (v *UserValidator) Create(u *request.UserCreate) error {
 	)
 }
 
-func (v *UserValidator) CreateManagement(u *request.UserCreate) error {
+// 登録_管理者
+func (v *UserValidator) CreateManagement(u *request.CreateUser) error {
 	return validation.ValidateStruct(
 		u,
 		validation.Field(
@@ -62,17 +73,29 @@ func (v *UserValidator) CreateManagement(u *request.UserCreate) error {
 	)
 }
 
-func (v *UserValidator) Search(u *request.UserSearch) error {
+// 検索
+func (v *UserValidator) Search(u *request.SearchUser) error {
 	return validation.ValidateStruct(
 		u,
-		validation.Field(
-			&u.HashKey,
-			validation.Required,
-		),
 	)
 }
 
-func (v *UserValidator) CreateTeamValidate(u *ddl.TeamRequest) error {
+// 取得
+func (v *UserValidator) Get(u *request.GetUser) error {
+	return validation.ValidateStruct(
+		u,
+	)
+}
+
+// チーム検索
+func (v *UserValidator) SearchTeam(u *request.SearchTeam) error {
+	return validation.ValidateStruct(
+		u,
+	)
+}
+
+// チーム登録
+func (v *UserValidator) CreateTeam(u *request.CreateTeam) error {
 	return validation.ValidateStruct(
 		u,
 		validation.Field(
@@ -83,7 +106,7 @@ func (v *UserValidator) CreateTeamValidate(u *ddl.TeamRequest) error {
 	)
 }
 
-func (v *UserValidator) CreateScheduleValidate(u *ddl.UserScheduleRequest) error {
+func (v *UserValidator) CreateSchedule(u *request.CreateSchedule) error {
 	return validation.ValidateStruct(
 		u,
 		validation.Field(
@@ -108,39 +131,41 @@ func (v *UserValidator) CreateScheduleValidate(u *ddl.UserScheduleRequest) error
 	)
 }
 
-func (v *UserValidator) ScheduleHashKeyValidate(u *ddl.UserSchedule) error {
+// 予定更新
+func (v *UserValidator) UpdateSchedule(u *request.UpdateSchedule) error {
 	return validation.ValidateStruct(
 		u,
 		validation.Field(
-			&u.HashKey,
+			&u.FreqID,
+			validation.Min(0),
+			validation.Max(uint(static.FREQ_NONE)),
+			IsUintValidator{},
+		),
+		validation.Field(
+			&u.Start,
 			validation.Required,
+		),
+		validation.Field(
+			&u.End,
+			validation.Required,
+		),
+		validation.Field(
+			&u.Title,
+			validation.Required,
+			validation.Length(1, 30),
 		),
 	)
 }
 
-func (v *UserValidator) HashKeyValidateApplicant(u *ddl.Applicant) error {
+// 予定検索
+func (v *UserValidator) SearchSchedule(u *request.SearchSchedule) error {
 	return validation.ValidateStruct(
 		u,
-		validation.Field(
-			&u.HashKey,
-			validation.Required,
-		),
 	)
 }
 
-func (v *UserValidator) LoginApplicantValidate(u *ddl.Applicant) error {
-	return validation.ValidateStruct(
-		u,
-		validation.Field(
-			&u.Email,
-			validation.Required,
-			validation.Length(1, 50),
-			is.Email,
-		),
-	)
-}
-
-func (v *UserValidator) HashKeyValidate(u *ddl.User) error {
+// 予定削除
+func (v *UserValidator) DeleteSchedule(u *request.DeleteSchedule) error {
 	return validation.ValidateStruct(
 		u,
 		validation.Field(

@@ -61,6 +61,7 @@ func main() {
 		redisRepository,
 		applicantValidator,
 		dbRepository,
+		outerRepository,
 	)
 	loginService := service.NewLoginService(userRepository, applicantRepository, redisRepository, loginValidator, userValidator, dbRepository)
 	userService := service.NewUserService(

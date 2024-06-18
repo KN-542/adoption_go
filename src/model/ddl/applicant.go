@@ -33,8 +33,8 @@ type Applicant struct {
 	GoogleMeetURL string `json:"google_meet_url" gorm:"type:text"`
 	// チームID
 	TeamID uint64 `json:"team_id"`
-	// カレンダーID
-	CalendarID uint64 `json:"calendar_id"`
+	// 予定ID
+	ScheduleID uint64 `json:"schedule_id"`
 	// サイト(外部キー)
 	Site Site `gorm:"foreignKey:site_id;references:id"`
 	// ステータス(外部キー)
@@ -67,52 +67,4 @@ func (t ApplicantUserAssociation) TableName() string {
 	year := time.Now().Year()
 	month := time.Now().Month()
 	return fmt.Sprintf("t_applicant_user_association_%d_%02d", year, month)
-}
-
-type GetOauthURLResponse struct {
-	Url string `json:"url"`
-}
-
-/*
-	txt、csvダウンロード用
-*/
-// 応募者ダウンロード
-type ApplicantsDownload struct {
-	Values [][]string `json:"values"`
-	Site   int        `json:"site"`
-}
-
-type ApplicantDesired struct {
-	// ハッシュキー
-	HashKey string `json:"hash_key"`
-	// 希望面接日時
-	DesiredAt time.Time `json:"desired_at"`
-	// タイトル
-	Title string `json:"title"`
-	// カレンダーハッシュキー
-	CalendarHashKey string `json:"calendar_hash_key"`
-}
-
-type ApplicantAndUser struct {
-	Applicant   Applicant `json:"applicant"`
-	UserHashKey string    `json:"user_hash_key"`
-	Code        string    `json:"code"`
-}
-
-// ファイルアップロード
-type FileUpload struct {
-	// ハッシュキー
-	HashKey string `json:"hash_key"`
-	// ファイル拡張子
-	Extension string `json:"extension"`
-	// ファイル名(Pre)
-	NamePre string `json:"name_pre"`
-}
-
-// ファイルダウンロード
-type FileDownload struct {
-	// ハッシュキー
-	HashKey string `json:"hash_key"`
-	// ファイル名(Pre)
-	NamePre string `json:"name_pre"`
 }

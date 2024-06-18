@@ -14,9 +14,9 @@ import (
 )
 
 type IAWSRepository interface {
-	// S3アップロード*
+	// S3アップロード
 	S3Upload(key string, fileHeader *multipart.FileHeader) error
-	// S3ダウンロード*
+	// S3ダウンロード
 	S3Download(fileName string) ([]byte, error)
 }
 

@@ -1,7 +1,7 @@
 package response
 
 // 登録
-type CompanyCreate struct {
+type CreateCompany struct {
 	// パスワード
 	Password string `json:"password"`
 }

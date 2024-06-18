@@ -9,7 +9,7 @@ import (
 
 type IAdminRepository interface {
 	// 企業登録
-	InsertCompany(tx *gorm.DB, m *ddl.Company) error
+	Insert(tx *gorm.DB, m *ddl.Company) error
 }
 
 type AdminRepository struct {
@@ -21,7 +21,7 @@ func NewAdminRepository(db *gorm.DB) IAdminRepository {
 }
 
 // 企業登録
-func (a *AdminRepository) InsertCompany(tx *gorm.DB, m *ddl.Company) error {
+func (a *AdminRepository) Insert(tx *gorm.DB, m *ddl.Company) error {
 	if err := tx.Create(m).Error; err != nil {
 		log.Printf("%v", err)
 		return err

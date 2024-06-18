@@ -1,7 +1,7 @@
 package request
 
 // ロールチェック
-type RoleCheck struct {
+type CheckRole struct {
 	Abstract
 	// 該当ロールID
 	ID uint `json:"id"`

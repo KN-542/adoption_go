@@ -13,7 +13,7 @@ import (
 
 type ICompanyService interface {
 	// 登録
-	Create(req *request.CompanyCreate) (*response.CompanyCreate, *response.Error)
+	Create(req *request.CreateCompany) (*response.CreateCompany, *response.Error)
 }
 
 type CompanyService struct {
@@ -37,7 +37,7 @@ func NewCompanyService(
 }
 
 // 登録
-func (c *CompanyService) Create(req *request.CompanyCreate) (*response.CompanyCreate, *response.Error) {
+func (c *CompanyService) Create(req *request.CreateCompany) (*response.CreateCompany, *response.Error) {
 	// バリデーション
 	if err := c.v.Create(req); err != nil {
 		log.Printf("%v", err)
@@ -287,7 +287,7 @@ func (c *CompanyService) Create(req *request.CompanyCreate) (*response.CompanyCr
 		}
 	}
 
-	return &response.CompanyCreate{
+	return &response.CreateCompany{
 		Password: *password,
 	}, nil
 }

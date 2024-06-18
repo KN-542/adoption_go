@@ -37,7 +37,7 @@ func (c *CompanyController) GetLoginService() service.ILoginService {
 
 // 登録
 func (c *CompanyController) Create(e echo.Context) error {
-	req := request.CompanyCreate{}
+	req := request.CreateCompany{}
 	if err := e.Bind(&req); err != nil {
 		log.Printf("%v", err)
 		return e.JSON(http.StatusBadRequest, fmt.Errorf(static.MESSAGE_BAD_REQUEST))
@@ -50,12 +50,13 @@ func (c *CompanyController) Create(e echo.Context) error {
 		req.UserHashKey,
 		JWT_TOKEN,
 		JWT_SECRET,
+		true,
 	); err != nil {
 		return err
 	}
 
 	// ロールチェック
-	exist, roleErr := c.role.Check(&request.RoleCheck{
+	exist, roleErr := c.role.Check(&request.CheckRole{
 		Abstract: request.Abstract{
 			UserHashKey: req.UserHashKey,
 		},

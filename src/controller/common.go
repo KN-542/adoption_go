@@ -52,6 +52,7 @@ func (c *CommonController) Sidebar(e echo.Context) error {
 		req.HashKey,
 		JWT_TOKEN,
 		JWT_SECRET,
+		true,
 	); err != nil {
 		return err
 	}
@@ -79,6 +80,7 @@ func (c *CommonController) Roles(e echo.Context) error {
 		req.HashKey,
 		JWT_TOKEN,
 		JWT_SECRET,
+		true,
 	); err != nil {
 		return err
 	}

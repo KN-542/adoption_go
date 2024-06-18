@@ -9,7 +9,7 @@ import (
 
 type ICompanyValidator interface {
 	// 登録
-	Create(c *request.CompanyCreate) error
+	Create(c *request.CreateCompany) error
 }
 
 type CompanyValidator struct{}
@@ -19,7 +19,7 @@ func NewCompanyValidator() ICompanyValidator {
 }
 
 // 登録
-func (v *CompanyValidator) Create(c *request.CompanyCreate) error {
+func (v *CompanyValidator) Create(c *request.CreateCompany) error {
 	return validation.ValidateStruct(
 		c,
 		validation.Field(

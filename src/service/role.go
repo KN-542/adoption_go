@@ -15,7 +15,7 @@ import (
 
 type IRoleService interface {
 	// ロールチェック
-	Check(req *request.RoleCheck) (bool, *response.Error)
+	Check(req *request.CheckRole) (bool, *response.Error)
 }
 
 type RoleService struct {
@@ -33,7 +33,7 @@ func NewRoleService(
 }
 
 // ロールチェック
-func (r *RoleService) Check(req *request.RoleCheck) (bool, *response.Error) {
+func (r *RoleService) Check(req *request.CheckRole) (bool, *response.Error) {
 	// バリデーション
 	if err := r.v.Check(req); err != nil {
 		log.Printf("%v", err)
