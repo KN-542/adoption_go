@@ -1,7 +1,7 @@
 package validator
 
 import (
-	"api/src/model/ddl"
+	"api/src/model/request"
 	"regexp"
 
 	validation "github.com/go-ozzo/ozzo-validation/v4"
@@ -9,8 +9,8 @@ import (
 )
 
 type ISampleValidator interface {
-	Sample(m *ddl.SampleModel) error
-	SampleSub(m *ddl.SampleSubModel) error
+	Sample(m *request.SampleModel) error
+	SampleSub(m *request.SampleSubModel) error
 }
 
 type SampleValidator struct{}
@@ -19,7 +19,7 @@ func NewSampleValidator() ISampleValidator {
 	return &SampleValidator{}
 }
 
-func (v *SampleValidator) Sample(m *ddl.SampleModel) error {
+func (v *SampleValidator) Sample(m *request.SampleModel) error {
 	return validation.ValidateStruct(
 		m,
 		// サンプル文字列_必須
@@ -129,7 +129,7 @@ func (v *SampleValidator) Sample(m *ddl.SampleModel) error {
 	)
 }
 
-func (v *SampleValidator) SampleSub(m *ddl.SampleSubModel) error {
+func (v *SampleValidator) SampleSub(m *request.SampleSubModel) error {
 	return validation.ValidateStruct(
 		m,
 		// サンプル文字列_必須

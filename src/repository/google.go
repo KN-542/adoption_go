@@ -1,7 +1,6 @@
 package repository
 
 import (
-	"api/src/model/ddl"
 	"api/src/model/static"
 	"context"
 	"log"
@@ -16,15 +15,15 @@ import (
 )
 
 type IGoogleRepository interface {
-	// refresh_token取得*
+	// refresh_token取得
 	GetRefreshToken() (*string, error)
-	// 認証クライアント作成*
+	// 認証クライアント作成
 	GetOauthClient() (*oauth2.Config, error)
-	// 認証URL作成*
-	GetOauthURL() (*ddl.GetOauthURLResponse, error)
-	// access_token取得*
+	// 認証URL作成
+	GetOauthURL() (*string, error)
+	// access_token取得
 	GetAccessToken(refreshToken *string, code *string) (*oauth2.Token, error)
-	// Google Meet Url 取得*
+	// Google Meet Url 取得
 	GetGoogleMeetUrl(token *oauth2.Token, title string, start, end time.Time) (*string, error)
 }
 
@@ -63,7 +62,7 @@ func (g *GoogleRepository) GetOauthClient() (*oauth2.Config, error) {
 }
 
 // 認証URL作成
-func (g *GoogleRepository) GetOauthURL() (*ddl.GetOauthURLResponse, error) {
+func (g *GoogleRepository) GetOauthURL() (*string, error) {
 	config, err := g.GetOauthClient()
 	if err != nil {
 		log.Printf("%v", err)
@@ -71,7 +70,7 @@ func (g *GoogleRepository) GetOauthURL() (*ddl.GetOauthURLResponse, error) {
 	}
 
 	authURL := config.AuthCodeURL("state-token", oauth2.AccessTypeOffline)
-	return &ddl.GetOauthURLResponse{Url: authURL}, nil
+	return &authURL, nil
 }
 
 // access_token取得

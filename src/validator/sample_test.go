@@ -1,13 +1,13 @@
 package validator
 
 import (
-	"api/src/model/ddl"
+	"api/src/model/request"
 	"testing"
 )
 
 func TestSampleValidator_Sample(t *testing.T) {
 	type args struct {
-		m *ddl.SampleModel
+		m *request.SampleModel
 	}
 	tests := []struct {
 		name    string
@@ -19,7 +19,7 @@ func TestSampleValidator_Sample(t *testing.T) {
 		{
 			"ok_required",
 			&SampleValidator{},
-			args{&ddl.SampleModel{
+			args{&request.SampleModel{
 				SampleStringRequired: "a",
 				SampleArray:          []string{"a"},
 			}},
@@ -29,7 +29,7 @@ func TestSampleValidator_Sample(t *testing.T) {
 		{
 			"ng_required_nil",
 			&SampleValidator{},
-			args{&ddl.SampleModel{
+			args{&request.SampleModel{
 				SampleArray: []string{"a"},
 			}},
 			true,
@@ -38,7 +38,7 @@ func TestSampleValidator_Sample(t *testing.T) {
 		{
 			"ng_required_empty",
 			&SampleValidator{},
-			args{&ddl.SampleModel{
+			args{&request.SampleModel{
 				SampleStringRequired: "",
 				SampleArray:          []string{"a"},
 			}},
@@ -48,7 +48,7 @@ func TestSampleValidator_Sample(t *testing.T) {
 		{
 			"ok_min_length",
 			&SampleValidator{},
-			args{&ddl.SampleModel{
+			args{&request.SampleModel{
 				SampleStringRequired: "a",
 				SampleArray:          []string{"a"},
 				SampleStringMin:      "abc",
@@ -59,7 +59,7 @@ func TestSampleValidator_Sample(t *testing.T) {
 		{
 			"ng_min_length",
 			&SampleValidator{},
-			args{&ddl.SampleModel{
+			args{&request.SampleModel{
 				SampleStringRequired: "a",
 				SampleArray:          []string{"a"},
 				SampleStringMin:      "ab",
@@ -70,7 +70,7 @@ func TestSampleValidator_Sample(t *testing.T) {
 		{
 			"ok_max_length",
 			&SampleValidator{},
-			args{&ddl.SampleModel{
+			args{&request.SampleModel{
 				SampleStringRequired: "a",
 				SampleArray:          []string{"a"},
 				SampleStringMax:      "abcdefg",
@@ -81,7 +81,7 @@ func TestSampleValidator_Sample(t *testing.T) {
 		{
 			"ng_max_length",
 			&SampleValidator{},
-			args{&ddl.SampleModel{
+			args{&request.SampleModel{
 				SampleStringRequired: "a",
 				SampleArray:          []string{"a"},
 				SampleStringMax:      "abcdefgh",
@@ -92,7 +92,7 @@ func TestSampleValidator_Sample(t *testing.T) {
 		{
 			"ok_length_1",
 			&SampleValidator{},
-			args{&ddl.SampleModel{
+			args{&request.SampleModel{
 				SampleStringRequired: "a",
 				SampleArray:          []string{"a"},
 				SampleStringLength:   "abc",
@@ -103,7 +103,7 @@ func TestSampleValidator_Sample(t *testing.T) {
 		{
 			"ok_length_2",
 			&SampleValidator{},
-			args{&ddl.SampleModel{
+			args{&request.SampleModel{
 				SampleStringRequired: "a",
 				SampleArray:          []string{"a"},
 				SampleStringLength:   "abcdefg",
@@ -114,7 +114,7 @@ func TestSampleValidator_Sample(t *testing.T) {
 		{
 			"ng_length_1",
 			&SampleValidator{},
-			args{&ddl.SampleModel{
+			args{&request.SampleModel{
 				SampleStringRequired: "a",
 				SampleArray:          []string{"a"},
 				SampleStringLength:   "ab",
@@ -125,7 +125,7 @@ func TestSampleValidator_Sample(t *testing.T) {
 		{
 			"ng_length_2",
 			&SampleValidator{},
-			args{&ddl.SampleModel{
+			args{&request.SampleModel{
 				SampleStringRequired: "a",
 				SampleArray:          []string{"a"},
 				SampleStringLength:   "abcdefgh",
@@ -136,7 +136,7 @@ func TestSampleValidator_Sample(t *testing.T) {
 		{
 			"ok_regexp",
 			&SampleValidator{},
-			args{&ddl.SampleModel{
+			args{&request.SampleModel{
 				SampleStringRequired: "a",
 				SampleArray:          []string{"a"},
 				SampleStringRegexp:   "a",
@@ -147,7 +147,7 @@ func TestSampleValidator_Sample(t *testing.T) {
 		{
 			"ng_regexp",
 			&SampleValidator{},
-			args{&ddl.SampleModel{
+			args{&request.SampleModel{
 				SampleStringRequired: "a",
 				SampleArray:          []string{"a"},
 				SampleStringRegexp:   "@",
@@ -158,7 +158,7 @@ func TestSampleValidator_Sample(t *testing.T) {
 		{
 			"ok_regexp_is",
 			&SampleValidator{},
-			args{&ddl.SampleModel{
+			args{&request.SampleModel{
 				SampleStringRequired: "a",
 				SampleArray:          []string{"a"},
 				SampleStringRegexpIs: "a",
@@ -169,7 +169,7 @@ func TestSampleValidator_Sample(t *testing.T) {
 		{
 			"ng_regexp_is",
 			&SampleValidator{},
-			args{&ddl.SampleModel{
+			args{&request.SampleModel{
 				SampleStringRequired: "a",
 				SampleArray:          []string{"a"},
 				SampleStringRegexpIs: "@",
@@ -180,7 +180,7 @@ func TestSampleValidator_Sample(t *testing.T) {
 		{
 			"int_min_ok",
 			&SampleValidator{},
-			args{&ddl.SampleModel{
+			args{&request.SampleModel{
 				SampleStringRequired: "a",
 				SampleArray:          []string{"a"},
 				SampleInt:            -5,
@@ -191,7 +191,7 @@ func TestSampleValidator_Sample(t *testing.T) {
 		{
 			"int_max_ok",
 			&SampleValidator{},
-			args{&ddl.SampleModel{
+			args{&request.SampleModel{
 				SampleStringRequired: "a",
 				SampleArray:          []string{"a"},
 				SampleInt:            5,
@@ -202,7 +202,7 @@ func TestSampleValidator_Sample(t *testing.T) {
 		{
 			"int_min_ng",
 			&SampleValidator{},
-			args{&ddl.SampleModel{
+			args{&request.SampleModel{
 				SampleStringRequired: "a",
 				SampleArray:          []string{"a"},
 				SampleInt:            -5 - 1,
@@ -213,7 +213,7 @@ func TestSampleValidator_Sample(t *testing.T) {
 		{
 			"int_max_ng",
 			&SampleValidator{},
-			args{&ddl.SampleModel{
+			args{&request.SampleModel{
 				SampleStringRequired: "a",
 				SampleArray:          []string{"a"},
 				SampleInt:            5 + 1,
@@ -224,7 +224,7 @@ func TestSampleValidator_Sample(t *testing.T) {
 		{
 			"int8_min_ok",
 			&SampleValidator{},
-			args{&ddl.SampleModel{
+			args{&request.SampleModel{
 				SampleStringRequired: "a",
 				SampleArray:          []string{"a"},
 				SampleInt8:           -5,
@@ -235,7 +235,7 @@ func TestSampleValidator_Sample(t *testing.T) {
 		{
 			"int8_max_ok",
 			&SampleValidator{},
-			args{&ddl.SampleModel{
+			args{&request.SampleModel{
 				SampleStringRequired: "a",
 				SampleArray:          []string{"a"},
 				SampleInt8:           5,
@@ -246,7 +246,7 @@ func TestSampleValidator_Sample(t *testing.T) {
 		{
 			"int8_min_ng",
 			&SampleValidator{},
-			args{&ddl.SampleModel{
+			args{&request.SampleModel{
 				SampleStringRequired: "a",
 				SampleArray:          []string{"a"},
 				SampleInt8:           -5 - 1,
@@ -257,7 +257,7 @@ func TestSampleValidator_Sample(t *testing.T) {
 		{
 			"int8_max_ng",
 			&SampleValidator{},
-			args{&ddl.SampleModel{
+			args{&request.SampleModel{
 				SampleStringRequired: "a",
 				SampleArray:          []string{"a"},
 				SampleInt8:           5 + 1,
@@ -268,7 +268,7 @@ func TestSampleValidator_Sample(t *testing.T) {
 		{
 			"int16_min_ok",
 			&SampleValidator{},
-			args{&ddl.SampleModel{
+			args{&request.SampleModel{
 				SampleStringRequired: "a",
 				SampleArray:          []string{"a"},
 				SampleInt16:          -5,
@@ -279,7 +279,7 @@ func TestSampleValidator_Sample(t *testing.T) {
 		{
 			"int16_max_ok",
 			&SampleValidator{},
-			args{&ddl.SampleModel{
+			args{&request.SampleModel{
 				SampleStringRequired: "a",
 				SampleArray:          []string{"a"},
 				SampleInt16:          5,
@@ -290,7 +290,7 @@ func TestSampleValidator_Sample(t *testing.T) {
 		{
 			"int16_min_ng",
 			&SampleValidator{},
-			args{&ddl.SampleModel{
+			args{&request.SampleModel{
 				SampleStringRequired: "a",
 				SampleArray:          []string{"a"},
 				SampleInt16:          -5 - 1,
@@ -301,7 +301,7 @@ func TestSampleValidator_Sample(t *testing.T) {
 		{
 			"int16_max_ng",
 			&SampleValidator{},
-			args{&ddl.SampleModel{
+			args{&request.SampleModel{
 				SampleStringRequired: "a",
 				SampleArray:          []string{"a"},
 				SampleInt16:          5 + 1,
@@ -312,7 +312,7 @@ func TestSampleValidator_Sample(t *testing.T) {
 		{
 			"int32_min_ok",
 			&SampleValidator{},
-			args{&ddl.SampleModel{
+			args{&request.SampleModel{
 				SampleStringRequired: "a",
 				SampleArray:          []string{"a"},
 				SampleInt32:          -5,
@@ -323,7 +323,7 @@ func TestSampleValidator_Sample(t *testing.T) {
 		{
 			"int32_max_ok",
 			&SampleValidator{},
-			args{&ddl.SampleModel{
+			args{&request.SampleModel{
 				SampleStringRequired: "a",
 				SampleArray:          []string{"a"},
 				SampleInt32:          5,
@@ -334,7 +334,7 @@ func TestSampleValidator_Sample(t *testing.T) {
 		{
 			"int32_min_ng",
 			&SampleValidator{},
-			args{&ddl.SampleModel{
+			args{&request.SampleModel{
 				SampleStringRequired: "a",
 				SampleArray:          []string{"a"},
 				SampleInt32:          -5 - 1,
@@ -345,7 +345,7 @@ func TestSampleValidator_Sample(t *testing.T) {
 		{
 			"int32_max_ng",
 			&SampleValidator{},
-			args{&ddl.SampleModel{
+			args{&request.SampleModel{
 				SampleStringRequired: "a",
 				SampleArray:          []string{"a"},
 				SampleInt32:          5 + 1,
@@ -356,7 +356,7 @@ func TestSampleValidator_Sample(t *testing.T) {
 		{
 			"int64_min_ok",
 			&SampleValidator{},
-			args{&ddl.SampleModel{
+			args{&request.SampleModel{
 				SampleStringRequired: "a",
 				SampleArray:          []string{"a"},
 				SampleInt64:          -5,
@@ -367,7 +367,7 @@ func TestSampleValidator_Sample(t *testing.T) {
 		{
 			"int64_max_ok",
 			&SampleValidator{},
-			args{&ddl.SampleModel{
+			args{&request.SampleModel{
 				SampleStringRequired: "a",
 				SampleArray:          []string{"a"},
 				SampleInt64:          5,
@@ -378,7 +378,7 @@ func TestSampleValidator_Sample(t *testing.T) {
 		{
 			"int64_min_ng",
 			&SampleValidator{},
-			args{&ddl.SampleModel{
+			args{&request.SampleModel{
 				SampleStringRequired: "a",
 				SampleArray:          []string{"a"},
 				SampleInt64:          -5 - 1,
@@ -389,7 +389,7 @@ func TestSampleValidator_Sample(t *testing.T) {
 		{
 			"int64_max_ng",
 			&SampleValidator{},
-			args{&ddl.SampleModel{
+			args{&request.SampleModel{
 				SampleStringRequired: "a",
 				SampleArray:          []string{"a"},
 				SampleInt64:          5 + 1,
@@ -400,7 +400,7 @@ func TestSampleValidator_Sample(t *testing.T) {
 		{
 			"uint_min_ok",
 			&SampleValidator{},
-			args{&ddl.SampleModel{
+			args{&request.SampleModel{
 				SampleStringRequired: "a",
 				SampleArray:          []string{"a"},
 				SampleUint:           5,
@@ -411,7 +411,7 @@ func TestSampleValidator_Sample(t *testing.T) {
 		{
 			"uint_max_ok",
 			&SampleValidator{},
-			args{&ddl.SampleModel{
+			args{&request.SampleModel{
 				SampleStringRequired: "a",
 				SampleArray:          []string{"a"},
 				SampleUint:           10,
@@ -422,7 +422,7 @@ func TestSampleValidator_Sample(t *testing.T) {
 		{
 			"uint_min_ng",
 			&SampleValidator{},
-			args{&ddl.SampleModel{
+			args{&request.SampleModel{
 				SampleStringRequired: "a",
 				SampleArray:          []string{"a"},
 				SampleUint:           5 - 1,
@@ -433,7 +433,7 @@ func TestSampleValidator_Sample(t *testing.T) {
 		{
 			"uint_max_ng",
 			&SampleValidator{},
-			args{&ddl.SampleModel{
+			args{&request.SampleModel{
 				SampleStringRequired: "a",
 				SampleArray:          []string{"a"},
 				SampleUint:           10 + 1,
@@ -444,7 +444,7 @@ func TestSampleValidator_Sample(t *testing.T) {
 		{
 			"uint8_min_ok",
 			&SampleValidator{},
-			args{&ddl.SampleModel{
+			args{&request.SampleModel{
 				SampleStringRequired: "a",
 				SampleArray:          []string{"a"},
 				SampleUint8:          5,
@@ -455,7 +455,7 @@ func TestSampleValidator_Sample(t *testing.T) {
 		{
 			"uint8_max_ok",
 			&SampleValidator{},
-			args{&ddl.SampleModel{
+			args{&request.SampleModel{
 				SampleStringRequired: "a",
 				SampleArray:          []string{"a"},
 				SampleUint8:          10,
@@ -466,7 +466,7 @@ func TestSampleValidator_Sample(t *testing.T) {
 		{
 			"uint8_min_ng",
 			&SampleValidator{},
-			args{&ddl.SampleModel{
+			args{&request.SampleModel{
 				SampleStringRequired: "a",
 				SampleArray:          []string{"a"},
 				SampleUint8:          5 - 1,
@@ -477,7 +477,7 @@ func TestSampleValidator_Sample(t *testing.T) {
 		{
 			"uint8_max_ng",
 			&SampleValidator{},
-			args{&ddl.SampleModel{
+			args{&request.SampleModel{
 				SampleStringRequired: "a",
 				SampleArray:          []string{"a"},
 				SampleUint8:          10 + 1,
@@ -488,7 +488,7 @@ func TestSampleValidator_Sample(t *testing.T) {
 		{
 			"uint16_min_ok",
 			&SampleValidator{},
-			args{&ddl.SampleModel{
+			args{&request.SampleModel{
 				SampleStringRequired: "a",
 				SampleArray:          []string{"a"},
 				SampleUint16:         5,
@@ -499,7 +499,7 @@ func TestSampleValidator_Sample(t *testing.T) {
 		{
 			"uint16_max_ok",
 			&SampleValidator{},
-			args{&ddl.SampleModel{
+			args{&request.SampleModel{
 				SampleStringRequired: "a",
 				SampleArray:          []string{"a"},
 				SampleUint16:         10,
@@ -510,7 +510,7 @@ func TestSampleValidator_Sample(t *testing.T) {
 		{
 			"uint16_min_ng",
 			&SampleValidator{},
-			args{&ddl.SampleModel{
+			args{&request.SampleModel{
 				SampleStringRequired: "a",
 				SampleArray:          []string{"a"},
 				SampleUint16:         5 - 1,
@@ -521,7 +521,7 @@ func TestSampleValidator_Sample(t *testing.T) {
 		{
 			"uint16_max_ng",
 			&SampleValidator{},
-			args{&ddl.SampleModel{
+			args{&request.SampleModel{
 				SampleStringRequired: "a",
 				SampleArray:          []string{"a"},
 				SampleUint16:         10 + 1,
@@ -532,7 +532,7 @@ func TestSampleValidator_Sample(t *testing.T) {
 		{
 			"uint32_min_ok",
 			&SampleValidator{},
-			args{&ddl.SampleModel{
+			args{&request.SampleModel{
 				SampleStringRequired: "a",
 				SampleArray:          []string{"a"},
 				SampleUint32:         5,
@@ -543,7 +543,7 @@ func TestSampleValidator_Sample(t *testing.T) {
 		{
 			"uint32_max_ok",
 			&SampleValidator{},
-			args{&ddl.SampleModel{
+			args{&request.SampleModel{
 				SampleStringRequired: "a",
 				SampleArray:          []string{"a"},
 				SampleUint32:         10,
@@ -554,7 +554,7 @@ func TestSampleValidator_Sample(t *testing.T) {
 		{
 			"uint32_min_ng",
 			&SampleValidator{},
-			args{&ddl.SampleModel{
+			args{&request.SampleModel{
 				SampleStringRequired: "a",
 				SampleArray:          []string{"a"},
 				SampleUint32:         5 - 1,
@@ -565,7 +565,7 @@ func TestSampleValidator_Sample(t *testing.T) {
 		{
 			"uint32_max_ng",
 			&SampleValidator{},
-			args{&ddl.SampleModel{
+			args{&request.SampleModel{
 				SampleStringRequired: "a",
 				SampleArray:          []string{"a"},
 				SampleUint32:         10 + 1,
@@ -576,7 +576,7 @@ func TestSampleValidator_Sample(t *testing.T) {
 		{
 			"uint64_min_ok",
 			&SampleValidator{},
-			args{&ddl.SampleModel{
+			args{&request.SampleModel{
 				SampleStringRequired: "a",
 				SampleArray:          []string{"a"},
 				SampleUint64:         5,
@@ -587,7 +587,7 @@ func TestSampleValidator_Sample(t *testing.T) {
 		{
 			"uint64_max_ok",
 			&SampleValidator{},
-			args{&ddl.SampleModel{
+			args{&request.SampleModel{
 				SampleStringRequired: "a",
 				SampleArray:          []string{"a"},
 				SampleUint64:         10,
@@ -598,7 +598,7 @@ func TestSampleValidator_Sample(t *testing.T) {
 		{
 			"uint64_min_ng",
 			&SampleValidator{},
-			args{&ddl.SampleModel{
+			args{&request.SampleModel{
 				SampleStringRequired: "a",
 				SampleArray:          []string{"a"},
 				SampleUint64:         5 - 1,
@@ -609,7 +609,7 @@ func TestSampleValidator_Sample(t *testing.T) {
 		{
 			"uint64_max_ng",
 			&SampleValidator{},
-			args{&ddl.SampleModel{
+			args{&request.SampleModel{
 				SampleStringRequired: "a",
 				SampleArray:          []string{"a"},
 				SampleUint64:         10 + 1,
@@ -620,7 +620,7 @@ func TestSampleValidator_Sample(t *testing.T) {
 		{
 			"array_ng_nil",
 			&SampleValidator{},
-			args{&ddl.SampleModel{
+			args{&request.SampleModel{
 				SampleStringRequired: "a",
 			}},
 			true,
@@ -629,7 +629,7 @@ func TestSampleValidator_Sample(t *testing.T) {
 		{
 			"array_ng_empty",
 			&SampleValidator{},
-			args{&ddl.SampleModel{
+			args{&request.SampleModel{
 				SampleStringRequired: "a",
 				SampleArray:          []string{},
 			}},
@@ -639,7 +639,7 @@ func TestSampleValidator_Sample(t *testing.T) {
 		{
 			"array_ok_el_empty",
 			&SampleValidator{},
-			args{&ddl.SampleModel{
+			args{&request.SampleModel{
 				SampleStringRequired: "a",
 				SampleArray:          []string{""},
 			}},
@@ -649,7 +649,7 @@ func TestSampleValidator_Sample(t *testing.T) {
 		{
 			"relation_ok",
 			&SampleValidator{},
-			args{&ddl.SampleModel{
+			args{&request.SampleModel{
 				SampleStringRequired: "a",
 				SampleArray:          []string{"a"},
 				SampleStringRelation: "a",
@@ -660,7 +660,7 @@ func TestSampleValidator_Sample(t *testing.T) {
 		{
 			"relation_ng",
 			&SampleValidator{},
-			args{&ddl.SampleModel{
+			args{&request.SampleModel{
 				SampleStringRequired: "a",
 				SampleArray:          []string{"a"},
 				SampleStringRelation: "ab",
@@ -680,7 +680,7 @@ func TestSampleValidator_Sample(t *testing.T) {
 
 func TestSampleValidator_SampleSub(t *testing.T) {
 	type args struct {
-		m *ddl.SampleSubModel
+		m *request.SampleSubModel
 	}
 	tests := []struct {
 		name    string
@@ -692,7 +692,7 @@ func TestSampleValidator_SampleSub(t *testing.T) {
 		{
 			"ok_required",
 			&SampleValidator{},
-			args{&ddl.SampleSubModel{
+			args{&request.SampleSubModel{
 				SampleStringRequired: "a",
 			}},
 			false,
@@ -701,14 +701,14 @@ func TestSampleValidator_SampleSub(t *testing.T) {
 		{
 			"ng_required_nil",
 			&SampleValidator{},
-			args{&ddl.SampleSubModel{}},
+			args{&request.SampleSubModel{}},
 			true,
 		},
 		// 必須 ng 空文字
 		{
 			"ng_required_empty",
 			&SampleValidator{},
-			args{&ddl.SampleSubModel{
+			args{&request.SampleSubModel{
 				SampleStringRequired: "",
 			}},
 			true,

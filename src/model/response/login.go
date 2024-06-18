@@ -22,3 +22,7 @@ type GetLoginType struct {
 	// ログイン種別
 	LoginType uint `json:"login_type"`
 }
+
+type LoginApplicant struct {
+	entity.Applicant
+}

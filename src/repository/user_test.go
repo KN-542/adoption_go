@@ -3,6 +3,7 @@ package repository
 import (
 	"api/src/infra"
 	"api/src/model/ddl"
+	"api/src/model/entity"
 	"reflect"
 	"testing"
 	"time"
@@ -395,39 +396,6 @@ func TestUserRepository_Delete(t *testing.T) {
 	}
 }
 
-func TestUserRepository_ConfirmUserByHashKeys(t *testing.T) {
-	type fields struct {
-		db *gorm.DB
-	}
-	type args struct {
-		hashKeys []string
-	}
-	tests := []struct {
-		name    string
-		fields  fields
-		args    args
-		want    []ddl.UserResponse
-		wantErr bool
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			u := &UserRepository{
-				db: tt.fields.db,
-			}
-			got, err := u.ConfirmUserByHashKeys(tt.args.hashKeys)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("UserRepository.ConfirmUserByHashKeys() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("UserRepository.ConfirmUserByHashKeys() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
 func TestUserRepository_Login(t *testing.T) {
 	type fields struct {
 		db *gorm.DB
@@ -456,100 +424,6 @@ func TestUserRepository_Login(t *testing.T) {
 			}
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("UserRepository.Login() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestUserRepository_PasswordChange(t *testing.T) {
-	type fields struct {
-		db *gorm.DB
-	}
-	type args struct {
-		tx *gorm.DB
-		m  *ddl.User
-	}
-	tests := []struct {
-		name    string
-		fields  fields
-		args    args
-		wantErr bool
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			u := &UserRepository{
-				db: tt.fields.db,
-			}
-			if err := u.PasswordChange(tt.args.tx, tt.args.m); (err != nil) != tt.wantErr {
-				t.Errorf("UserRepository.PasswordChange() error = %v, wantErr %v", err, tt.wantErr)
-			}
-		})
-	}
-}
-
-func TestUserRepository_ConfirmInitPassword(t *testing.T) {
-	type fields struct {
-		db *gorm.DB
-	}
-	type args struct {
-		m *ddl.User
-	}
-	tests := []struct {
-		name    string
-		fields  fields
-		args    args
-		want    *int8
-		wantErr bool
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			u := &UserRepository{
-				db: tt.fields.db,
-			}
-			got, err := u.ConfirmInitPassword(tt.args.m)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("UserRepository.ConfirmInitPassword() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if got != tt.want {
-				t.Errorf("UserRepository.ConfirmInitPassword() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestUserRepository_ConfirmInitPassword2(t *testing.T) {
-	type fields struct {
-		db *gorm.DB
-	}
-	type args struct {
-		m *ddl.User
-	}
-	tests := []struct {
-		name    string
-		fields  fields
-		args    args
-		want    *string
-		wantErr bool
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			u := &UserRepository{
-				db: tt.fields.db,
-			}
-			got, err := u.ConfirmInitPassword2(tt.args.m)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("UserRepository.ConfirmInitPassword2() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if got != tt.want {
-				t.Errorf("UserRepository.ConfirmInitPassword2() = %v, want %v", got, tt.want)
 			}
 		})
 	}
@@ -586,10 +460,14 @@ func TestUserRepository_SearchTeam(t *testing.T) {
 	type fields struct {
 		db *gorm.DB
 	}
+	type args struct {
+		m *ddl.Team
+	}
 	tests := []struct {
 		name    string
 		fields  fields
-		want    []ddl.TeamResponse
+		args    args
+		want    []*entity.SearchTeam
 		wantErr bool
 	}{
 		// TODO: Add test cases.
@@ -599,7 +477,7 @@ func TestUserRepository_SearchTeam(t *testing.T) {
 			u := &UserRepository{
 				db: tt.fields.db,
 			}
-			got, err := u.SearchTeam()
+			got, err := u.SearchTeam(tt.args.m)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("UserRepository.SearchTeam() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -668,14 +546,18 @@ func TestUserRepository_InsertSchedule(t *testing.T) {
 	}
 }
 
-func TestUserRepository_ListSchedule(t *testing.T) {
+func TestUserRepository_SearchSchedule(t *testing.T) {
 	type fields struct {
 		db *gorm.DB
+	}
+	type args struct {
+		m *ddl.UserSchedule
 	}
 	tests := []struct {
 		name    string
 		fields  fields
-		want    []ddl.UserScheduleResponse
+		args    args
+		want    []*entity.UserSchedule
 		wantErr bool
 	}{
 		// TODO: Add test cases.
@@ -685,13 +567,13 @@ func TestUserRepository_ListSchedule(t *testing.T) {
 			u := &UserRepository{
 				db: tt.fields.db,
 			}
-			got, err := u.ListSchedule()
+			got, err := u.SearchSchedule(tt.args.m)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("UserRepository.ListSchedule() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("UserRepository.SearchSchedule() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("UserRepository.ListSchedule() = %v, want %v", got, tt.want)
+				t.Errorf("UserRepository.SearchSchedule() = %v, want %v", got, tt.want)
 			}
 		})
 	}
@@ -720,34 +602,6 @@ func TestUserRepository_DeleteSchedule(t *testing.T) {
 			}
 			if err := u.DeleteSchedule(tt.args.tx, tt.args.m); (err != nil) != tt.wantErr {
 				t.Errorf("UserRepository.DeleteSchedule() error = %v, wantErr %v", err, tt.wantErr)
-			}
-		})
-	}
-}
-
-func TestUserRepository_UpdatePastSchedule(t *testing.T) {
-	type fields struct {
-		db *gorm.DB
-	}
-	type args struct {
-		tx *gorm.DB
-		m  *ddl.UserSchedule
-	}
-	tests := []struct {
-		name    string
-		fields  fields
-		args    args
-		wantErr bool
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			u := &UserRepository{
-				db: tt.fields.db,
-			}
-			if err := u.UpdatePastSchedule(tt.args.tx, tt.args.m); (err != nil) != tt.wantErr {
-				t.Errorf("UserRepository.UpdatePastSchedule() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}

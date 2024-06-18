@@ -29,7 +29,7 @@ func getServiceFromController[T any](c *T) (service.ILoginService, error) {
 }
 
 // JWT検証_共通化
-func JWTDecodeCommon[T any](c *T, e echo.Context, hash_key string, token string, secret string) error {
+func JWTDecodeCommon[T any](c *T, e echo.Context, hash_key string, token string, secret string, isUser bool) error {
 	// Go単体で動作確認したい場合はGO_ENVをlocalに
 	if os.Getenv("GO_ENV") == "local" {
 		return nil
@@ -52,14 +52,16 @@ func JWTDecodeCommon[T any](c *T, e echo.Context, hash_key string, token string,
 	}
 
 	// ユーザーが削除されていないかの確認
-	if err := s.UserCheck(&request.JWTDecode{
-		User: ddl.User{
-			AbstractTransactionModel: ddl.AbstractTransactionModel{
-				HashKey: hash_key,
+	if isUser {
+		if err := s.UserCheck(&request.JWTDecode{
+			User: ddl.User{
+				AbstractTransactionModel: ddl.AbstractTransactionModel{
+					HashKey: hash_key,
+				},
 			},
-		},
-	}); err != nil {
-		return e.JSON(err.Status, response.ErrorConvert(*err))
+		}); err != nil {
+			return e.JSON(err.Status, response.ErrorConvert(*err))
+		}
 	}
 
 	// JWT＆Cookie 更新

@@ -1,8 +1,6 @@
 package controller
 
 import (
-	"api/src/infra"
-	"api/src/model/ddl"
 	"api/src/model/request"
 	"api/src/model/response"
 	"api/src/model/static"
@@ -16,6 +14,8 @@ import (
 
 const JWT_TOKEN string = "jwt_token"
 const JWT_SECRET string = "JWT_SECRET"
+const JWT_TOKEN2 string = "jwt_token2"
+const JWT_SECRET2 string = "JWT_SECRET2"
 
 type ILoginController interface {
 	// ログイン
@@ -26,21 +26,19 @@ type ILoginController interface {
 	MFA(e echo.Context) error
 	// JWT 検証
 	JWTDecode(e echo.Context) error
-	// セッション存在確認
-	SessionConfirm(e echo.Context) error
 	// パスワード変更
 	PasswordChange(e echo.Context) error
 	// ログアウト
 	Logout(e echo.Context) error
-	// ログイン(応募者)*
+	// ログイン(応募者)
 	LoginApplicant(e echo.Context) error
-	// MFA Applicant*
-	MFAApplicant(e echo.Context) error
-	// JWT 検証(応募者)*
-	JWTDecodeApplicant(e echo.Context) error
-	// MFA 認証コード生成(応募者)*
+	// MFA 認証コード生成(応募者)
 	CodeGenerateApplicant(e echo.Context) error
-	// ログアウト(応募者)*
+	// MFA(応募者)
+	MFAApplicant(e echo.Context) error
+	// JWT 検証(応募者)
+	JWTDecodeApplicant(e echo.Context) error
+	// ログアウト(応募者)
 	LogoutApplicant(e echo.Context) error
 }
 
@@ -122,7 +120,7 @@ func (c *LoginController) JWTDecode(e echo.Context) error {
 	}
 
 	// JWT検証
-	if err := JWTDecodeCommon(c, e, req.HashKey, JWT_TOKEN, JWT_SECRET); err != nil {
+	if err := JWTDecodeCommon(c, e, req.HashKey, JWT_TOKEN, JWT_SECRET, true); err != nil {
 		return err
 	}
 
@@ -152,21 +150,6 @@ func (c *LoginController) PasswordChange(e echo.Context) error {
 	return e.JSON(http.StatusOK, "OK")
 }
 
-// セッション存在確認
-func (c *LoginController) SessionConfirm(e echo.Context) error {
-	req := ddl.User{}
-	if err := e.Bind(&req); err != nil {
-		log.Printf("%v", err)
-		return e.JSON(http.StatusBadRequest, fmt.Errorf(static.MESSAGE_BAD_REQUEST))
-	}
-
-	if err := c.s.SessionConfirm(&req); err != nil {
-		return e.JSON(err.Status, response.ErrorConvert(*err))
-	}
-
-	return e.JSON(http.StatusOK, "OK")
-}
-
 // ログアウト
 func (c *LoginController) Logout(e echo.Context) error {
 	req := request.Logout{}
@@ -186,7 +169,7 @@ func (c *LoginController) Logout(e echo.Context) error {
 
 // ログイン(応募者)
 func (c *LoginController) LoginApplicant(e echo.Context) error {
-	req := ddl.Applicant{}
+	req := request.LoginApplicant{}
 	if err := e.Bind(&req); err != nil {
 		log.Printf("%v", err)
 		return e.JSON(http.StatusBadRequest, fmt.Errorf(static.MESSAGE_BAD_REQUEST))
@@ -201,78 +184,9 @@ func (c *LoginController) LoginApplicant(e echo.Context) error {
 	return e.JSON(http.StatusOK, applicant)
 }
 
-// MFA Applicant
-func (c *LoginController) MFAApplicant(e echo.Context) error {
-	req := request.MFA{}
-	if err := e.Bind(&req); err != nil {
-		log.Printf("%v", err)
-		return e.JSON(http.StatusBadRequest, fmt.Errorf(static.MESSAGE_BAD_REQUEST))
-	}
-
-	// MFA
-	_, err := c.s.MFA(&req)
-	if err != nil {
-		return e.JSON(err.Status, response.ErrorConvert(*err))
-	}
-
-	// S3 Name Redisに登録
-	if err := c.s.S3NamePreInsert(&ddl.Applicant{
-		AbstractTransactionModel: ddl.AbstractTransactionModel{
-			HashKey: req.HashKey,
-		},
-	}); err != nil {
-		return e.JSON(err.Status, response.ErrorConvert(*err))
-	}
-
-	// JWT＆Cookie
-	cookie, err := c.s.JWT(&req.HashKey, "jwt_token3", "JWT_SECRET3")
-	if err != nil {
-		return e.JSON(err.Status, response.ErrorConvert(*err))
-	}
-	e.SetCookie(cookie)
-
-	return e.JSON(http.StatusOK, "OK")
-}
-
-// JWT 検証(応募者)
-func (c *LoginController) JWTDecodeApplicant(e echo.Context) error {
-	req := ddl.Applicant{}
-	if err := e.Bind(&req); err != nil {
-		log.Printf("%v", err)
-		return e.JSON(http.StatusBadRequest, fmt.Errorf(static.MESSAGE_BAD_REQUEST))
-	}
-
-	// ログインJWT
-	status, err := infra.JWTLoginToken(e, "jwt_token3", "JWT_SECRET3")
-	if err != nil {
-		log.Printf("%v", err)
-		return e.JSON(status, response.ErrorCode{Code: static.CODE_LOGIN_REQUIRED})
-	}
-
-	// 応募者が削除されていないかの確認
-	applicant, err2 := c.s.UserCheckApplicant(&req)
-	if err2 != nil {
-		return e.JSON(err2.Status, response.ErrorConvert(*err2))
-	}
-
-	// Redis 有効期限更新
-	if err := c.s.SessionConfirmApplicant(&req); err != nil {
-		return e.JSON(err.Status, response.ErrorConvert(*err))
-	}
-
-	// JWT＆Cookie 更新
-	cookie, err3 := c.s.JWT(&req.HashKey, "jwt_token3", "JWT_SECRET3")
-	if err3 != nil {
-		return e.JSON(err3.Status, response.ErrorConvert(*err3))
-	}
-	e.SetCookie(cookie)
-
-	return e.JSON(http.StatusOK, applicant)
-}
-
 // MFA 認証コード生成(応募者)
 func (c *LoginController) CodeGenerateApplicant(e echo.Context) error {
-	req := ddl.Applicant{}
+	req := request.CodeGenerateApplicant{}
 	if err := e.Bind(&req); err != nil {
 		log.Printf("%v", err)
 		return e.JSON(http.StatusBadRequest, fmt.Errorf(static.MESSAGE_BAD_REQUEST))
@@ -284,15 +198,54 @@ func (c *LoginController) CodeGenerateApplicant(e echo.Context) error {
 	return e.JSON(http.StatusOK, "OK")
 }
 
-// ログアウト(応募者)
-func (c *LoginController) LogoutApplicant(e echo.Context) error {
-	req := ddl.Applicant{}
+// MFA(応募者)
+func (c *LoginController) MFAApplicant(e echo.Context) error {
+	req := request.MFAApplicant{}
 	if err := e.Bind(&req); err != nil {
 		log.Printf("%v", err)
 		return e.JSON(http.StatusBadRequest, fmt.Errorf(static.MESSAGE_BAD_REQUEST))
 	}
 
-	cookie, err := c.s.LogoutApplicant(&req)
+	// MFA
+	if err := c.s.MFAApplicant(&req); err != nil {
+		return e.JSON(err.Status, response.ErrorConvert(*err))
+	}
+
+	// JWT＆Cookie
+	cookie, err := c.s.JWT(&req.HashKey, JWT_TOKEN2, JWT_SECRET2)
+	if err != nil {
+		return e.JSON(err.Status, response.ErrorConvert(*err))
+	}
+	e.SetCookie(cookie)
+
+	return e.JSON(http.StatusOK, "OK")
+}
+
+// JWT 検証(応募者)
+func (c *LoginController) JWTDecodeApplicant(e echo.Context) error {
+	req := request.JWTDecodeApplicant{}
+	if err := e.Bind(&req); err != nil {
+		log.Printf("%v", err)
+		return e.JSON(http.StatusBadRequest, fmt.Errorf(static.MESSAGE_BAD_REQUEST))
+	}
+
+	// JWT検証
+	if err := JWTDecodeCommon(c, e, req.HashKey, JWT_TOKEN2, JWT_SECRET2, false); err != nil {
+		return err
+	}
+
+	return e.JSON(http.StatusOK, "OK")
+}
+
+// ログアウト(応募者)
+func (c *LoginController) LogoutApplicant(e echo.Context) error {
+	req := request.LogoutApplicant{}
+	if err := e.Bind(&req); err != nil {
+		log.Printf("%v", err)
+		return e.JSON(http.StatusBadRequest, fmt.Errorf(static.MESSAGE_BAD_REQUEST))
+	}
+
+	cookie, err := c.s.LogoutApplicant(&req, JWT_TOKEN2)
 	if err != nil {
 		return e.JSON(err.Status, response.ErrorConvert(*err))
 	}

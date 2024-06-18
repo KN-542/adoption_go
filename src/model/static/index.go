@@ -3,34 +3,36 @@ package static
 // Response Body コード
 const (
 	/*
-		common
+		共通
 	*/
 	CODE_BAD_REQUEST uint = 101
 
 	/*
 		login
 	*/
-	// Login
+	// ログイン認証
 	CODE_LOGIN_AUTH uint = 1
-	// MFA create && Session confirm
+	// MFA作成
 	CODE_LOGIN_REQUIRED uint = 1
 	// MFA
 	CODE_INVALID_CODE uint = 1
 	CODE_EXPIRED      uint = 2
-	// PasswordChange
+	// パスワード変更
 	CODE_INIT_PASSWORD_INCORRECT uint = 1
 
 	/*
-		user
+		company
 	*/
-	// create
+	// 登録
 	CODE_COMPANY_NAME_DUPL uint = 1
 
 	/*
-		user
+		ユーザー
 	*/
-	// create
+	// 登録
 	CODE_USER_EMAIL_DUPL uint = 1
+	// チーム登録
+	CODE_TEAM_USER_NOT_FOUNT uint = 1
 )
 
 // Response Body メッセージ

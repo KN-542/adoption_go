@@ -8,7 +8,7 @@ import (
 
 type IRoleValidator interface {
 	// ロールチェック
-	Check(req *request.RoleCheck) error
+	Check(req *request.CheckRole) error
 }
 
 type RoleValidator struct{}
@@ -18,7 +18,7 @@ func NewRoleValidator() IRoleValidator {
 }
 
 // ロールチェック
-func (v *RoleValidator) Check(req *request.RoleCheck) error {
+func (v *RoleValidator) Check(req *request.CheckRole) error {
 	return validation.ValidateStruct(
 		req,
 		validation.Field(

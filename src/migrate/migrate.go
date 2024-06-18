@@ -401,7 +401,7 @@ func main() {
 			"resume":           "履歴書",
 			"curriculum_vitae": "職務経歴書",
 			"google_meet_url":  "Google Meet URL",
-			"calendar_id":      "カレンダーID",
+			"schedule_id":      "予定ID",
 			"company_id":       "企業ID",
 			"created_at":       "登録日時",
 			"updated_at":       "更新日時",
@@ -745,7 +745,7 @@ func CreateData(db *gorm.DB) {
 				ID: uint(static.ROLE_ADMIN_COMPANY_CREATE),
 			},
 			NameJa:   "システム管理者企業作成",
-			NameEn:   "AdminCompanyCreate",
+			NameEn:   "AdminCreateCompany",
 			RoleType: uint(static.LOGIN_TYPE_ADMIN),
 		},
 		{
@@ -1451,7 +1451,7 @@ func CreateData(db *gorm.DB) {
 		_, hash, _ := service.GenerateHash(1, 25)
 		row.HashKey = string(static.PRE_COMPANY) + "_" + *hash
 
-		if err := admin.InsertCompany(tx, row); err != nil {
+		if err := admin.Insert(tx, row); err != nil {
 			if err := tx.Rollback().Error; err != nil {
 				log.Printf("%v", err)
 				return

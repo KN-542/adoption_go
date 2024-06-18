@@ -22,7 +22,7 @@ type IMasterRepository interface {
 	// select
 	ListSite() ([]entity.Site, error)
 	// select by hash key
-	SelectSiteByHashKey(m *ddl.Site) (*ddl.Site, error)
+	SelectSite(m *ddl.Site) (*entity.Site, error)
 	/*
 		m_role
 	*/
@@ -47,15 +47,13 @@ type IMasterRepository interface {
 	*/
 	// insert
 	InsertHashKeyPre(tx *gorm.DB, m *ddl.HashKeyPre) error
-	// select
-	SelectHashKeyPre() ([]ddl.HashKeyPre, error)
 	/*
 		m_calendar_freq_status
 	*/
 	// insert
 	InsertCalendarFreqStatus(tx *gorm.DB, m *ddl.CalendarFreqStatus) error
 	// select
-	SelectCalendarFreqStatus() ([]ddl.CalendarFreqStatus, error)
+	SelectCalendarFreqStatus() ([]entity.CalendarFreqStatus, error)
 }
 
 type MasterRepository struct {
@@ -101,8 +99,8 @@ func (r *MasterRepository) ListSite() ([]entity.Site, error) {
 }
 
 // select by primary key
-func (r *MasterRepository) SelectSiteByHashKey(m *ddl.Site) (*ddl.Site, error) {
-	var res ddl.Site
+func (r *MasterRepository) SelectSite(m *ddl.Site) (*entity.Site, error) {
+	var res entity.Site
 	if err := r.db.Model(&ddl.Site{}).Where(&ddl.Site{
 		AbstractMasterModel: ddl.AbstractMasterModel{
 			HashKey: m.HashKey,
@@ -202,16 +200,6 @@ func (r *MasterRepository) InsertHashKeyPre(tx *gorm.DB, m *ddl.HashKeyPre) erro
 	return nil
 }
 
-// select
-func (r *MasterRepository) SelectHashKeyPre() ([]ddl.HashKeyPre, error) {
-	var res []ddl.HashKeyPre
-	if err := r.db.Find(&res).Error; err != nil {
-		log.Printf("%v", err)
-		return nil, err
-	}
-	return res, nil
-}
-
 /*
 	m_calendar_freq_status
 */
@@ -225,8 +213,8 @@ func (r *MasterRepository) InsertCalendarFreqStatus(tx *gorm.DB, m *ddl.Calendar
 }
 
 // select
-func (r *MasterRepository) SelectCalendarFreqStatus() ([]ddl.CalendarFreqStatus, error) {
-	var res []ddl.CalendarFreqStatus
+func (r *MasterRepository) SelectCalendarFreqStatus() ([]entity.CalendarFreqStatus, error) {
+	var res []entity.CalendarFreqStatus
 	if err := r.db.Find(&res).Error; err != nil {
 		log.Printf("%v", err)
 		return nil, err

@@ -39,26 +39,18 @@ type ILoginService interface {
 	UserCheck(req *request.JWTDecode) *response.Error
 	// パスワード変更
 	PasswordChange(req *request.PasswordChange) *response.Error
-	// パスワード変更 必要性
-	PasswordChangeCheck(req *ddl.User) (*int8, *response.Error)
-	// セッション存在確認
-	SessionConfirm(req *ddl.User) *response.Error
 	// ログアウト
 	Logout(req *request.Logout, token string) (*http.Cookie, *response.Error)
 	// ログイン種別取得
 	GetLoginType(req *request.GetLoginType) (*response.GetLoginType, *response.Error)
-	// ログイン(応募者)*
-	LoginApplicant(req *ddl.Applicant) (*entity.Applicant, *response.Error)
-	// MFA 認証コード生成(応募者)*
-	CodeGenerateApplicant(req *ddl.Applicant) *response.Error
-	// ユーザー存在確認(応募者)*
-	UserCheckApplicant(req *ddl.Applicant) (*ddl.Applicant, *response.Error)
-	// セッション存在確認(応募者)*
-	SessionConfirmApplicant(req *ddl.Applicant) *response.Error
-	// ログアウト(応募者)*
-	LogoutApplicant(req *ddl.Applicant) (*http.Cookie, *response.Error)
-	// S3 Name Redisに登録*
-	S3NamePreInsert(req *ddl.Applicant) *response.Error
+	// ログイン(応募者)
+	LoginApplicant(req *request.LoginApplicant) (*response.LoginApplicant, *response.Error)
+	// MFA 認証コード生成(応募者)
+	CodeGenerateApplicant(req *request.CodeGenerateApplicant) *response.Error
+	// MFA(応募者)
+	MFAApplicant(req *request.MFAApplicant) *response.Error
+	// ログアウト(応募者)
+	LogoutApplicant(req *request.LogoutApplicant, token string) (*http.Cookie, *response.Error)
 }
 
 type LoginService struct {
@@ -400,17 +392,6 @@ func (l *LoginService) JWTDecode(cookie *http.Cookie, secret string) *response.E
 	return nil
 }
 
-// パスワード変更 必要性
-func (l *LoginService) PasswordChangeCheck(req *ddl.User) (*int8, *response.Error) {
-	res, err := l.login.ConfirmInitPassword(req)
-	if err != nil {
-		return nil, &response.Error{
-			Status: http.StatusInternalServerError,
-		}
-	}
-	return res, nil
-}
-
 // ユーザー存在確認
 func (l *LoginService) UserCheck(req *request.JWTDecode) *response.Error {
 	// バリデーション
@@ -533,43 +514,6 @@ func (l *LoginService) PasswordChange(req *request.PasswordChange) *response.Err
 	return nil
 }
 
-// セッション存在確認
-func (l *LoginService) SessionConfirm(req *ddl.User) *response.Error {
-	// バリデーション
-	if err := l.v_0.HashKeyValidate(req); err != nil {
-		log.Printf("%v", err)
-		return &response.Error{
-			Status: http.StatusBadRequest,
-			Code:   static.CODE_BAD_REQUEST,
-		}
-	}
-
-	// ログインの一時的セッション存在確認
-	ctx := context.Background()
-	_, err := l.redis.Get(ctx, req.HashKey, static.REDIS_USER_HASH_KEY)
-	if err != nil {
-		return &response.Error{
-			Status: http.StatusUnauthorized,
-			Code:   static.CODE_LOGIN_REQUIRED,
-		}
-	}
-
-	// 有効期限更新
-	if err := l.redis.Set(
-		ctx,
-		req.HashKey,
-		static.REDIS_USER_HASH_KEY,
-		&req.HashKey,
-		24*time.Hour,
-	); err != nil {
-		return &response.Error{
-			Status: http.StatusInternalServerError,
-		}
-	}
-
-	return nil
-}
-
 // ログアウト
 func (l *LoginService) Logout(req *request.Logout, token string) (*http.Cookie, *response.Error) {
 	// バリデーション
@@ -635,9 +579,9 @@ func (l *LoginService) GetLoginType(req *request.GetLoginType) (*response.GetLog
 }
 
 // ログイン(応募者)
-func (l *LoginService) LoginApplicant(req *ddl.Applicant) (*entity.Applicant, *response.Error) {
+func (l *LoginService) LoginApplicant(req *request.LoginApplicant) (*response.LoginApplicant, *response.Error) {
 	// バリデーション
-	if err := l.v_0.LoginApplicantValidate(req); err != nil {
+	if err := l.v.LoginApplicant(req); err != nil {
 		log.Printf("%v", err)
 		return nil, &response.Error{
 			Status: http.StatusBadRequest,
@@ -646,7 +590,7 @@ func (l *LoginService) LoginApplicant(req *ddl.Applicant) (*entity.Applicant, *r
 	}
 
 	// ログイン認証
-	applicants, err := l.applicant.GetByEmail(req)
+	applicants, err := l.applicant.GetByEmail(&req.Applicant)
 	if err != nil {
 		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
@@ -674,14 +618,48 @@ func (l *LoginService) LoginApplicant(req *ddl.Applicant) (*entity.Applicant, *r
 			Status: http.StatusInternalServerError,
 		}
 	}
+	teamID := strconv.FormatUint(applicant.TeamID, 10)
+	if err := l.redis.Set(
+		ctx,
+		applicant.HashKey,
+		static.REDIS_USER_TEAM_ID,
+		&teamID,
+		24*time.Hour,
+	); err != nil {
+		return nil, &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+	s3Name := applicant.Name + "_" + strings.Replace(applicant.Email, ".", "", -1)
+	if err := l.redis.Set(
+		ctx,
+		req.HashKey,
+		static.REDIS_S3_NAME,
+		&s3Name,
+		24*time.Hour,
+	); err != nil {
+		return nil, &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
 
-	return &applicant, nil
+	return &response.LoginApplicant{
+		Applicant: entity.Applicant{
+			Applicant: ddl.Applicant{
+				AbstractTransactionModel: ddl.AbstractTransactionModel{
+					HashKey: applicant.HashKey,
+				},
+				Name:  applicant.Name,
+				Email: applicant.Email,
+			},
+		},
+	}, nil
 }
 
 // MFA 認証コード生成(応募者)
-func (l *LoginService) CodeGenerateApplicant(req *ddl.Applicant) *response.Error {
+func (l *LoginService) CodeGenerateApplicant(req *request.CodeGenerateApplicant) *response.Error {
 	// バリデーション
-	if err := l.v_0.HashKeyValidateApplicant(req); err != nil {
+	if err := l.v.CodeGenerateApplicant(req); err != nil {
 		log.Printf("%v", err)
 		return &response.Error{
 			Status: http.StatusBadRequest,
@@ -721,31 +699,10 @@ func (l *LoginService) CodeGenerateApplicant(req *ddl.Applicant) *response.Error
 	return nil
 }
 
-// ユーザー存在確認(応募者)
-func (l *LoginService) UserCheckApplicant(req *ddl.Applicant) (*ddl.Applicant, *response.Error) {
+// MFA(応募者)
+func (l *LoginService) MFAApplicant(req *request.MFAApplicant) *response.Error {
 	// バリデーション
-	if err := l.v_0.HashKeyValidateApplicant(req); err != nil {
-		log.Printf("%v", err)
-		return nil, &response.Error{
-			Status: http.StatusBadRequest,
-			Code:   static.CODE_BAD_REQUEST,
-		}
-	}
-
-	res, err := l.applicant.GetByHashKey(req)
-	if err != nil {
-		return nil, &response.Error{
-			Status: http.StatusInternalServerError,
-		}
-	}
-
-	return res, nil
-}
-
-// セッション存在確認(応募者)
-func (l *LoginService) SessionConfirmApplicant(req *ddl.Applicant) *response.Error {
-	// バリデーション
-	if err := l.v_0.HashKeyValidateApplicant(req); err != nil {
+	if err := l.v.MFAApplicant(req); err != nil {
 		log.Printf("%v", err)
 		return &response.Error{
 			Status: http.StatusBadRequest,
@@ -753,36 +710,65 @@ func (l *LoginService) SessionConfirmApplicant(req *ddl.Applicant) *response.Err
 		}
 	}
 
-	// ログインの一時的セッション存在確認
 	ctx := context.Background()
-	_, err := l.redis.Get(ctx, req.HashKey, static.REDIS_USER_HASH_KEY)
-	if err != nil {
-		return &response.Error{
-			Status: http.StatusUnauthorized,
-			Code:   static.CODE_LOGIN_REQUIRED,
-		}
-	}
-
-	// 有効期限更新
-	if err := l.redis.Set(
+	code, codeErr := l.redis.Get(
 		ctx,
 		req.HashKey,
-		static.REDIS_USER_HASH_KEY,
-		&req.HashKey,
-		24*time.Hour,
-	); err != nil {
+		static.REDIS_CODE,
+	)
+	if codeErr != nil {
+		if codeErr == redis.Nil {
+			// Redisに保存
+			if err := l.redis.Set(
+				ctx,
+				req.HashKey,
+				static.REDIS_USER_HASH_KEY,
+				&req.HashKey,
+				24*time.Hour,
+			); err != nil {
+				return &response.Error{
+					Status: http.StatusInternalServerError,
+				}
+			}
+
+			return &response.Error{
+				Status: http.StatusUnauthorized,
+				Code:   static.CODE_EXPIRED,
+			}
+		}
 		return &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
 
-	return nil
+	if req.Code == *code {
+		// 有効期限更新
+		if err := l.redis.Set(
+			ctx,
+			req.HashKey,
+			static.REDIS_USER_HASH_KEY,
+			&req.HashKey,
+			24*time.Hour,
+		); err != nil {
+			return &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+
+		return nil
+	} else {
+		log.Printf("invalid code")
+		return &response.Error{
+			Status: http.StatusUnauthorized,
+			Code:   static.CODE_INVALID_CODE,
+		}
+	}
 }
 
 // ログアウト(応募者)
-func (l *LoginService) LogoutApplicant(req *ddl.Applicant) (*http.Cookie, *response.Error) {
+func (l *LoginService) LogoutApplicant(req *request.LogoutApplicant, token string) (*http.Cookie, *response.Error) {
 	// バリデーション
-	if err := l.v_0.HashKeyValidateApplicant(req); err != nil {
+	if err := l.v.LogoutApplicant(req); err != nil {
 		log.Printf("%v", err)
 		return nil, &response.Error{
 			Status: http.StatusBadRequest,
@@ -800,7 +786,7 @@ func (l *LoginService) LogoutApplicant(req *ddl.Applicant) (*http.Cookie, *respo
 
 	// Cookie破棄(使えないcookieに更新)
 	cookie := http.Cookie{
-		Name:     "jwt_token3",
+		Name:     token,
 		Value:    "",
 		Expires:  time.Unix(0, 0),
 		HttpOnly: true,
@@ -810,31 +796,4 @@ func (l *LoginService) LogoutApplicant(req *ddl.Applicant) (*http.Cookie, *respo
 	}
 
 	return &cookie, nil
-}
-
-// S3 Name Redisに登録
-func (l *LoginService) S3NamePreInsert(req *ddl.Applicant) *response.Error {
-	res, err := l.applicant.GetByHashKey(req)
-	if err != nil {
-		return &response.Error{
-			Status: http.StatusInternalServerError,
-		}
-	}
-
-	s3Name := res.Name + "_" + strings.Replace(res.Email, ".", "", -1)
-
-	ctx := context.Background()
-	if err := l.redis.Set(
-		ctx,
-		req.HashKey,
-		static.REDIS_S3_NAME,
-		&s3Name,
-		24*time.Hour,
-	); err != nil {
-		return &response.Error{
-			Status: http.StatusInternalServerError,
-		}
-	}
-
-	return nil
 }

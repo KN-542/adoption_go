@@ -3,7 +3,7 @@ package request
 import "api/src/model/ddl"
 
 // 登録
-type CompanyCreate struct {
+type CreateCompany struct {
 	Abstract
 	ddl.Company
 	// メールアドレス

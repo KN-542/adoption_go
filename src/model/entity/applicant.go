@@ -16,7 +16,7 @@ type ApplicantUserAssociation struct {
 }
 
 // 検索
-type ApplicantSearch struct {
+type SearchApplicant struct {
 	ddl.Applicant
 	// ステータス
 	StatusNameJa string `json:"status_name"`

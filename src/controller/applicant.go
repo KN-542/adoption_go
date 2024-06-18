@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"time"
 
 	"github.com/labstack/echo/v4"
 )
@@ -23,17 +22,19 @@ type IApplicantController interface {
 	GetStatusList(e echo.Context) error
 	// 応募者ダウンロード
 	Download(e echo.Context) error
-	// 認証URL作成*
-	GetOauthURL(e echo.Context) error
-	// 応募者取得(1件)*
-	Get(e echo.Context) error
-	// 書類アップロード*
+	// 予約表表示
+	ReserveTable(e echo.Context) error
+	// 書類アップロード
 	DocumentsUpload(e echo.Context) error
-	// 書類ダウンロード*
-	DocumentDownload(e echo.Context) error
-	// 面接希望日登録*
+	// 面接希望日登録
 	InsertDesiredAt(e echo.Context) error
-	// Google Meet Url 発行*
+	// 認証URL作成
+	GetOauthURL(e echo.Context) error
+	// 応募者取得(1件)
+	Get(e echo.Context) error
+	// 書類ダウンロード
+	DocumentDownload(e echo.Context) error
+	// Google Meet Url 発行
 	GetGoogleMeetUrl(e echo.Context) error
 }
 
@@ -59,7 +60,7 @@ func (c *ApplicantController) GetLoginService() service.ILoginService {
 
 // 検索
 func (c *ApplicantController) Search(e echo.Context) error {
-	req := request.ApplicantSearch{}
+	req := request.SearchApplicant{}
 	if err := e.Bind(&req); err != nil {
 		log.Printf("%v", err)
 		return e.JSON(http.StatusBadRequest, fmt.Errorf(static.MESSAGE_BAD_REQUEST))
@@ -72,12 +73,13 @@ func (c *ApplicantController) Search(e echo.Context) error {
 		req.UserHashKey,
 		JWT_TOKEN,
 		JWT_SECRET,
+		true,
 	); err != nil {
 		return err
 	}
 
 	// ロールチェック
-	exist, roleErr := c.role.Check(&request.RoleCheck{
+	exist, roleErr := c.role.Check(&request.CheckRole{
 		Abstract: request.Abstract{
 			UserHashKey: req.UserHashKey,
 		},
@@ -126,12 +128,13 @@ func (c *ApplicantController) GetStatusList(e echo.Context) error {
 		req.UserHashKey,
 		JWT_TOKEN,
 		JWT_SECRET,
+		true,
 	); err != nil {
 		return err
 	}
 
 	// ロールチェック
-	exist, roleErr := c.role.Check(&request.RoleCheck{
+	exist, roleErr := c.role.Check(&request.CheckRole{
 		Abstract: request.Abstract{
 			UserHashKey: req.UserHashKey,
 		},
@@ -170,12 +173,13 @@ func (c *ApplicantController) Download(e echo.Context) error {
 		req.UserHashKey,
 		JWT_TOKEN,
 		JWT_SECRET,
+		true,
 	); err != nil {
 		return err
 	}
 
 	// ロールチェック
-	exist, roleErr := c.role.Check(&request.RoleCheck{
+	exist, roleErr := c.role.Check(&request.CheckRole{
 		Abstract: request.Abstract{
 			UserHashKey: req.UserHashKey,
 		},
@@ -199,15 +203,65 @@ func (c *ApplicantController) Download(e echo.Context) error {
 	return e.JSON(http.StatusOK, res)
 }
 
-// 認証URL作成
-func (c *ApplicantController) GetOauthURL(e echo.Context) error {
-	request := ddl.ApplicantAndUser{}
-	if err := e.Bind(&request); err != nil {
+// 予約表表示
+func (c *ApplicantController) ReserveTable(e echo.Context) error {
+	req := request.ReserveTable{}
+	if err := e.Bind(&req); err != nil {
 		log.Printf("%v", err)
 		return e.JSON(http.StatusBadRequest, fmt.Errorf(static.MESSAGE_BAD_REQUEST))
 	}
 
-	res, err := c.s.GetOauthURL(&request)
+	// JWT検証
+	if err := JWTDecodeCommon(c, e, req.HashKey, JWT_TOKEN2, JWT_SECRET2, false); err != nil {
+		return err
+	}
+
+	res, err := c.s.ReserveTable(&req)
+	if err != nil {
+		return e.JSON(err.Status, response.ErrorConvert(*err))
+	}
+
+	return e.JSON(http.StatusOK, res)
+}
+
+// 認証URL作成
+func (c *ApplicantController) GetOauthURL(e echo.Context) error {
+	req := request.GetOauthURL{}
+	if err := e.Bind(&req); err != nil {
+		log.Printf("%v", err)
+		return e.JSON(http.StatusBadRequest, fmt.Errorf(static.MESSAGE_BAD_REQUEST))
+	}
+
+	// JWT検証
+	if err := JWTDecodeCommon(
+		c,
+		e,
+		req.UserHashKey,
+		JWT_TOKEN,
+		JWT_SECRET,
+		true,
+	); err != nil {
+		return err
+	}
+
+	// ロールチェック
+	exist, roleErr := c.role.Check(&request.CheckRole{
+		Abstract: request.Abstract{
+			UserHashKey: req.UserHashKey,
+		},
+		ID: static.ROLE_MANAGEMENT_APPLICANT_READ,
+	})
+	if roleErr != nil {
+		return e.JSON(roleErr.Status, response.ErrorConvert(*roleErr))
+	}
+	if !exist {
+		err := &response.Error{
+			Status: http.StatusNoContent,
+		}
+		return e.JSON(err.Status, response.ErrorConvert(*err))
+	}
+
+	res, err := c.s.GetOauthURL(&req)
 	if err != nil {
 		return e.JSON(err.Status, response.ErrorConvert(*err))
 	}
@@ -217,13 +271,42 @@ func (c *ApplicantController) GetOauthURL(e echo.Context) error {
 
 // 応募者取得(1件)
 func (c *ApplicantController) Get(e echo.Context) error {
-	request := ddl.Applicant{}
-	if err := e.Bind(&request); err != nil {
+	req := request.GetApplicant{}
+	if err := e.Bind(&req); err != nil {
 		log.Printf("%v", err)
 		return e.JSON(http.StatusBadRequest, fmt.Errorf(static.MESSAGE_BAD_REQUEST))
 	}
 
-	res, err := c.s.Get(&request)
+	// JWT検証
+	if err := JWTDecodeCommon(
+		c,
+		e,
+		req.UserHashKey,
+		JWT_TOKEN,
+		JWT_SECRET,
+		true,
+	); err != nil {
+		return err
+	}
+
+	// ロールチェック
+	exist, roleErr := c.role.Check(&request.CheckRole{
+		Abstract: request.Abstract{
+			UserHashKey: req.UserHashKey,
+		},
+		ID: static.ROLE_MANAGEMENT_APPLICANT_READ,
+	})
+	if roleErr != nil {
+		return e.JSON(roleErr.Status, response.ErrorConvert(*roleErr))
+	}
+	if !exist {
+		err := &response.Error{
+			Status: http.StatusNoContent,
+		}
+		return e.JSON(err.Status, response.ErrorConvert(*err))
+	}
+
+	res, err := c.s.Get(&req)
 	if err != nil {
 		return e.JSON(err.Status, response.ErrorConvert(*err))
 	}
@@ -235,6 +318,11 @@ func (c *ApplicantController) Get(e echo.Context) error {
 func (c *ApplicantController) DocumentsUpload(e echo.Context) error {
 	hashKey := e.FormValue("hash_key")
 
+	// JWT検証
+	if err := JWTDecodeCommon(c, e, hashKey, JWT_TOKEN2, JWT_SECRET2, false); err != nil {
+		return err
+	}
+
 	resumeExtension := e.FormValue("resume_extension")
 	if resumeExtension != "" {
 		resume, err := e.FormFile("resume")
@@ -243,8 +331,12 @@ func (c *ApplicantController) DocumentsUpload(e echo.Context) error {
 			return e.JSON(http.StatusBadRequest, fmt.Errorf(static.MESSAGE_BAD_REQUEST))
 		}
 
-		if err := c.s.S3Upload(&ddl.FileUpload{
-			HashKey:   hashKey,
+		if err := c.s.S3Upload(&request.FileUpload{
+			Applicant: ddl.Applicant{
+				AbstractTransactionModel: ddl.AbstractTransactionModel{
+					HashKey: hashKey,
+				},
+			},
 			Extension: resumeExtension,
 			NamePre:   "resume",
 		}, resume); err != nil {
@@ -260,8 +352,12 @@ func (c *ApplicantController) DocumentsUpload(e echo.Context) error {
 			return e.JSON(http.StatusBadRequest, fmt.Errorf(static.MESSAGE_BAD_REQUEST))
 		}
 
-		if err := c.s.S3Upload(&ddl.FileUpload{
-			HashKey:   hashKey,
+		if err := c.s.S3Upload(&request.FileUpload{
+			Applicant: ddl.Applicant{
+				AbstractTransactionModel: ddl.AbstractTransactionModel{
+					HashKey: hashKey,
+				},
+			},
 			Extension: curriculumVitaeExtension,
 			NamePre:   "curriculum_vitae",
 		}, curriculumVitae); err != nil {
@@ -274,13 +370,42 @@ func (c *ApplicantController) DocumentsUpload(e echo.Context) error {
 
 // 書類ダウンロード
 func (c *ApplicantController) DocumentDownload(e echo.Context) error {
-	request := ddl.FileDownload{}
-	if err := e.Bind(&request); err != nil {
+	req := request.FileDownload{}
+	if err := e.Bind(&req); err != nil {
 		log.Printf("%v", err)
 		return e.JSON(http.StatusBadRequest, fmt.Errorf(static.MESSAGE_BAD_REQUEST))
 	}
 
-	file, fileName, err := c.s.S3Download(&request)
+	// JWT検証
+	if err := JWTDecodeCommon(
+		c,
+		e,
+		req.UserHashKey,
+		JWT_TOKEN,
+		JWT_SECRET,
+		true,
+	); err != nil {
+		return err
+	}
+
+	// ロールチェック
+	exist, roleErr := c.role.Check(&request.CheckRole{
+		Abstract: request.Abstract{
+			UserHashKey: req.UserHashKey,
+		},
+		ID: static.ROLE_MANAGEMENT_APPLICANT_READ,
+	})
+	if roleErr != nil {
+		return e.JSON(roleErr.Status, response.ErrorConvert(*roleErr))
+	}
+	if !exist {
+		err := &response.Error{
+			Status: http.StatusNoContent,
+		}
+		return e.JSON(err.Status, response.ErrorConvert(*err))
+	}
+
+	file, fileName, err := c.s.S3Download(&req)
 	if err != nil {
 		return e.JSON(err.Status, response.ErrorConvert(*err))
 	}
@@ -292,28 +417,18 @@ func (c *ApplicantController) DocumentDownload(e echo.Context) error {
 
 // 面接希望日登録
 func (c *ApplicantController) InsertDesiredAt(e echo.Context) error {
-	request := ddl.ApplicantDesired{}
-	if err := e.Bind(&request); err != nil {
+	req := request.InsertDesiredAt{}
+	if err := e.Bind(&req); err != nil {
 		log.Printf("%v", err)
 		return e.JSON(http.StatusBadRequest, fmt.Errorf(static.MESSAGE_BAD_REQUEST))
 	}
 
-	uReq := &ddl.UserScheduleRequest{
-		Title:        request.Title,
-		FreqID:       uint(static.FREQ_NONE),
-		InterviewFlg: uint(static.USER_INTERVIEW),
-		Start:        request.DesiredAt,
-		End:          request.DesiredAt.Add(1 * time.Hour),
+	// JWT検証
+	if err := JWTDecodeCommon(c, e, req.HashKey, JWT_TOKEN2, JWT_SECRET2, false); err != nil {
+		return err
 	}
 
-	hashKey, err := c.user.CreateSchedule(uReq)
-	if err != nil {
-		return e.JSON(err.Status, response.ErrorConvert(*err))
-	}
-
-	request.CalendarHashKey = *hashKey
-
-	if err := c.s.InsertDesiredAt(&request); err != nil {
+	if err := c.s.InsertDesiredAt(&req); err != nil {
 		return e.JSON(err.Status, response.ErrorConvert(*err))
 	}
 
@@ -322,13 +437,42 @@ func (c *ApplicantController) InsertDesiredAt(e echo.Context) error {
 
 // Google Meet Url 発行
 func (c *ApplicantController) GetGoogleMeetUrl(e echo.Context) error {
-	request := ddl.ApplicantAndUser{}
-	if err := e.Bind(&request); err != nil {
+	req := request.GetGoogleMeetUrl{}
+	if err := e.Bind(&req); err != nil {
 		log.Printf("%v", err)
 		return e.JSON(http.StatusBadRequest, fmt.Errorf(static.MESSAGE_BAD_REQUEST))
 	}
 
-	res, err := c.s.GetGoogleMeetUrl(&request)
+	// JWT検証
+	if err := JWTDecodeCommon(
+		c,
+		e,
+		req.UserHashKey,
+		JWT_TOKEN,
+		JWT_SECRET,
+		true,
+	); err != nil {
+		return err
+	}
+
+	// ロールチェック
+	exist, roleErr := c.role.Check(&request.CheckRole{
+		Abstract: request.Abstract{
+			UserHashKey: req.UserHashKey,
+		},
+		ID: static.ROLE_MANAGEMENT_APPLICANT_READ,
+	})
+	if roleErr != nil {
+		return e.JSON(roleErr.Status, response.ErrorConvert(*roleErr))
+	}
+	if !exist {
+		err := &response.Error{
+			Status: http.StatusNoContent,
+		}
+		return e.JSON(err.Status, response.ErrorConvert(*err))
+	}
+
+	res, err := c.s.GetGoogleMeetUrl(&req)
 	if err != nil {
 		return e.JSON(err.Status, response.ErrorConvert(*err))
 	}

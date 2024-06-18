@@ -12,7 +12,7 @@ import (
 
 // DB, Redis, AWS, Google以外のIF
 type IOuterIFRepository interface {
-	// 日本の休日取得*
+	// 日本の休日取得
 	HolidaysJp(year int) ([]time.Time, error)
 }
 
