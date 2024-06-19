@@ -317,6 +317,7 @@ func (c *ApplicantController) Get(e echo.Context) error {
 // 書類アップロード
 func (c *ApplicantController) DocumentsUpload(e echo.Context) error {
 	hashKey := e.FormValue("hash_key")
+	fileName := e.FormValue("file_name")
 
 	// JWT検証
 	if err := JWTDecodeCommon(c, e, hashKey, JWT_TOKEN2, JWT_SECRET2, false); err != nil {
@@ -339,6 +340,7 @@ func (c *ApplicantController) DocumentsUpload(e echo.Context) error {
 			},
 			Extension: resumeExtension,
 			NamePre:   "resume",
+			Name:      fileName,
 		}, resume); err != nil {
 			return e.JSON(err.Status, response.ErrorConvert(*err))
 		}
@@ -360,6 +362,7 @@ func (c *ApplicantController) DocumentsUpload(e echo.Context) error {
 			},
 			Extension: curriculumVitaeExtension,
 			NamePre:   "curriculum_vitae",
+			Name:      fileName,
 		}, curriculumVitae); err != nil {
 			return e.JSON(err.Status, response.ErrorConvert(*err))
 		}

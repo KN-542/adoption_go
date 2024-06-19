@@ -643,17 +643,8 @@ func (s *ApplicantService) S3Upload(req *request.FileUpload, fileHeader *multipa
 		}
 	}
 
-	ctx := context.Background()
-	fileName, err := s.redis.Get(ctx, req.HashKey, static.REDIS_S3_NAME)
-	if err != nil {
-		return &response.Error{
-			Status: http.StatusUnauthorized,
-			Code:   static.CODE_LOGIN_REQUIRED,
-		}
-	}
-
 	// S3 Upload
-	objName := req.NamePre + "_" + *fileName + "." + req.Extension
+	objName := req.NamePre + "_" + req.Name + "." + req.Extension
 	if err := s.a.S3Upload(objName, fileHeader); err != nil {
 		log.Printf("%v", err)
 		return &response.Error{
@@ -809,8 +800,20 @@ func (s *ApplicantService) InsertDesiredAt(req *request.InsertDesiredAt) *respon
 		}
 	}
 
+	// 応募者取得
+	applicant, applicantErr := s.r.Get(&ddl.Applicant{
+		AbstractTransactionModel: ddl.AbstractTransactionModel{
+			HashKey: req.HashKey,
+		},
+	})
+	if applicantErr != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
 	// カレンダーID取得
-	if req.CalendarHashKey != "" {
+	if req.CalendarHashKey == "" {
 		// ハッシュキー生成
 		_, hash, hashErr := GenerateHash(1, 25)
 		if hashErr != nil {
@@ -830,7 +833,8 @@ func (s *ApplicantService) InsertDesiredAt(req *request.InsertDesiredAt) *respon
 		// 予定登録
 		id, sheduleErr := s.u.InsertSchedule(tx, &ddl.UserSchedule{
 			AbstractTransactionModel: ddl.AbstractTransactionModel{
-				HashKey: *hash,
+				HashKey:   *hash,
+				CompanyID: applicant.CompanyID,
 			},
 			InterviewFlg: uint(static.USER_INTERVIEW),
 			FreqID:       static.FREQ_NONE,
@@ -865,18 +869,13 @@ func (s *ApplicantService) InsertDesiredAt(req *request.InsertDesiredAt) *respon
 				Status: http.StatusInternalServerError,
 			}
 		}
-	} else {
-		// 応募者取得
-		applicant, applicantErr := s.r.Get(&ddl.Applicant{
-			AbstractTransactionModel: ddl.AbstractTransactionModel{
-				HashKey: req.HashKey,
-			},
-		})
-		if applicantErr != nil {
+
+		if err := s.d.TxCommit(tx); err != nil {
 			return &response.Error{
 				Status: http.StatusInternalServerError,
 			}
 		}
+	} else {
 		// 予定取得
 		schedule, scheduleErr := s.u.GetScheduleByPrimary(&ddl.UserSchedule{
 			AbstractTransactionModel: ddl.AbstractTransactionModel{
