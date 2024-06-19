@@ -65,6 +65,8 @@ type FileUpload struct {
 	Extension string `json:"extension"`
 	// ファイル名(Pre)
 	NamePre string `json:"name_pre"`
+	// ファイル名
+	Name string `json:"name"`
 }
 
 // ファイルダウンロード
