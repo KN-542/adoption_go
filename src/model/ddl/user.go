@@ -64,7 +64,7 @@ type SelectStatus struct {
 	// チームID
 	TeamID uint64 `json:"team_id"`
 	// ステータス名
-	StatusName string `json:"status_name" gorm:"unique;not null;type:varchar(50)"`
+	StatusName string `json:"status_name" gorm:"not null;type:varchar(50)"`
 	// チーム(外部キー)
 	Team Team `gorm:"foreignKey:team_id;references:id"`
 }
@@ -86,7 +86,7 @@ type UserSchedule struct {
 	// 終了時刻
 	End time.Time `json:"end" gorm:"not null"`
 	// 頻度(外部キー)
-	CalendarFreqStatus CalendarFreqStatus `gorm:"foreignKey:freq_id;references:id"`
+	ScheduleFreqStatus ScheduleFreqStatus `gorm:"foreignKey:freq_id;references:id"`
 }
 
 /*

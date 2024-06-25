@@ -22,14 +22,12 @@ type SearchApplicant struct {
 	StatusNameJa string `json:"status_name"`
 	// サイト名
 	SiteName string `json:"site_name"`
-	// カレンダー用ハッシュキー
-	CalendarHashKey string `json:"calendar_hash_key"`
+	// 予定用ハッシュキー
+	ScheduleHashKey string `json:"schedule_hash_key"`
 	// 開始時刻
 	Start time.Time `json:"start"`
-	// 担当面接官(hash_key)
-	Users string `json:"users"`
-	// 担当面接官(氏名)
-	UserNames string `json:"user_names"`
+	// 担当面接官
+	Users []*ddl.User `json:"users" gorm:"many2many:t_applicant_user_association;foreignKey:id;joinForeignKey:applicant_id;References:id;joinReferences:user_id"`
 }
 
 // 応募者ステータス

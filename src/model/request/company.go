@@ -9,3 +9,9 @@ type CreateCompany struct {
 	// メールアドレス
 	Email string `json:"email"`
 }
+
+// 検索
+type SearchCompany struct {
+	Abstract
+	ddl.Company
+}

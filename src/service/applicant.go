@@ -14,7 +14,6 @@ import (
 	"mime/multipart"
 	"net/http"
 	"strconv"
-	"strings"
 	"time"
 )
 
@@ -80,8 +79,9 @@ func (s *ApplicantService) Search(req *request.SearchApplicant) (*response.Searc
 		}
 	}
 
-	// チーム取得
+	// Redisから取得
 	ctx := context.Background()
+
 	team, teamErr := s.redis.Get(ctx, req.UserHashKey, static.REDIS_USER_TEAM_ID)
 	if teamErr != nil {
 		return nil, &response.Error{
@@ -96,26 +96,25 @@ func (s *ApplicantService) Search(req *request.SearchApplicant) (*response.Searc
 	}
 	req.TeamID = teamID
 
-	// 面接官取得
-	var users []uint64
-	for _, hash := range req.Users {
-		user, err := s.u.Get(&ddl.User{
-			AbstractTransactionModel: ddl.AbstractTransactionModel{
-				HashKey: hash,
-			},
-		})
-		if err != nil {
-			return nil, &response.Error{
-				Status: http.StatusInternalServerError,
-			}
+	company, companyErr := s.redis.Get(ctx, req.UserHashKey, static.REDIS_USER_COMPANY_ID)
+	if companyErr != nil {
+		return nil, &response.Error{
+			Status: http.StatusInternalServerError,
 		}
-		users = append(users, user.ID)
 	}
+	companyID, companyParseErr := strconv.ParseUint(*company, 10, 64)
+	if companyParseErr != nil {
+		log.Printf("%v", companyParseErr)
+		return nil, &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+	req.CompanyID = companyID
 
 	// 検索
 	applicants, searchErr := s.r.Search(&dto.SearchApplicant{
 		SearchApplicant: *req,
-		UserIDs:         users,
+		Users:           req.Users,
 	})
 	if searchErr != nil {
 		return nil, &response.Error{
@@ -123,31 +122,20 @@ func (s *ApplicantService) Search(req *request.SearchApplicant) (*response.Searc
 		}
 	}
 
-	// ユーザー紐づけ取得
-	for _, row := range applicants {
-		users, usersErr := s.u.GetUserAssociation(&ddl.ApplicantUserAssociation{
-			ApplicantID: row.ID,
-		})
-		if usersErr != nil {
-			return nil, &response.Error{
-				Status: http.StatusInternalServerError,
-			}
-		}
-
-		var userHashKeys []string
-		var userNames []string
-		for _, row2 := range users {
-			userHashKeys = append(userHashKeys, row2.HashKey)
-			userNames = append(userNames, row2.Name)
-		}
-		row.Users = strings.Join(userHashKeys, ",")
-		row.UserNames = strings.Join(userNames, ",")
-		row.ID = 0
-	}
-
 	var res []entity.SearchApplicant
-	for _, row := range applicants {
-		res = append(res, *row)
+	for _, applicant := range applicants {
+		var filteredUsers []*ddl.User
+		for _, user := range applicant.Users {
+			u := &ddl.User{
+				AbstractTransactionModel: ddl.AbstractTransactionModel{
+					HashKey: user.HashKey,
+				},
+				Name: user.Name,
+			}
+			filteredUsers = append(filteredUsers, u)
+		}
+		applicant.Users = filteredUsers
+		res = append(res, *applicant)
 	}
 
 	return &response.SearchApplicant{
@@ -286,22 +274,6 @@ func (s *ApplicantService) Download(req *request.ApplicantDownload) (*response.A
 		}
 	}
 
-	// 重複チェック
-	var request request.ApplicantDownload
-	for _, row := range req.Applicants {
-		count, err := s.r.CheckDuplByOuterId(&ddl.Applicant{
-			OuterID: row.OuterID,
-		})
-		if err != nil {
-			return nil, &response.Error{
-				Status: http.StatusInternalServerError,
-			}
-		}
-		if *count == 0 {
-			request.Applicants = append(request.Applicants, row)
-		}
-	}
-
 	// チーム、企業取得
 	ctx := context.Background()
 	team, teamErr := s.redis.Get(ctx, req.UserHashKey, static.REDIS_USER_TEAM_ID)
@@ -316,7 +288,6 @@ func (s *ApplicantService) Download(req *request.ApplicantDownload) (*response.A
 			Status: http.StatusInternalServerError,
 		}
 	}
-
 	company, companyErr := s.redis.Get(ctx, req.UserHashKey, static.REDIS_USER_COMPANY_ID)
 	if companyErr != nil {
 		return nil, &response.Error{
@@ -328,6 +299,38 @@ func (s *ApplicantService) Download(req *request.ApplicantDownload) (*response.A
 		log.Printf("%v", companyParseErr)
 		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// 重複チェック
+	var request request.ApplicantDownload
+	var outerIDs []string
+
+	for _, row := range req.Applicants {
+		outerIDs = append(outerIDs, row.OuterID)
+	}
+
+	duplApplicants, duplApplicantsErr := s.r.CheckDuplByOuterId(&dto.CheckDuplDownloading{
+		TeamID:    teamID,
+		CompanyID: companyID,
+		List:      outerIDs,
+	})
+	if duplApplicantsErr != nil {
+		return nil, &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	for _, row := range req.Applicants {
+		dupl := false
+		for _, applicant := range duplApplicants {
+			if row.OuterID == applicant.OuterID {
+				dupl = true
+				break
+			}
+		}
+		if !dupl {
+			request.Applicants = append(request.Applicants, row)
 		}
 	}
 
@@ -351,6 +354,7 @@ func (s *ApplicantService) Download(req *request.ApplicantDownload) (*response.A
 	}
 
 	// 一括登録
+	var applicants []*ddl.Applicant
 	for _, row := range request.Applicants {
 		// ハッシュキー生成
 		_, hash, hashErr := GenerateHash(1, 25)
@@ -367,8 +371,8 @@ func (s *ApplicantService) Download(req *request.ApplicantDownload) (*response.A
 			}
 		}
 
-		// 登録
-		if err := s.r.Insert(tx, &ddl.Applicant{
+		// 構造体生成
+		applicant := &ddl.Applicant{
 			AbstractTransactionModel: ddl.AbstractTransactionModel{
 				HashKey:   *hash,
 				CompanyID: companyID,
@@ -381,15 +385,18 @@ func (s *ApplicantService) Download(req *request.ApplicantDownload) (*response.A
 			Tel:     row.Tel,
 			Age:     uint(row.Age),
 			TeamID:  teamID,
-		}); err != nil {
-			if err := s.d.TxRollback(tx); err != nil {
-				return nil, &response.Error{
-					Status: http.StatusInternalServerError,
-				}
-			}
+		}
+		applicants = append(applicants, applicant)
+	}
+
+	if err := s.r.Inserts(tx, applicants); err != nil {
+		if err := s.d.TxRollback(tx); err != nil {
 			return nil, &response.Error{
 				Status: http.StatusInternalServerError,
 			}
+		}
+		return nil, &response.Error{
+			Status: http.StatusInternalServerError,
 		}
 	}
 
@@ -628,7 +635,7 @@ func (s *ApplicantService) ReserveTable(req *request.ReserveTable) (*response.Re
 		Dates:           times,
 		Options:         reserveTime,
 		Schedule:        resSchedule.Start,
-		CalendarHashKey: resSchedule.HashKey,
+		ScheduleHashKey: resSchedule.HashKey,
 	}, nil
 }
 
@@ -812,8 +819,8 @@ func (s *ApplicantService) InsertDesiredAt(req *request.InsertDesiredAt) *respon
 		}
 	}
 
-	// カレンダーID取得
-	if req.CalendarHashKey == "" {
+	// 予定ID取得
+	if req.ScheduleHashKey == "" {
 		// ハッシュキー生成
 		_, hash, hashErr := GenerateHash(1, 25)
 		if hashErr != nil {

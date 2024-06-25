@@ -48,12 +48,12 @@ type IMasterRepository interface {
 	// insert
 	InsertHashKeyPre(tx *gorm.DB, m *ddl.HashKeyPre) error
 	/*
-		m_calendar_freq_status
+		m_schedule_freq_status
 	*/
 	// insert
-	InsertCalendarFreqStatus(tx *gorm.DB, m *ddl.CalendarFreqStatus) error
+	InsertScheduleFreqStatus(tx *gorm.DB, m *ddl.ScheduleFreqStatus) error
 	// select
-	SelectCalendarFreqStatus() ([]entity.CalendarFreqStatus, error)
+	SelectScheduleFreqStatus() ([]entity.ScheduleFreqStatus, error)
 }
 
 type MasterRepository struct {
@@ -201,10 +201,10 @@ func (r *MasterRepository) InsertHashKeyPre(tx *gorm.DB, m *ddl.HashKeyPre) erro
 }
 
 /*
-	m_calendar_freq_status
+	m_schedule_freq_status
 */
 // insert
-func (r *MasterRepository) InsertCalendarFreqStatus(tx *gorm.DB, m *ddl.CalendarFreqStatus) error {
+func (r *MasterRepository) InsertScheduleFreqStatus(tx *gorm.DB, m *ddl.ScheduleFreqStatus) error {
 	if err := tx.Create(m).Error; err != nil {
 		log.Printf("%v", err)
 		return err
@@ -213,8 +213,8 @@ func (r *MasterRepository) InsertCalendarFreqStatus(tx *gorm.DB, m *ddl.Calendar
 }
 
 // select
-func (r *MasterRepository) SelectCalendarFreqStatus() ([]entity.CalendarFreqStatus, error) {
-	var res []entity.CalendarFreqStatus
+func (r *MasterRepository) SelectScheduleFreqStatus() ([]entity.ScheduleFreqStatus, error) {
+	var res []entity.ScheduleFreqStatus
 	if err := r.db.Find(&res).Error; err != nil {
 		log.Printf("%v", err)
 		return nil, err

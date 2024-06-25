@@ -29,7 +29,7 @@ type Team struct {
 type SearchTeam struct {
 	ddl.Team
 	// 所属ユーザー
-	Users []string `json:"users"`
+	Users []*ddl.User `json:"users" gorm:"many2many:t_team_association;foreignKey:id;joinForeignKey:team_id;References:id;joinReferences:user_id"`
 }
 
 // UserSchedule

@@ -15,6 +15,8 @@ type IRoleRepository interface {
 	Get(m *ddl.CustomRole) (*entity.CustomRole, error)
 	// 付与ロール登録
 	InsertAssociation(tx *gorm.DB, m *ddl.RoleAssociation) error
+	// 付与ロール一括登録
+	InsertsAssociation(tx *gorm.DB, m []*ddl.RoleAssociation) error
 	// 該当ロールのマスタID取得
 	GetRoleIDs(m *ddl.CustomRole) ([]entity.RoleAssociation, error)
 }
@@ -57,6 +59,15 @@ func (r *RoleRepository) Get(m *ddl.CustomRole) (*entity.CustomRole, error) {
 
 // 付与ロール登録
 func (r *RoleRepository) InsertAssociation(tx *gorm.DB, m *ddl.RoleAssociation) error {
+	if err := tx.Create(m).Error; err != nil {
+		log.Printf("%v", err)
+		return err
+	}
+	return nil
+}
+
+// 付与ロール一括登録
+func (r *RoleRepository) InsertsAssociation(tx *gorm.DB, m []*ddl.RoleAssociation) error {
 	if err := tx.Create(m).Error; err != nil {
 		log.Printf("%v", err)
 		return err

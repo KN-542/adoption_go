@@ -7,6 +7,7 @@ import (
 	"api/src/model/static"
 	"api/src/repository"
 	"api/src/validator"
+	"fmt"
 	"log"
 	"net/http"
 )
@@ -14,6 +15,8 @@ import (
 type ICompanyService interface {
 	// 登録
 	Create(req *request.CreateCompany) (*response.CreateCompany, *response.Error)
+	// 検索
+	Search(req *request.SearchCompany) (*response.SearchCompany, *response.Error)
 }
 
 type CompanyService struct {
@@ -128,19 +131,22 @@ func (c *CompanyService) Create(req *request.CreateCompany) (*response.CreateCom
 		}
 	}
 
+	var list []*ddl.RoleAssociation
 	for _, row := range roles {
-		if err := c.role.InsertAssociation(tx, &ddl.RoleAssociation{
+		list = append(list, &ddl.RoleAssociation{
 			RoleID:       role.ID,
 			MasterRoleID: row.ID,
-		}); err != nil {
-			if err := c.db.TxRollback(tx); err != nil {
-				return nil, &response.Error{
-					Status: http.StatusInternalServerError,
-				}
-			}
+		})
+	}
+
+	if err := c.role.InsertsAssociation(tx, list); err != nil {
+		if err := c.db.TxRollback(tx); err != nil {
 			return nil, &response.Error{
 				Status: http.StatusInternalServerError,
 			}
+		}
+		return nil, &response.Error{
+			Status: http.StatusInternalServerError,
 		}
 	}
 
@@ -287,7 +293,33 @@ func (c *CompanyService) Create(req *request.CreateCompany) (*response.CreateCom
 		}
 	}
 
+	fmt.Print(*password)
+
 	return &response.CreateCompany{
 		Password: *password,
+	}, nil
+}
+
+// 検索
+func (c *CompanyService) Search(req *request.SearchCompany) (*response.SearchCompany, *response.Error) {
+	// バリデーション
+	if err := c.v.Search(req); err != nil {
+		log.Printf("%v", err)
+		return nil, &response.Error{
+			Status: http.StatusBadRequest,
+			Code:   static.CODE_BAD_REQUEST,
+		}
+	}
+
+	// 検索
+	res, err := c.company.Search(&req.Company)
+	if err != nil {
+		return nil, &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	return &response.SearchCompany{
+		List: res,
 	}, nil
 }

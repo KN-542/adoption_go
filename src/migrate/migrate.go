@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"time"
 
 	"gorm.io/gorm"
 )
@@ -30,7 +29,7 @@ func main() {
 			&ddl.Role{},
 			&ddl.Sidebar{},
 			&ddl.SidebarRoleAssociation{},
-			&ddl.CalendarFreqStatus{},
+			&ddl.ScheduleFreqStatus{},
 			&ddl.ApplyVariable{},
 			&ddl.OperationLogEvent{},
 			&ddl.NoticeType{},
@@ -138,18 +137,18 @@ func main() {
 			log.Println(err)
 		}
 
-		// m_calendar_freq_status
-		if err := AddTableComment(dbConn, "m_calendar_freq_status", "予定頻度マスタ"); err != nil {
+		// m_schedule_freq_status
+		if err := AddTableComment(dbConn, "m_schedule_freq_status", "予定頻度マスタ"); err != nil {
 			log.Println(err)
 		}
-		mCalendarFreqStatus := map[string]string{
+		mScheduleFreqStatus := map[string]string{
 			"id":       "ID",
 			"hash_key": "ハッシュキー",
 			"freq":     "頻度",
 			"name_ja":  "名前_日本語",
 			"name_en":  "名前_英語",
 		}
-		if err := AddColumnComments(dbConn, "m_calendar_freq_status", mCalendarFreqStatus); err != nil {
+		if err := AddColumnComments(dbConn, "m_schedule_freq_status", mScheduleFreqStatus); err != nil {
 			log.Println(err)
 		}
 
@@ -379,13 +378,7 @@ func main() {
 		}
 
 		// t_applicant
-		year := time.Now().Year()
-		month := time.Now().Month()
-		if err := AddTableComment(
-			dbConn,
-			fmt.Sprintf("t_applicant_%d_%02d", year, month),
-			fmt.Sprintf("応募者_%d_%02d", year, month),
-		); err != nil {
+		if err := AddTableComment(dbConn, "t_applicant", "応募者"); err != nil {
 			log.Println(err)
 		}
 		applicant := map[string]string{
@@ -406,23 +399,19 @@ func main() {
 			"created_at":       "登録日時",
 			"updated_at":       "更新日時",
 		}
-		if err := AddColumnComments(dbConn, fmt.Sprintf("t_applicant_%d_%02d", year, month), applicant); err != nil {
+		if err := AddColumnComments(dbConn, "t_applicant", applicant); err != nil {
 			log.Println(err)
 		}
 
 		// t_applicant_user_association
-		if err := AddTableComment(
-			dbConn,
-			fmt.Sprintf("t_applicant_user_association_%d_%02d", year, month),
-			fmt.Sprintf("応募者ユーザー紐づけ_%d_%02d", year, month),
-		); err != nil {
+		if err := AddTableComment(dbConn, "t_applicant_user_association", "応募者ユーザー紐づけ"); err != nil {
 			log.Println(err)
 		}
 		applicantUserAssociation := map[string]string{
 			"applicant_id": "応募者ID",
 			"user_id":      "ユーザーID",
 		}
-		if err := AddColumnComments(dbConn, fmt.Sprintf("t_applicant_user_association_%d_%02d", year, month), applicantUserAssociation); err != nil {
+		if err := AddColumnComments(dbConn, "t_applicant_user_association", applicantUserAssociation); err != nil {
 			log.Println(err)
 		}
 
@@ -547,7 +536,7 @@ func main() {
 			&ddl.Role{},
 			&ddl.Sidebar{},
 			&ddl.SidebarRoleAssociation{},
-			&ddl.CalendarFreqStatus{},
+			&ddl.ScheduleFreqStatus{},
 			&ddl.ApplyVariable{},
 			&ddl.OperationLogEvent{},
 			&ddl.NoticeType{},
@@ -745,7 +734,7 @@ func CreateData(db *gorm.DB) {
 				ID: uint(static.ROLE_ADMIN_COMPANY_CREATE),
 			},
 			NameJa:   "システム管理者企業作成",
-			NameEn:   "AdminCreateCompany",
+			NameEn:   "AdminCompanyCreate",
 			RoleType: uint(static.LOGIN_TYPE_ADMIN),
 		},
 		{
@@ -819,6 +808,23 @@ func CreateData(db *gorm.DB) {
 			},
 			NameJa:   "システム管理者ユーザー削除",
 			NameEn:   "AdminUserDelete",
+			RoleType: uint(static.LOGIN_TYPE_ADMIN),
+		},
+		// admin_操作ログ関連
+		{
+			AbstractMasterModel: ddl.AbstractMasterModel{
+				ID: uint(static.ROLE_ADMIN_LOG_READ),
+			},
+			NameJa:   "システム管理者操作ログ閲覧",
+			NameEn:   "AdminLogRead",
+			RoleType: uint(static.LOGIN_TYPE_ADMIN),
+		},
+		{
+			AbstractMasterModel: ddl.AbstractMasterModel{
+				ID: uint(static.ROLE_ADMIN_LOG_DETAIL_READ),
+			},
+			NameJa:   "システム管理者操作ログ詳細閲覧",
+			NameEn:   "AdminLogDetailRead",
 			RoleType: uint(static.LOGIN_TYPE_ADMIN),
 		},
 		// management_ロール関連
@@ -952,45 +958,45 @@ func CreateData(db *gorm.DB) {
 			NameEn:   "ManagementTeamDelete",
 			RoleType: uint(static.LOGIN_TYPE_MANAGEMENT),
 		},
-		// management_カレンダー関連
+		// management_予定関連
 		{
 			AbstractMasterModel: ddl.AbstractMasterModel{
-				ID: uint(static.ROLE_MANAGEMENT_CALENDAR_CREATE),
+				ID: uint(static.ROLE_MANAGEMENT_SCHEDULE_CREATE),
 			},
-			NameJa:   "管理者カレンダー作成",
-			NameEn:   "ManagementCalendarCreate",
+			NameJa:   "管理者予定作成",
+			NameEn:   "ManagementScheduleCreate",
 			RoleType: uint(static.LOGIN_TYPE_MANAGEMENT),
 		},
 		{
 			AbstractMasterModel: ddl.AbstractMasterModel{
-				ID: uint(static.ROLE_MANAGEMENT_CALENDAR_READ),
+				ID: uint(static.ROLE_MANAGEMENT_SCHEDULE_READ),
 			},
-			NameJa:   "管理者カレンダー閲覧",
-			NameEn:   "ManagementCalendarRead",
+			NameJa:   "管理者予定閲覧",
+			NameEn:   "ManagementScheduleRead",
 			RoleType: uint(static.LOGIN_TYPE_MANAGEMENT),
 		},
 		{
 			AbstractMasterModel: ddl.AbstractMasterModel{
-				ID: uint(static.ROLE_MANAGEMENT_CALENDAR_DETAIL_READ),
+				ID: uint(static.ROLE_MANAGEMENT_SCHEDULE_DETAIL_READ),
 			},
-			NameJa:   "管理者カレンダー詳細閲覧",
-			NameEn:   "ManagementCalendarDetailRead",
+			NameJa:   "管理者予定詳細閲覧",
+			NameEn:   "ManagementScheduleDetailRead",
 			RoleType: uint(static.LOGIN_TYPE_MANAGEMENT),
 		},
 		{
 			AbstractMasterModel: ddl.AbstractMasterModel{
-				ID: uint(static.ROLE_MANAGEMENT_CALENDAR_EDIT),
+				ID: uint(static.ROLE_MANAGEMENT_SCHEDULE_EDIT),
 			},
-			NameJa:   "管理者カレンダー編集",
-			NameEn:   "ManagementCalendarEdit",
+			NameJa:   "管理者予定編集",
+			NameEn:   "ManagementScheduleEdit",
 			RoleType: uint(static.LOGIN_TYPE_MANAGEMENT),
 		},
 		{
 			AbstractMasterModel: ddl.AbstractMasterModel{
-				ID: uint(static.ROLE_MANAGEMENT_CALENDAR_DELETE),
+				ID: uint(static.ROLE_MANAGEMENT_SCHEDULE_DELETE),
 			},
-			NameJa:   "管理者カレンダー削除",
-			NameEn:   "ManagementCalendarDelete",
+			NameJa:   "管理者予定削除",
+			NameEn:   "ManagementScheduleDelete",
 			RoleType: uint(static.LOGIN_TYPE_MANAGEMENT),
 		},
 		// management_応募者関連
@@ -1040,6 +1046,114 @@ func CreateData(db *gorm.DB) {
 			},
 			NameJa:   "管理者応募者割振",
 			NameEn:   "ManagementApplicantAssignUser",
+			RoleType: uint(static.LOGIN_TYPE_MANAGEMENT),
+		},
+		// management_メール関連
+		{
+			AbstractMasterModel: ddl.AbstractMasterModel{
+				ID: uint(static.ROLE_MANAGEMENT_MAIL_CREATE),
+			},
+			NameJa:   "管理者メール作成",
+			NameEn:   "ManagementMailCreate",
+			RoleType: uint(static.LOGIN_TYPE_MANAGEMENT),
+		},
+		{
+			AbstractMasterModel: ddl.AbstractMasterModel{
+				ID: uint(static.ROLE_MANAGEMENT_MAIL_READ),
+			},
+			NameJa:   "管理者メール閲覧",
+			NameEn:   "ManagementMailRead",
+			RoleType: uint(static.LOGIN_TYPE_MANAGEMENT),
+		},
+		{
+			AbstractMasterModel: ddl.AbstractMasterModel{
+				ID: uint(static.ROLE_MANAGEMENT_MAIL_DETAIL_READ),
+			},
+			NameJa:   "管理者メール詳細閲覧",
+			NameEn:   "ManagementMailDetailRead",
+			RoleType: uint(static.LOGIN_TYPE_MANAGEMENT),
+		},
+		{
+			AbstractMasterModel: ddl.AbstractMasterModel{
+				ID: uint(static.ROLE_MANAGEMENT_MAIL_EDIT),
+			},
+			NameJa:   "管理者メール編集",
+			NameEn:   "ManagementMailEdit",
+			RoleType: uint(static.LOGIN_TYPE_MANAGEMENT),
+		},
+		{
+			AbstractMasterModel: ddl.AbstractMasterModel{
+				ID: uint(static.ROLE_MANAGEMENT_MAIL_DELETE),
+			},
+			NameJa:   "管理者メール削除",
+			NameEn:   "ManagementMailDelete",
+			RoleType: uint(static.LOGIN_TYPE_MANAGEMENT),
+		},
+		// management_変数関連
+		{
+			AbstractMasterModel: ddl.AbstractMasterModel{
+				ID: uint(static.ROLE_MANAGEMENT_VARIABLE_CREATE),
+			},
+			NameJa:   "管理者変数作成",
+			NameEn:   "ManagementVariableCreate",
+			RoleType: uint(static.LOGIN_TYPE_MANAGEMENT),
+		},
+		{
+			AbstractMasterModel: ddl.AbstractMasterModel{
+				ID: uint(static.ROLE_MANAGEMENT_VARIABLE_READ),
+			},
+			NameJa:   "管理者変数閲覧",
+			NameEn:   "ManagementVariableRead",
+			RoleType: uint(static.LOGIN_TYPE_MANAGEMENT),
+		},
+		{
+			AbstractMasterModel: ddl.AbstractMasterModel{
+				ID: uint(static.ROLE_MANAGEMENT_VARIABLE_DETAIL_READ),
+			},
+			NameJa:   "管理者変数詳細閲覧",
+			NameEn:   "ManagementVariableDetailRead",
+			RoleType: uint(static.LOGIN_TYPE_MANAGEMENT),
+		},
+		{
+			AbstractMasterModel: ddl.AbstractMasterModel{
+				ID: uint(static.ROLE_MANAGEMENT_VARIABLE_EDIT),
+			},
+			NameJa:   "管理者変数編集",
+			NameEn:   "ManagementVariableEdit",
+			RoleType: uint(static.LOGIN_TYPE_MANAGEMENT),
+		},
+		{
+			AbstractMasterModel: ddl.AbstractMasterModel{
+				ID: uint(static.ROLE_MANAGEMENT_VARIABLE_DELETE),
+			},
+			NameJa:   "管理者変数削除",
+			NameEn:   "ManagementVariableDelete",
+			RoleType: uint(static.LOGIN_TYPE_MANAGEMENT),
+		},
+		// management_分析関連
+		{
+			AbstractMasterModel: ddl.AbstractMasterModel{
+				ID: uint(static.ROLE_MANAGEMENT_ANALYSIS_READ),
+			},
+			NameJa:   "管理者分析閲覧",
+			NameEn:   "ManagementAnalysisRead",
+			RoleType: uint(static.LOGIN_TYPE_MANAGEMENT),
+		},
+		// management_操作ログ関連
+		{
+			AbstractMasterModel: ddl.AbstractMasterModel{
+				ID: uint(static.ROLE_MANAGEMENT_LOG_READ),
+			},
+			NameJa:   "管理者操作ログ閲覧",
+			NameEn:   "ManagementLogRead",
+			RoleType: uint(static.LOGIN_TYPE_MANAGEMENT),
+		},
+		{
+			AbstractMasterModel: ddl.AbstractMasterModel{
+				ID: uint(static.ROLE_MANAGEMENT_LOG_DETAIL_READ),
+			},
+			NameJa:   "管理者操作ログ詳細閲覧",
+			NameEn:   "ManagementLogDetailRead",
 			RoleType: uint(static.LOGIN_TYPE_MANAGEMENT),
 		},
 	}
@@ -1113,6 +1227,24 @@ func CreateData(db *gorm.DB) {
 		},
 		{
 			AbstractMasterModel: ddl.AbstractMasterModel{
+				ID: uint(static.SIDEBAR_MANAGEMENT_TEAM),
+			},
+			NameJa:   "チーム",
+			NameEn:   "Teams",
+			Path:     "/management/team",
+			FuncType: uint(static.LOGIN_TYPE_MANAGEMENT),
+		},
+		{
+			AbstractMasterModel: ddl.AbstractMasterModel{
+				ID: uint(static.SIDEBAR_MANAGEMENT_SCHEDULE),
+			},
+			NameJa:   "予定",
+			NameEn:   "Schedules",
+			Path:     "/management/schedule",
+			FuncType: uint(static.LOGIN_TYPE_MANAGEMENT),
+		},
+		{
+			AbstractMasterModel: ddl.AbstractMasterModel{
 				ID: uint(static.SIDEBAR_MANAGEMENT_ROLE),
 			},
 			NameJa:   "ロール",
@@ -1125,8 +1257,17 @@ func CreateData(db *gorm.DB) {
 				ID: uint(static.SIDEBAR_MANAGEMENT_MAIL),
 			},
 			NameJa:   "メールテンプレート",
-			NameEn:   "Mail Template",
+			NameEn:   "Mail Templates",
 			Path:     "/management/mail",
+			FuncType: uint(static.LOGIN_TYPE_MANAGEMENT),
+		},
+		{
+			AbstractMasterModel: ddl.AbstractMasterModel{
+				ID: uint(static.SIDEBAR_MANAGEMENT_VARIABLE),
+			},
+			NameJa:   "変数",
+			NameEn:   "Variables",
+			Path:     "/management/variable",
 			FuncType: uint(static.LOGIN_TYPE_MANAGEMENT),
 		},
 		{
@@ -1229,6 +1370,15 @@ func CreateData(db *gorm.DB) {
 			SidebarID: uint(static.SIDEBAR_ADMIN_ROLE),
 			RoleID:    uint(static.ROLE_ADMIN_ROLE_ASSIGN),
 		},
+		// admin_操作ログ関連
+		{
+			SidebarID: uint(static.SIDEBAR_ADMIN_LOG),
+			RoleID:    uint(static.ROLE_ADMIN_LOG_READ),
+		},
+		{
+			SidebarID: uint(static.SIDEBAR_ADMIN_LOG),
+			RoleID:    uint(static.ROLE_ADMIN_LOG_DETAIL_READ),
+		},
 		// management_ロール関連
 		{
 			SidebarID: uint(static.SIDEBAR_MANAGEMENT_ROLE),
@@ -1277,47 +1427,47 @@ func CreateData(db *gorm.DB) {
 		},
 		// management_チーム関連
 		{
-			SidebarID: uint(static.SIDEBAR_MANAGEMENT_USER),
+			SidebarID: uint(static.SIDEBAR_MANAGEMENT_TEAM),
 			RoleID:    uint(static.ROLE_MANAGEMENT_TEAM_CREATE),
 		},
 		{
-			SidebarID: uint(static.SIDEBAR_MANAGEMENT_USER),
+			SidebarID: uint(static.SIDEBAR_MANAGEMENT_TEAM),
 			RoleID:    uint(static.ROLE_MANAGEMENT_TEAM_READ),
 		},
 		{
-			SidebarID: uint(static.SIDEBAR_MANAGEMENT_USER),
+			SidebarID: uint(static.SIDEBAR_MANAGEMENT_TEAM),
 			RoleID:    uint(static.ROLE_MANAGEMENT_TEAM_DETAIL_READ),
 		},
 		{
-			SidebarID: uint(static.SIDEBAR_MANAGEMENT_USER),
+			SidebarID: uint(static.SIDEBAR_MANAGEMENT_TEAM),
 			RoleID:    uint(static.ROLE_MANAGEMENT_TEAM_EDIT),
 		},
 		{
-			SidebarID: uint(static.SIDEBAR_MANAGEMENT_USER),
+			SidebarID: uint(static.SIDEBAR_MANAGEMENT_TEAM),
 			RoleID:    uint(static.ROLE_MANAGEMENT_TEAM_DELETE),
 		},
-		// management_カレンダー関連
+		// management_予定関連
 		{
-			SidebarID: uint(static.SIDEBAR_MANAGEMENT_USER),
-			RoleID:    uint(static.ROLE_MANAGEMENT_CALENDAR_CREATE),
+			SidebarID: uint(static.SIDEBAR_MANAGEMENT_SCHEDULE),
+			RoleID:    uint(static.ROLE_MANAGEMENT_SCHEDULE_CREATE),
 		},
 		{
-			SidebarID: uint(static.SIDEBAR_MANAGEMENT_USER),
-			RoleID:    uint(static.ROLE_MANAGEMENT_CALENDAR_READ),
+			SidebarID: uint(static.SIDEBAR_MANAGEMENT_SCHEDULE),
+			RoleID:    uint(static.ROLE_MANAGEMENT_SCHEDULE_READ),
 		},
 		{
-			SidebarID: uint(static.SIDEBAR_MANAGEMENT_USER),
-			RoleID:    uint(static.ROLE_MANAGEMENT_CALENDAR_DETAIL_READ),
+			SidebarID: uint(static.SIDEBAR_MANAGEMENT_SCHEDULE),
+			RoleID:    uint(static.ROLE_MANAGEMENT_SCHEDULE_DETAIL_READ),
 		},
 		{
-			SidebarID: uint(static.SIDEBAR_MANAGEMENT_USER),
-			RoleID:    uint(static.ROLE_MANAGEMENT_CALENDAR_EDIT),
+			SidebarID: uint(static.SIDEBAR_MANAGEMENT_SCHEDULE),
+			RoleID:    uint(static.ROLE_MANAGEMENT_SCHEDULE_EDIT),
 		},
 		{
-			SidebarID: uint(static.SIDEBAR_MANAGEMENT_USER),
-			RoleID:    uint(static.ROLE_MANAGEMENT_CALENDAR_DELETE),
+			SidebarID: uint(static.SIDEBAR_MANAGEMENT_SCHEDULE),
+			RoleID:    uint(static.ROLE_MANAGEMENT_SCHEDULE_DELETE),
 		},
-		// management_カレンダー関連
+		// management_応募者関連
 		{
 			SidebarID: uint(static.SIDEBAR_MANAGEMENT_APPLICANT),
 			RoleID:    uint(static.ROLE_MANAGEMENT_APPLICANT_CREATE),
@@ -1341,6 +1491,62 @@ func CreateData(db *gorm.DB) {
 		{
 			SidebarID: uint(static.SIDEBAR_MANAGEMENT_APPLICANT),
 			RoleID:    uint(static.ROLE_MANAGEMENT_APPLICANT_ASSIGN_USER),
+		},
+		// management_メール関連
+		{
+			SidebarID: uint(static.SIDEBAR_MANAGEMENT_MAIL),
+			RoleID:    uint(static.ROLE_MANAGEMENT_MAIL_CREATE),
+		},
+		{
+			SidebarID: uint(static.SIDEBAR_MANAGEMENT_MAIL),
+			RoleID:    uint(static.ROLE_MANAGEMENT_MAIL_READ),
+		},
+		{
+			SidebarID: uint(static.SIDEBAR_MANAGEMENT_MAIL),
+			RoleID:    uint(static.ROLE_MANAGEMENT_MAIL_DETAIL_READ),
+		},
+		{
+			SidebarID: uint(static.SIDEBAR_MANAGEMENT_MAIL),
+			RoleID:    uint(static.ROLE_MANAGEMENT_MAIL_EDIT),
+		},
+		{
+			SidebarID: uint(static.SIDEBAR_MANAGEMENT_MAIL),
+			RoleID:    uint(static.ROLE_MANAGEMENT_MAIL_DELETE),
+		},
+		// management_変数関連
+		{
+			SidebarID: uint(static.SIDEBAR_MANAGEMENT_VARIABLE),
+			RoleID:    uint(static.ROLE_MANAGEMENT_VARIABLE_CREATE),
+		},
+		{
+			SidebarID: uint(static.SIDEBAR_MANAGEMENT_VARIABLE),
+			RoleID:    uint(static.ROLE_MANAGEMENT_VARIABLE_READ),
+		},
+		{
+			SidebarID: uint(static.SIDEBAR_MANAGEMENT_VARIABLE),
+			RoleID:    uint(static.ROLE_MANAGEMENT_VARIABLE_DETAIL_READ),
+		},
+		{
+			SidebarID: uint(static.SIDEBAR_MANAGEMENT_VARIABLE),
+			RoleID:    uint(static.ROLE_MANAGEMENT_VARIABLE_EDIT),
+		},
+		{
+			SidebarID: uint(static.SIDEBAR_MANAGEMENT_VARIABLE),
+			RoleID:    uint(static.ROLE_MANAGEMENT_VARIABLE_DELETE),
+		},
+		// management_分析関連
+		{
+			SidebarID: uint(static.SIDEBAR_MANAGEMENT_ANALYSIS),
+			RoleID:    uint(static.ROLE_MANAGEMENT_ANALYSIS_READ),
+		},
+		// management_操作ログ関連
+		{
+			SidebarID: uint(static.SIDEBAR_MANAGEMENT_LOG),
+			RoleID:    uint(static.ROLE_MANAGEMENT_LOG_READ),
+		},
+		{
+			SidebarID: uint(static.SIDEBAR_MANAGEMENT_LOG),
+			RoleID:    uint(static.ROLE_MANAGEMENT_LOG_DETAIL_READ),
 		},
 	}
 	for _, row := range sidebarRoleAssociation {
@@ -1386,8 +1592,8 @@ func CreateData(db *gorm.DB) {
 		}
 	}
 
-	// m_calendar_freq_status
-	calendarFreqStatus := []*ddl.CalendarFreqStatus{
+	// m_schedule_freq_status
+	scheduleFreqStatus := []*ddl.ScheduleFreqStatus{
 		{
 			AbstractMasterModel: ddl.AbstractMasterModel{
 				ID: uint(static.FREQ_NONE),
@@ -1429,10 +1635,10 @@ func CreateData(db *gorm.DB) {
 			NameEn: "Yearly",
 		},
 	}
-	for _, row := range calendarFreqStatus {
+	for _, row := range scheduleFreqStatus {
 		_, hash, _ := service.GenerateHash(1, 25)
-		row.HashKey = "m_calendar_freq_status" + "_" + *hash
-		if err := master.InsertCalendarFreqStatus(tx, row); err != nil {
+		row.HashKey = "m_schedule_freq_status" + "_" + *hash
+		if err := master.InsertScheduleFreqStatus(tx, row); err != nil {
 			if err := tx.Rollback().Error; err != nil {
 				log.Printf("%v", err)
 				return

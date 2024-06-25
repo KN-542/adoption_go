@@ -10,6 +10,8 @@ import (
 type ICompanyValidator interface {
 	// 登録
 	Create(c *request.CreateCompany) error
+	// 検索
+	Search(c *request.SearchCompany) error
 }
 
 type CompanyValidator struct{}
@@ -36,6 +38,21 @@ func (v *CompanyValidator) Create(c *request.CreateCompany) error {
 			&c.Name,
 			validation.Required,
 			validation.Length(1, 30),
+		),
+	)
+}
+
+// 検索
+func (v *CompanyValidator) Search(c *request.SearchCompany) error {
+	return validation.ValidateStruct(
+		c,
+		validation.Field(
+			&c.UserHashKey,
+			validation.Required,
+		),
+		validation.Field(
+			&c.Name,
+			validation.Length(0, 50),
 		),
 	)
 }

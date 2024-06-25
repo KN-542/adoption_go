@@ -121,7 +121,7 @@ func (g *GoogleRepository) GetGoogleMeetUrl(token *oauth2.Token, title string, s
 	}
 	client := config.Client(ctx, token)
 
-	// Calendar APIクライアントの作成
+	// Schedule APIクライアントの作成
 	calendarService, err := calendar.NewService(ctx, option.WithHTTPClient(client))
 	if err != nil {
 		log.Printf("%v", err)
