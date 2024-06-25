@@ -104,20 +104,11 @@ func (u *UserService) Create(req *request.CreateUser) (*response.CreateUser, *re
 	}
 
 	// チームのIDを取得
-	var teams []uint64
-	for _, hash := range req.Teams {
-		// チーム検索
-		team, teamErr := u.user.GetTeam(&ddl.Team{
-			AbstractTransactionModel: ddl.AbstractTransactionModel{
-				HashKey: hash,
-			},
-		})
-		if teamErr != nil {
-			return nil, &response.Error{
-				Status: http.StatusInternalServerError,
-			}
+	teams, teamsErr := u.user.GetTeamIDs(req.Teams)
+	if teamsErr != nil {
+		return nil, &response.Error{
+			Status: http.StatusInternalServerError,
 		}
-		teams = append(teams, team.ID)
 	}
 
 	// ログイン種別が管理者の場合、チームに関するバリデーション
@@ -209,20 +200,22 @@ func (u *UserService) Create(req *request.CreateUser) (*response.CreateUser, *re
 		}
 	}
 
+	var teamAssociations []*ddl.TeamAssociation
 	for _, id := range teams {
-		// チーム紐づけ登録
-		if err := u.user.InsertTeamAssociation(tx, &ddl.TeamAssociation{
+		teamAssociations = append(teamAssociations, &ddl.TeamAssociation{
 			TeamID: id,
 			UserID: user.ID,
-		}); err != nil {
-			if err := u.d.TxRollback(tx); err != nil {
-				return nil, &response.Error{
-					Status: http.StatusInternalServerError,
-				}
-			}
+		})
+	}
+	// チーム紐づけ一括登録
+	if err := u.user.InsertsTeamAssociation(tx, teamAssociations); err != nil {
+		if err := u.d.TxRollback(tx); err != nil {
 			return nil, &response.Error{
 				Status: http.StatusInternalServerError,
 			}
+		}
+		return nil, &response.Error{
+			Status: http.StatusInternalServerError,
 		}
 	}
 
@@ -357,32 +350,18 @@ func (u *UserService) SearchTeam(req *request.SearchTeam) (*response.SearchTeam,
 	// 所属ユーザー取得
 	var res []entity.SearchTeam
 	for _, team := range teams {
-		users, err := u.user.ListUserAssociation(&ddl.TeamAssociation{
-			TeamID: team.ID,
-		})
-		if err != nil {
-			return nil, &response.Error{
-				Status: http.StatusInternalServerError,
-			}
-		}
+		var t entity.SearchTeam
 
-		var l []string
-		for _, user := range users {
-			user2, err := u.user.GetByPrimary(&ddl.User{
+		t.Team = team.Team
+		for _, row := range team.Users {
+			t.Users = append(t.Users, &ddl.User{
 				AbstractTransactionModel: ddl.AbstractTransactionModel{
-					ID: user.UserID,
+					HashKey: row.HashKey,
 				},
+				Name: row.Name,
 			})
-			if err != nil {
-				return nil, &response.Error{
-					Status: http.StatusInternalServerError,
-				}
-			}
-			l = append(l, user2.Name)
 		}
-
-		team.Users = l
-		res = append(res, *team)
+		res = append(res, t)
 	}
 
 	return &response.SearchTeam{
@@ -402,21 +381,11 @@ func (u *UserService) CreateTeam(req *request.CreateTeam) *response.Error {
 	}
 
 	// ユーザー存在確認
-	var ids []uint64
-	for _, hash := range req.Users {
-		user, err := u.user.Get(&ddl.User{
-			AbstractTransactionModel: ddl.AbstractTransactionModel{
-				HashKey: hash,
-			},
-		})
-		if err != nil {
-			return &response.Error{
-				Status: http.StatusGone,
-				Code:   static.CODE_TEAM_USER_NOT_FOUNT,
-			}
+	ids, idsErr := u.user.GetIDs(req.Users)
+	if idsErr != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
 		}
-
-		ids = append(ids, user.ID)
 	}
 
 	// ハッシュキー生成
@@ -448,20 +417,23 @@ func (u *UserService) CreateTeam(req *request.CreateTeam) *response.Error {
 			Status: http.StatusInternalServerError,
 		}
 	}
+
+	var teamAssociations []*ddl.TeamAssociation
 	for _, id := range ids {
-		// チーム紐づけ登録
-		if err := u.user.InsertTeamAssociation(tx, &ddl.TeamAssociation{
+		teamAssociations = append(teamAssociations, &ddl.TeamAssociation{
 			TeamID: team.ID,
 			UserID: id,
-		}); err != nil {
-			if err := u.d.TxRollback(tx); err != nil {
-				return &response.Error{
-					Status: http.StatusInternalServerError,
-				}
-			}
+		})
+	}
+	// チーム紐づけ一括登録
+	if err := u.user.InsertsTeamAssociation(tx, teamAssociations); err != nil {
+		if err := u.d.TxRollback(tx); err != nil {
 			return &response.Error{
 				Status: http.StatusInternalServerError,
 			}
+		}
+		return &response.Error{
+			Status: http.StatusInternalServerError,
 		}
 	}
 
@@ -476,7 +448,7 @@ func (u *UserService) CreateTeam(req *request.CreateTeam) *response.Error {
 
 // 予定登録種別一覧
 func (u *UserService) SearchScheduleType() (*response.SearchScheduleType, *response.Error) {
-	res, err := u.master.SelectCalendarFreqStatus()
+	res, err := u.master.SelectScheduleFreqStatus()
 	if err != nil {
 		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
@@ -500,21 +472,11 @@ func (u *UserService) CreateSchedule(req *request.CreateSchedule) (*response.Cre
 	}
 
 	// ユーザー存在確認
-	var ids []uint64
-	for _, hash := range req.Users {
-		user, err := u.user.Get(&ddl.User{
-			AbstractTransactionModel: ddl.AbstractTransactionModel{
-				HashKey: hash,
-			},
-		})
-		if err != nil {
-			return nil, &response.Error{
-				Status: http.StatusGone,
-				Code:   static.CODE_TEAM_USER_NOT_FOUNT,
-			}
+	ids, idsErr := u.user.GetIDs(req.Users)
+	if idsErr != nil {
+		return nil, &response.Error{
+			Status: http.StatusInternalServerError,
 		}
-
-		ids = append(ids, user.ID)
 	}
 
 	// ハッシュキー生成
@@ -554,20 +516,23 @@ func (u *UserService) CreateSchedule(req *request.CreateSchedule) (*response.Cre
 			Status: http.StatusInternalServerError,
 		}
 	}
+
+	var userScheduleAssociations []*ddl.UserScheduleAssociation
 	for _, id := range ids {
-		// 予定紐づけ登録
-		if err := u.user.InsertScheduleAssociation(tx, &ddl.UserScheduleAssociation{
+		userScheduleAssociations = append(userScheduleAssociations, &ddl.UserScheduleAssociation{
 			UserScheduleID: *scheduleID,
 			UserID:         id,
-		}); err != nil {
-			if err := u.d.TxRollback(tx); err != nil {
-				return nil, &response.Error{
-					Status: http.StatusInternalServerError,
-				}
-			}
+		})
+	}
+	// 予定紐づけ一括登録
+	if err := u.user.InsertsScheduleAssociation(tx, userScheduleAssociations); err != nil {
+		if err := u.d.TxRollback(tx); err != nil {
 			return nil, &response.Error{
 				Status: http.StatusInternalServerError,
 			}
+		}
+		return nil, &response.Error{
+			Status: http.StatusInternalServerError,
 		}
 	}
 
@@ -594,21 +559,11 @@ func (u *UserService) UpdateSchedule(req *request.UpdateSchedule) *response.Erro
 	}
 
 	// ユーザー存在確認
-	var ids []uint64
-	for _, hash := range req.Users {
-		user, err := u.user.Get(&ddl.User{
-			AbstractTransactionModel: ddl.AbstractTransactionModel{
-				HashKey: hash,
-			},
-		})
-		if err != nil {
-			return &response.Error{
-				Status: http.StatusGone,
-				Code:   static.CODE_TEAM_USER_NOT_FOUNT,
-			}
+	ids, idsErr := u.user.GetIDs(req.Users)
+	if idsErr != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
 		}
-
-		ids = append(ids, user.ID)
 	}
 
 	tx, txErr := u.d.TxStart()
@@ -648,20 +603,23 @@ func (u *UserService) UpdateSchedule(req *request.UpdateSchedule) *response.Erro
 			Status: http.StatusInternalServerError,
 		}
 	}
+
+	var userScheduleAssociations []*ddl.UserScheduleAssociation
 	for _, id := range ids {
-		// 予定紐づけ登録
-		if err := u.user.InsertScheduleAssociation(tx, &ddl.UserScheduleAssociation{
+		userScheduleAssociations = append(userScheduleAssociations, &ddl.UserScheduleAssociation{
 			UserScheduleID: *scheduleID,
 			UserID:         id,
-		}); err != nil {
-			if err := u.d.TxRollback(tx); err != nil {
-				return &response.Error{
-					Status: http.StatusInternalServerError,
-				}
-			}
+		})
+	}
+	// 予定紐づけ一括登録
+	if err := u.user.InsertsScheduleAssociation(tx, userScheduleAssociations); err != nil {
+		if err := u.d.TxRollback(tx); err != nil {
 			return &response.Error{
 				Status: http.StatusInternalServerError,
 			}
+		}
+		return &response.Error{
+			Status: http.StatusInternalServerError,
 		}
 	}
 

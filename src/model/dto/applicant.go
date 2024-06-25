@@ -8,7 +8,7 @@ import (
 type SearchApplicant struct {
 	request.SearchApplicant
 	// ユーザー
-	UserIDs []uint64
+	Users []string
 }
 
 // 予約表サブ
@@ -17,4 +17,14 @@ type ReserveTableSub struct {
 	Time time.Time `json:"time"`
 	// 予約可否
 	IsReserve bool `json:"is_reserve"`
+}
+
+// ダウンロード時重複チェック
+type CheckDuplDownloading struct {
+	// チームID
+	TeamID uint64
+	// 企業ID
+	CompanyID uint64
+	// 媒体側IDリスト
+	List []string
 }

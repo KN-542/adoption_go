@@ -59,6 +59,7 @@ func NewRouter(
 
 	// 企業
 	e.POST("/company/create", company.Create)
+	e.POST("/company/search", company.Search)
 
 	// 応募者
 	e.POST("/applicant/get_url", applicant.GetOauthURL)

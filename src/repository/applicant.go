@@ -5,7 +5,6 @@ import (
 	"api/src/model/dto"
 	"api/src/model/entity"
 	"api/src/model/static"
-	"fmt"
 	"log"
 	"time"
 
@@ -16,6 +15,8 @@ import (
 type IApplicantRepository interface {
 	// 登録
 	Insert(tx *gorm.DB, m *ddl.Applicant) error
+	// 一括登録
+	Inserts(tx *gorm.DB, m []*ddl.Applicant) error
 	// 更新
 	Update(tx *gorm.DB, m *ddl.Applicant) error
 	// 検索
@@ -27,7 +28,7 @@ type IApplicantRepository interface {
 	// 取得_メールアドレス
 	GetByEmail(m *ddl.Applicant) ([]entity.Applicant, error)
 	// 応募者重複チェック_媒体側ID
-	CheckDuplByOuterId(m *ddl.Applicant) (*int64, error)
+	CheckDuplByOuterId(m *dto.CheckDuplDownloading) ([]entity.Applicant, error)
 }
 
 type ApplicantRepository struct {
@@ -41,6 +42,15 @@ func NewApplicantRepository(db *gorm.DB, redis *redis.Client) IApplicantReposito
 
 // 登録
 func (a *ApplicantRepository) Insert(tx *gorm.DB, m *ddl.Applicant) error {
+	if err := tx.Create(m).Error; err != nil {
+		log.Printf("%v", err)
+		return err
+	}
+	return nil
+}
+
+// 一括登録
+func (a *ApplicantRepository) Inserts(tx *gorm.DB, m []*ddl.Applicant) error {
 	if err := tx.Create(m).Error; err != nil {
 		log.Printf("%v", err)
 		return err
@@ -75,40 +85,28 @@ func (a *ApplicantRepository) Update(tx *gorm.DB, m *ddl.Applicant) error {
 func (a *ApplicantRepository) Search(m *dto.SearchApplicant) ([]*entity.SearchApplicant, error) {
 	var applicants []*entity.SearchApplicant
 
-	year := time.Now().Year()
-	month := time.Now().Month()
-	tApplicant := fmt.Sprintf("t_applicant_%d_%02d", year, month)
-	tApplicantUserAssociation := fmt.Sprintf("t_applicant_user_association_%d_%02d", year, month)
-
-	query := a.db.Table(tApplicant).
-		Select(fmt.Sprintf(`
-				%s.id,
-				%s.hash_key,
-				%s.name,
-				%s.email,
-				%s.resume,
-				%s.curriculum_vitae,
-				%s.google_meet_url,
-				%s.schedule_id,
-				t_select_status.status_name as status_name,
-				m_site.site_name as site_name,
-				t_user_schedule.hash_key as calendar_hash_key,
-				t_user_schedule.start as start
-			`,
-			tApplicant,
-			tApplicant,
-			tApplicant,
-			tApplicant,
-			tApplicant,
-			tApplicant,
-			tApplicant,
-			tApplicant,
-		)).
-		Joins(fmt.Sprintf("left join t_select_status on %s.status = t_select_status.id", tApplicant)).
-		Joins(fmt.Sprintf("left join %s on %s.id = %s.applicant_id", tApplicantUserAssociation, tApplicant, tApplicantUserAssociation)).
-		Joins(fmt.Sprintf("left join m_site on %s.site_id = m_site.id", tApplicant)).
-		Joins(fmt.Sprintf("left join t_user_schedule on %s.schedule_id = t_user_schedule.id", tApplicant)).
-		Where(fmt.Sprintf("%s.team_id = ?", tApplicant), m.TeamID)
+	query := a.db.Table("t_applicant").
+		Select(`
+			t_applicant.id,
+			t_applicant.hash_key,
+			t_applicant.name,
+			t_applicant.email,
+			t_applicant.resume,
+			t_applicant.curriculum_vitae,
+			t_applicant.google_meet_url,
+			t_applicant.schedule_id,
+			t_select_status.status_name as status_name,
+			m_site.site_name as site_name,
+			t_user_schedule.hash_key as schedule_hash_key,
+			t_user_schedule.start as start
+		`).
+		Joins("left join t_select_status on t_applicant.status = t_select_status.id").
+		Joins("left join m_site on t_applicant.site_id = m_site.id").
+		Joins("left join t_user_schedule on t_applicant.schedule_id = t_user_schedule.id").
+		Joins("left join t_applicant_user_association on t_applicant_user_association.applicant_id = t_applicant.id").
+		Joins("left join t_user on t_applicant_user_association.user_id = t_user.id").
+		Where("t_applicant.team_id = ?", m.TeamID).
+		Where("t_applicant.company_id = ?", m.CompanyID)
 
 	if len(m.Sites) > 0 {
 		query = query.Where("m_site.hash_key IN ?", m.Sites)
@@ -119,25 +117,25 @@ func (a *ApplicantRepository) Search(m *dto.SearchApplicant) ([]*entity.SearchAp
 	}
 
 	if m.ResumeFlg == uint(static.DOCUMENT_EXIST) {
-		query = query.Where(fmt.Sprintf("%s.resume != ''", tApplicant))
-	} else if m.ResumeFlg == uint(static.DOCUMENT_NOT_EXIST) {
-		query = query.Where(fmt.Sprintf("%s.resume = ''", tApplicant))
+		query = query.Where("t_applicant.resume != ''")
+	} else {
+		query = query.Where("t_applicant.resume = ''")
 	}
 	if m.CurriculumVitaeFlg == uint(static.DOCUMENT_EXIST) {
-		query = query.Where(fmt.Sprintf("%s.curriculum_vitae != ''", tApplicant))
-	} else if m.CurriculumVitaeFlg == uint(static.DOCUMENT_NOT_EXIST) {
-		query = query.Where(fmt.Sprintf("%s.curriculum_vitae = ''", tApplicant))
+		query = query.Where("t_applicant.curriculum_vitae != ''")
+	} else {
+		query = query.Where("t_applicant.curriculum_vitae = ''")
 	}
 
 	if m.Name != "" {
-		query = query.Where(fmt.Sprintf("%s.name LIKE ?", tApplicant), "%"+m.Name+"%")
+		query = query.Where("t_applicant.name LIKE ?", "%"+m.Name+"%")
 	}
 	if m.Email != "" {
-		query = query.Where(fmt.Sprintf("%s.email LIKE ?", tApplicant), "%"+m.Email+"%")
+		query = query.Where("t_applicant.email LIKE ?", "%"+m.Email+"%")
 	}
 
-	if len(m.UserIDs) > 0 {
-		query = query.Where(fmt.Sprintf("%s.user_id IN ?", tApplicantUserAssociation), m.UserIDs)
+	if len(m.Users) > 0 {
+		query = query.Where("t_user.hash_key IN ?", m.Users)
 	}
 
 	if m.SortKey != "" {
@@ -148,10 +146,13 @@ func (a *ApplicantRepository) Search(m *dto.SearchApplicant) ([]*entity.SearchAp
 		}
 	}
 
-	if err := query.Find(&applicants).Error; err != nil {
+	if err := query.Preload("Users", func(db *gorm.DB) *gorm.DB {
+		return db.Select("id", "hash_key", "name")
+	}).Find(&applicants).Error; err != nil {
 		log.Printf("%v", err)
 		return nil, err
 	}
+
 	return applicants, nil
 }
 
@@ -212,13 +213,20 @@ func (a *ApplicantRepository) GetByEmail(m *ddl.Applicant) ([]entity.Applicant, 
 }
 
 // 応募者重複チェック_媒体側ID
-func (a *ApplicantRepository) CheckDuplByOuterId(m *ddl.Applicant) (*int64, error) {
-	var count int64
-	if err := a.db.Model(&ddl.Applicant{}).Where("outer_id = ?", m.OuterID).Count(&count).Error; err != nil {
+func (a *ApplicantRepository) CheckDuplByOuterId(m *dto.CheckDuplDownloading) ([]entity.Applicant, error) {
+	var res []entity.Applicant
+	if err := a.db.Model(&ddl.Applicant{}).
+		Where(&ddl.Applicant{
+			AbstractTransactionModel: ddl.AbstractTransactionModel{
+				CompanyID: m.CompanyID,
+			},
+			TeamID: m.TeamID,
+		}).
+		Where("outer_id IN ?", m.List).Find(&res).Error; err != nil {
 		log.Printf("%v", err)
 		return nil, err
 	}
-	return &count, nil
+	return res, nil
 }
 
 // 面接希望日取得

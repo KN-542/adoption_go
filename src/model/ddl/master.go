@@ -88,10 +88,10 @@ type SidebarRoleAssociation struct {
 }
 
 /*
-m_calendar_freq_status
+m_schedule_freq_status
 予定頻度マスタ
 */
-type CalendarFreqStatus struct {
+type ScheduleFreqStatus struct {
 	AbstractMasterModel
 	// 頻度
 	Freq string `json:"freq" gorm:"unique;not null;type:varchar(10)"`
@@ -178,8 +178,8 @@ func (m Sidebar) TableName() string {
 func (m SidebarRoleAssociation) TableName() string {
 	return "m_sidebar_role_association"
 }
-func (m CalendarFreqStatus) TableName() string {
-	return "m_calendar_freq_status"
+func (m ScheduleFreqStatus) TableName() string {
+	return "m_schedule_freq_status"
 }
 func (m ApplyVariable) TableName() string {
 	return "m_apply_variable"

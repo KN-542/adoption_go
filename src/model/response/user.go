@@ -24,7 +24,7 @@ type SearchTeam struct {
 
 // 予定登録種別一覧
 type SearchScheduleType struct {
-	List []entity.CalendarFreqStatus `json:"list"`
+	List []entity.ScheduleFreqStatus `json:"list"`
 }
 
 // 予定登録

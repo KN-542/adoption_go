@@ -101,7 +101,7 @@ func (c *UserController) Create(e echo.Context) error {
 	}
 	if !exist {
 		err := &response.Error{
-			Status: http.StatusUnauthorized,
+			Status: http.StatusForbidden,
 		}
 		return e.JSON(err.Status, response.ErrorConvert(*err))
 	}
@@ -251,7 +251,7 @@ func (c *UserController) InsertTeam(e echo.Context) error {
 	}
 	if !exist {
 		err := &response.Error{
-			Status: http.StatusUnauthorized,
+			Status: http.StatusForbidden,
 		}
 		return e.JSON(err.Status, response.ErrorConvert(*err))
 	}
@@ -296,14 +296,14 @@ func (c *UserController) InsertSchedules(e echo.Context) error {
 		Abstract: request.Abstract{
 			UserHashKey: req.UserHashKey,
 		},
-		ID: static.ROLE_MANAGEMENT_CALENDAR_CREATE,
+		ID: static.ROLE_MANAGEMENT_SCHEDULE_CREATE,
 	})
 	if roleErr != nil {
 		return e.JSON(roleErr.Status, response.ErrorConvert(*roleErr))
 	}
 	if !exist {
 		err := &response.Error{
-			Status: http.StatusUnauthorized,
+			Status: http.StatusForbidden,
 		}
 		return e.JSON(err.Status, response.ErrorConvert(*err))
 	}
@@ -340,14 +340,14 @@ func (c *UserController) UpdateSchedule(e echo.Context) error {
 		Abstract: request.Abstract{
 			UserHashKey: req.UserHashKey,
 		},
-		ID: static.ROLE_MANAGEMENT_CALENDAR_EDIT,
+		ID: static.ROLE_MANAGEMENT_SCHEDULE_EDIT,
 	})
 	if roleErr != nil {
 		return e.JSON(roleErr.Status, response.ErrorConvert(*roleErr))
 	}
 	if !exist {
 		err := &response.Error{
-			Status: http.StatusUnauthorized,
+			Status: http.StatusForbidden,
 		}
 		return e.JSON(err.Status, response.ErrorConvert(*err))
 	}
@@ -383,7 +383,7 @@ func (c *UserController) SearchSchedule(e echo.Context) error {
 		Abstract: request.Abstract{
 			UserHashKey: req.UserHashKey,
 		},
-		ID: static.ROLE_MANAGEMENT_CALENDAR_READ,
+		ID: static.ROLE_MANAGEMENT_SCHEDULE_READ,
 	})
 	if roleErr != nil {
 		return e.JSON(roleErr.Status, response.ErrorConvert(*roleErr))
@@ -427,14 +427,14 @@ func (c *UserController) DeleteSchedule(e echo.Context) error {
 		Abstract: request.Abstract{
 			UserHashKey: req.UserHashKey,
 		},
-		ID: static.ROLE_MANAGEMENT_CALENDAR_DELETE,
+		ID: static.ROLE_MANAGEMENT_SCHEDULE_DELETE,
 	})
 	if roleErr != nil {
 		return e.JSON(roleErr.Status, response.ErrorConvert(*roleErr))
 	}
 	if !exist {
 		err := &response.Error{
-			Status: http.StatusUnauthorized,
+			Status: http.StatusForbidden,
 		}
 		return e.JSON(err.Status, response.ErrorConvert(*err))
 	}

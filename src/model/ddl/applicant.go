@@ -1,10 +1,5 @@
 package ddl
 
-import (
-	"fmt"
-	"time"
-)
-
 /*
 t_applicant
 応募者
@@ -12,7 +7,7 @@ t_applicant
 type Applicant struct {
 	AbstractTransactionModel
 	// 媒体側ID
-	OuterID string `json:"outer_id" gorm:"not null;unique;check:outer_id <> '';type:varchar(255)"`
+	OuterID string `json:"outer_id" gorm:"not null;check:outer_id <> '';type:varchar(255)"`
 	// サイトID
 	SiteID uint `json:"site_id" gorm:"index"`
 	// ステータス
@@ -36,11 +31,11 @@ type Applicant struct {
 	// 予定ID
 	ScheduleID uint64 `json:"schedule_id"`
 	// サイト(外部キー)
-	Site Site `gorm:"foreignKey:site_id;references:id"`
+	Sites Site `gorm:"foreignKey:site_id;references:id"`
 	// ステータス(外部キー)
 	ApplicantStatus SelectStatus `gorm:"foreignKey:status;references:id"`
 	// チーム(外部キー)
-	Team Team `gorm:"foreignKey:team_id;references:id"`
+	Teams Team `gorm:"foreignKey:team_id;references:id"`
 }
 
 /*
@@ -59,12 +54,9 @@ type ApplicantUserAssociation struct {
 }
 
 func (t Applicant) TableName() string {
-	year := time.Now().Year()
-	month := time.Now().Month()
-	return fmt.Sprintf("t_applicant_%d_%02d", year, month)
+	return "t_applicant"
 }
+
 func (t ApplicantUserAssociation) TableName() string {
-	year := time.Now().Year()
-	month := time.Now().Month()
-	return fmt.Sprintf("t_applicant_user_association_%d_%02d", year, month)
+	return "t_applicant_user_association"
 }

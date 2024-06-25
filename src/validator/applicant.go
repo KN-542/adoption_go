@@ -46,29 +46,29 @@ func (v *ApplicantValidator) Search(a *request.SearchApplicant) error {
 		validation.Field(
 			&a.Sites,
 			validation.Each(validation.Required),
-			validation.Each(UniqueValidator{}),
+			UniqueValidator{},
 		),
 		validation.Field(
 			&a.ApplicantStatusList,
 			validation.Each(validation.Required),
-			validation.Each(UniqueValidator{}),
+			UniqueValidator{},
 		),
 		validation.Field(
 			&a.ResumeFlg,
-			validation.Min(0),
-			validation.Max(uint(static.DOCUMENT_EXIST)),
+			MinUintValidator{Min: 0},
+			MaxUintValidator{Max: static.DOCUMENT_NOT_EXIST},
 			IsUintValidator{},
 		),
 		validation.Field(
 			&a.CurriculumVitaeFlg,
-			validation.Min(0),
-			validation.Max(uint(static.DOCUMENT_EXIST)),
+			MinUintValidator{Min: 0},
+			MaxUintValidator{Max: static.DOCUMENT_NOT_EXIST},
 			IsUintValidator{},
 		),
 		validation.Field(
 			&a.Users,
 			validation.Each(validation.Required),
-			validation.Each(UniqueValidator{}),
+			UniqueValidator{},
 		),
 	)
 }

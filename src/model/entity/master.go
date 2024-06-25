@@ -7,7 +7,7 @@ type Site struct {
 	ddl.Site
 }
 
-// m_calendar_freq_status
-type CalendarFreqStatus struct {
-	ddl.CalendarFreqStatus
+// m_schedule_freq_status
+type ScheduleFreqStatus struct {
+	ddl.ScheduleFreqStatus
 }

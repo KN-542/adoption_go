@@ -51,6 +51,8 @@ type IUserRepository interface {
 	DeleteSchedule(tx *gorm.DB, m *ddl.UserSchedule) error
 	// チーム紐づけ登録
 	InsertTeamAssociation(tx *gorm.DB, m *ddl.TeamAssociation) error
+	// チーム紐づけ一括登録
+	InsertsTeamAssociation(tx *gorm.DB, m []*ddl.TeamAssociation) error
 	// チーム紐づけ一覧取得
 	ListTeamAssociation(m *ddl.TeamAssociation) ([]entity.TeamAssociation, error)
 	// ユーザー紐づけ一覧取得
@@ -61,6 +63,8 @@ type IUserRepository interface {
 	DeleteTeamAssociation(tx *gorm.DB, m *ddl.TeamAssociation) error
 	// 予定紐づけ登録
 	InsertScheduleAssociation(tx *gorm.DB, m *ddl.UserScheduleAssociation) error
+	// 予定紐づけ一括登録
+	InsertsScheduleAssociation(tx *gorm.DB, m []*ddl.UserScheduleAssociation) error
 	// 予定紐づけ取得
 	ListUserScheduleAssociation(m *ddl.UserScheduleAssociation) ([]entity.UserSchedule, error)
 	// 予定毎ユーザー紐づけ取得
@@ -81,6 +85,10 @@ type IUserRepository interface {
 	EmailDuplCheck(m *ddl.User) error
 	// メールアドレス重複チェック_管理者
 	EmailDuplCheckManagement(m *ddl.User, teams []uint64) error
+	// ID取得
+	GetIDs(m []string) ([]uint64, error)
+	// チームID取得
+	GetTeamIDs(m []string) ([]uint64, error)
 }
 
 type UserRepository struct {
@@ -239,10 +247,17 @@ func (u *UserRepository) SearchTeam(m *ddl.Team) ([]*entity.SearchTeam, error) {
 	var l []*entity.SearchTeam
 
 	query := u.db.Table("t_team").
-		Select("t_team.hash_key, t_team.name").
+		Select(`
+			t_team.hash_key,
+			t_team.name
+		`).
+		Joins("left join t_team_association on t_team_association.team_id = t_team.id").
+		Joins("left join t_user on t_team_association.user_id = t_user.id").
 		Where("t_team.company_id = ?", m.CompanyID)
 
-	if err := query.Find(&l).Error; err != nil {
+	if err := query.Preload("Users", func(db *gorm.DB) *gorm.DB {
+		return db.Select("id", "hash_key", "name")
+	}).Find(&l).Error; err != nil {
 		log.Printf("%v", err)
 		return nil, err
 	}
@@ -317,8 +332,8 @@ func (u *UserRepository) SearchSchedule(m *ddl.UserSchedule) ([]*entity.UserSche
 	var res []*entity.UserSchedule
 
 	query := u.db.Table("t_user_schedule").
-		Select("t_user_schedule.*, m_calendar_freq_status.freq").
-		Joins("left join m_calendar_freq_status on t_user_schedule.freq_id = m_calendar_freq_status.id").
+		Select("t_user_schedule.*, m_schedule_freq_status.freq").
+		Joins("left join m_schedule_freq_status on t_user_schedule.freq_id = m_schedule_freq_status.id").
 		Where("t_user_schedule.company_id = ?", m.CompanyID)
 
 	if err := query.Find(&res).Error; err != nil {
@@ -404,6 +419,15 @@ func (u *UserRepository) InsertTeamAssociation(tx *gorm.DB, m *ddl.TeamAssociati
 	return nil
 }
 
+// チーム紐づけ一括登録
+func (u *UserRepository) InsertsTeamAssociation(tx *gorm.DB, m []*ddl.TeamAssociation) error {
+	if err := tx.Create(m).Error; err != nil {
+		log.Printf("%v", err)
+		return err
+	}
+	return nil
+}
+
 // 所属チーム一覧取得
 func (u *UserRepository) ListBelongTeam(m *ddl.TeamAssociation) ([]entity.Team, error) {
 	var res []entity.Team
@@ -463,6 +487,15 @@ func (u *UserRepository) DeleteTeamAssociation(tx *gorm.DB, m *ddl.TeamAssociati
 
 // 予定紐づけ登録
 func (u *UserRepository) InsertScheduleAssociation(tx *gorm.DB, m *ddl.UserScheduleAssociation) error {
+	if err := tx.Create(m).Error; err != nil {
+		log.Printf("%v", err)
+		return err
+	}
+	return nil
+}
+
+// 予定紐づけ一括登録
+func (u *UserRepository) InsertsScheduleAssociation(tx *gorm.DB, m []*ddl.UserScheduleAssociation) error {
 	if err := tx.Create(m).Error; err != nil {
 		log.Printf("%v", err)
 		return err
@@ -548,9 +581,7 @@ func (u *UserRepository) InsertUserAssociation(tx *gorm.DB, m *ddl.ApplicantUser
 func (a *UserRepository) GetUserAssociation(m *ddl.ApplicantUserAssociation) ([]entity.User, error) {
 	var res []entity.User
 
-	year := time.Now().Year()
-	month := time.Now().Month()
-	tApplicantUserAssociation := fmt.Sprintf("t_applicant_user_association_%d_%02d", year, month)
+	tApplicantUserAssociation := "t_applicant_user_association"
 
 	query := a.db.Model(&ddl.User{}).
 		Joins(fmt.Sprintf("left join %s on %s.user_id = t_user.id", tApplicantUserAssociation, tApplicantUserAssociation)).
@@ -621,4 +652,40 @@ func (u *UserRepository) EmailDuplCheckManagement(m *ddl.User, teams []uint64) e
 	}
 
 	return nil
+}
+
+// ID取得
+func (u *UserRepository) GetIDs(m []string) ([]uint64, error) {
+	var res []entity.User
+	if err := u.db.Model(&ddl.User{}).
+		Select("id").
+		Where("hash_key IN ?", m).Error; err != nil {
+		log.Printf("%v", err)
+		return nil, err
+	}
+
+	var IDs []uint64
+	for _, row := range res {
+		IDs = append(IDs, row.ID)
+	}
+
+	return IDs, nil
+}
+
+// チームID取得
+func (u *UserRepository) GetTeamIDs(m []string) ([]uint64, error) {
+	var res []entity.Team
+	if err := u.db.Model(&ddl.Team{}).
+		Select("id").
+		Where("hash_key IN ?", m).Error; err != nil {
+		log.Printf("%v", err)
+		return nil, err
+	}
+
+	var IDs []uint64
+	for _, row := range res {
+		IDs = append(IDs, row.ID)
+	}
+
+	return IDs, nil
 }

@@ -104,6 +104,6 @@ type InsertDesiredAt struct {
 	DesiredAt time.Time `json:"desired_at"`
 	// タイトル
 	Title string `json:"title"`
-	// カレンダーハッシュキー
-	CalendarHashKey string `json:"calendar_hash_key"`
+	// 予定ハッシュキー
+	ScheduleHashKey string `json:"schedule_hash_key"`
 }

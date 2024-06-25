@@ -34,8 +34,8 @@ type ReserveTable struct {
 	Options []dto.ReserveTableSub `json:"options"`
 	// 予定
 	Schedule time.Time `json:"schedule"`
-	// カレンダーハッシュキー
-	CalendarHashKey string `json:"calendar_hash_key"`
+	// 予定ハッシュキー
+	ScheduleHashKey string `json:"schedule_hash_key"`
 }
 
 // 応募者取得

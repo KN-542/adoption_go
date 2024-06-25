@@ -190,7 +190,7 @@ func (c *ApplicantController) Download(e echo.Context) error {
 	}
 	if !exist {
 		err := &response.Error{
-			Status: http.StatusUnauthorized,
+			Status: http.StatusForbidden,
 		}
 		return e.JSON(err.Status, response.ErrorConvert(*err))
 	}
