@@ -82,6 +82,7 @@ func main() {
 	loginController := controller.NewLoginController(loginService)
 	applicantController := controller.NewApplicantController(applicantService, userService, loginService, roleService)
 	userController := controller.NewUserController(userService, loginService, roleService)
+	roleController := controller.NewRoleController(roleService, loginService)
 
 	e := router.NewRouter(
 		commonController,
@@ -89,6 +90,7 @@ func main() {
 		userController,
 		companyController,
 		applicantController,
+		roleController,
 	)
 	e.Logger.Fatal(e.Start(":8080"))
 }

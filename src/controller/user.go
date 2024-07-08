@@ -18,10 +18,20 @@ type IUserController interface {
 	Create(e echo.Context) error
 	// 検索
 	Search(e echo.Context) error
+	// 検索_同一企業
+	SearchByCompany(e echo.Context) error
 	// チーム検索
 	SearchTeam(e echo.Context) error
 	// チーム登録
-	InsertTeam(e echo.Context) error
+	CreateTeam(e echo.Context) error
+	// チーム更新
+	UpdateTeam(e echo.Context) error
+	// チーム取得
+	GetTeam(e echo.Context) error
+	// チーム削除
+	DeleteTeam(e echo.Context) error
+	// チーム検索_同一企業
+	SearchTeamByCompany(e echo.Context) error
 	// 予定登録種別一覧
 	SearchScheduleType(e echo.Context) error
 	// 予定登録
@@ -175,6 +185,67 @@ func (c *UserController) Search(e echo.Context) error {
 	return e.JSON(http.StatusOK, res)
 }
 
+// 検索_同一企業
+func (c *UserController) SearchByCompany(e echo.Context) error {
+	req := request.SearchUserByCompany{}
+	if err := e.Bind(&req); err != nil {
+		log.Printf("%v", err)
+		return e.JSON(http.StatusBadRequest, fmt.Errorf(static.MESSAGE_BAD_REQUEST))
+	}
+
+	// JWT検証
+	if err := JWTDecodeCommon(
+		c,
+		e,
+		req.HashKey,
+		JWT_TOKEN,
+		JWT_SECRET,
+		true,
+	); err != nil {
+		return err
+	}
+
+	// ログイン種別取得
+	loginType, loginTypeErr := c.login.GetLoginType(&request.GetLoginType{
+		User: ddl.User{
+			AbstractTransactionModel: ddl.AbstractTransactionModel{
+				HashKey: req.HashKey,
+			},
+		},
+	})
+	if loginTypeErr != nil {
+		return e.JSON(loginTypeErr.Status, response.ErrorConvert(*loginTypeErr))
+	}
+
+	id := static.ROLE_ADMIN_USER_READ
+	if loginType.LoginType == static.LOGIN_TYPE_MANAGEMENT {
+		id = static.ROLE_MANAGEMENT_USER_READ
+	}
+
+	// ロールチェック
+	exist, roleErr := c.role.Check(&request.CheckRole{
+		Abstract: request.Abstract{
+			UserHashKey: req.HashKey,
+		},
+		ID: id,
+	})
+	if roleErr != nil {
+		return e.JSON(roleErr.Status, response.ErrorConvert(*roleErr))
+	}
+	if !exist {
+		err := &response.Error{
+			Status: http.StatusNoContent,
+		}
+		return e.JSON(err.Status, response.ErrorConvert(*err))
+	}
+
+	res, err := c.s.SearchByCompany(&req)
+	if err != nil {
+		return e.JSON(err.Status, response.ErrorConvert(*err))
+	}
+	return e.JSON(http.StatusOK, res)
+}
+
 // チーム検索
 func (c *UserController) SearchTeam(e echo.Context) error {
 	req := request.SearchTeam{}
@@ -220,7 +291,7 @@ func (c *UserController) SearchTeam(e echo.Context) error {
 }
 
 // チーム登録
-func (c *UserController) InsertTeam(e echo.Context) error {
+func (c *UserController) CreateTeam(e echo.Context) error {
 	req := request.CreateTeam{}
 	if err := e.Bind(&req); err != nil {
 		log.Printf("%v", err)
@@ -260,6 +331,180 @@ func (c *UserController) InsertTeam(e echo.Context) error {
 		return e.JSON(err.Status, response.ErrorConvert(*err))
 	}
 	return e.JSON(http.StatusOK, "OK")
+}
+
+// チーム更新
+func (c *UserController) UpdateTeam(e echo.Context) error {
+	req := request.UpdateTeam{}
+	if err := e.Bind(&req); err != nil {
+		log.Printf("%v", err)
+		return e.JSON(http.StatusBadRequest, fmt.Errorf(static.MESSAGE_BAD_REQUEST))
+	}
+
+	// JWT検証
+	if err := JWTDecodeCommon(
+		c,
+		e,
+		req.UserHashKey,
+		JWT_TOKEN,
+		JWT_SECRET,
+		true,
+	); err != nil {
+		return err
+	}
+
+	// ロールチェック
+	exist, roleErr := c.role.Check(&request.CheckRole{
+		Abstract: request.Abstract{
+			UserHashKey: req.UserHashKey,
+		},
+		ID: static.ROLE_MANAGEMENT_TEAM_EDIT,
+	})
+	if roleErr != nil {
+		return e.JSON(roleErr.Status, response.ErrorConvert(*roleErr))
+	}
+	if !exist {
+		err := &response.Error{
+			Status: http.StatusForbidden,
+		}
+		return e.JSON(err.Status, response.ErrorConvert(*err))
+	}
+
+	if err := c.s.UpdateTeam(&req); err != nil {
+		return e.JSON(err.Status, response.ErrorConvert(*err))
+	}
+	return e.JSON(http.StatusOK, "OK")
+}
+
+// チーム削除
+func (c *UserController) DeleteTeam(e echo.Context) error {
+	req := request.DeleteTeam{}
+	if err := e.Bind(&req); err != nil {
+		log.Printf("%v", err)
+		return e.JSON(http.StatusBadRequest, fmt.Errorf(static.MESSAGE_BAD_REQUEST))
+	}
+
+	// JWT検証
+	if err := JWTDecodeCommon(
+		c,
+		e,
+		req.UserHashKey,
+		JWT_TOKEN,
+		JWT_SECRET,
+		true,
+	); err != nil {
+		return err
+	}
+
+	// ロールチェック
+	exist, roleErr := c.role.Check(&request.CheckRole{
+		Abstract: request.Abstract{
+			UserHashKey: req.UserHashKey,
+		},
+		ID: static.ROLE_MANAGEMENT_TEAM_DELETE,
+	})
+	if roleErr != nil {
+		return e.JSON(roleErr.Status, response.ErrorConvert(*roleErr))
+	}
+	if !exist {
+		err := &response.Error{
+			Status: http.StatusForbidden,
+		}
+		return e.JSON(err.Status, response.ErrorConvert(*err))
+	}
+
+	if err := c.s.DeleteTeam(&req); err != nil {
+		return e.JSON(err.Status, response.ErrorConvert(*err))
+	}
+	return e.JSON(http.StatusOK, "OK")
+}
+
+// チーム取得
+func (c *UserController) GetTeam(e echo.Context) error {
+	req := request.GetTeam{}
+	if err := e.Bind(&req); err != nil {
+		log.Printf("%v", err)
+		return e.JSON(http.StatusBadRequest, fmt.Errorf(static.MESSAGE_BAD_REQUEST))
+	}
+
+	// JWT検証
+	if err := JWTDecodeCommon(
+		c,
+		e,
+		req.UserHashKey,
+		JWT_TOKEN,
+		JWT_SECRET,
+		true,
+	); err != nil {
+		return err
+	}
+
+	// ロールチェック
+	exist, roleErr := c.role.Check(&request.CheckRole{
+		Abstract: request.Abstract{
+			UserHashKey: req.UserHashKey,
+		},
+		ID: static.ROLE_MANAGEMENT_TEAM_DETAIL_READ,
+	})
+	if roleErr != nil {
+		return e.JSON(roleErr.Status, response.ErrorConvert(*roleErr))
+	}
+	if !exist {
+		err := &response.Error{
+			Status: http.StatusNoContent,
+		}
+		return e.JSON(err.Status, response.ErrorConvert(*err))
+	}
+
+	res, err := c.s.GetTeam(&req)
+	if err != nil {
+		return e.JSON(err.Status, response.ErrorConvert(*err))
+	}
+	return e.JSON(http.StatusOK, res)
+}
+
+// チーム検索_同一企業
+func (c *UserController) SearchTeamByCompany(e echo.Context) error {
+	req := request.SearchTeamByCompany{}
+	if err := e.Bind(&req); err != nil {
+		log.Printf("%v", err)
+		return e.JSON(http.StatusBadRequest, fmt.Errorf(static.MESSAGE_BAD_REQUEST))
+	}
+
+	// JWT検証
+	if err := JWTDecodeCommon(
+		c,
+		e,
+		req.HashKey,
+		JWT_TOKEN,
+		JWT_SECRET,
+		true,
+	); err != nil {
+		return err
+	}
+
+	// ロールチェック
+	exist, roleErr := c.role.Check(&request.CheckRole{
+		Abstract: request.Abstract{
+			UserHashKey: req.HashKey,
+		},
+		ID: static.ROLE_MANAGEMENT_TEAM_READ,
+	})
+	if roleErr != nil {
+		return e.JSON(roleErr.Status, response.ErrorConvert(*roleErr))
+	}
+	if !exist {
+		err := &response.Error{
+			Status: http.StatusNoContent,
+		}
+		return e.JSON(err.Status, response.ErrorConvert(*err))
+	}
+
+	res, err := c.s.SearchTeamByCompany(&req)
+	if err != nil {
+		return e.JSON(err.Status, response.ErrorConvert(*err))
+	}
+	return e.JSON(http.StatusOK, res)
 }
 
 // 予定登録種別一覧

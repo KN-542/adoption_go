@@ -32,7 +32,10 @@ const (
 	// 登録
 	CODE_USER_EMAIL_DUPL uint = 1
 	// チーム登録
-	CODE_TEAM_USER_NOT_FOUNT uint = 1
+	CODE_TEAM_USER_NOT_FOUND uint = 1
+	// チーム削除
+	CODE_TEAM_USER_CANNOT_DELETE         uint = 1
+	CODE_TEAM_USER_CANNOT_DELETE_BY_USER uint = 2
 )
 
 // Response Body メッセージ

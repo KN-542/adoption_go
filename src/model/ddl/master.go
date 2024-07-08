@@ -21,7 +21,7 @@ type Site struct {
 	// 媒体名
 	SiteName string `json:"site_name" gorm:"unique;not null;check:site_name <> '';type:varchar(20)"`
 	// ファイル名キーワード
-	FileName string `json:"file_name" gorm:"not null;unique;check:file_name <> '';type:varchar(30)"`
+	FileName string `json:"file_name" gorm:"not null;unique;check:file_name <> '';type:varchar(255)"`
 	// 媒体側ID_index
 	OuterIDIndex uint `json:"outer_id_index"`
 	// 氏名_index
@@ -93,8 +93,8 @@ m_schedule_freq_status
 */
 type ScheduleFreqStatus struct {
 	AbstractMasterModel
-	// 頻度
-	Freq string `json:"freq" gorm:"unique;not null;type:varchar(10)"`
+	// 頻度名
+	FreqName string `json:"freq_name" gorm:"unique;not null;type:varchar(10)"`
 	// 名前_日本語
 	NameJa string `json:"name_ja" gorm:"unique;not null;check:name_ja <> '';type:varchar(10)"`
 	// 名前_英語

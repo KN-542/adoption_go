@@ -16,6 +16,8 @@ import (
 type IRoleService interface {
 	// ロールチェック
 	Check(req *request.CheckRole) (bool, *response.Error)
+	// 検索_企業ID
+	SearchRoleByComapny(req *request.SearchRoleByComapny) (*response.SearchRoleByComapny, *response.Error)
 }
 
 type RoleService struct {
@@ -79,4 +81,39 @@ func (r *RoleService) Check(req *request.CheckRole) (bool, *response.Error) {
 	}
 
 	return false, nil
+}
+
+// 検索_企業ID
+func (r *RoleService) SearchRoleByComapny(req *request.SearchRoleByComapny) (*response.SearchRoleByComapny, *response.Error) {
+	// ロールID取得
+	ctx := context.Background()
+	company, companyErr := r.redis.Get(ctx, req.UserHashKey, static.REDIS_USER_COMPANY_ID)
+	if companyErr != nil {
+		return nil, &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+	companyID, companyParseErr := strconv.ParseUint(*company, 10, 64)
+	if companyParseErr != nil {
+		log.Printf("%v", companyParseErr)
+		return nil, &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// 検索
+	roles, err := r.role.SearchByCompanyID(&ddl.CustomRole{
+		AbstractTransactionModel: ddl.AbstractTransactionModel{
+			CompanyID: companyID,
+		},
+	})
+	if err != nil {
+		return nil, &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	return &response.SearchRoleByComapny{
+		List: roles,
+	}, nil
 }

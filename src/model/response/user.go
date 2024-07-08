@@ -12,6 +12,11 @@ type SearchUser struct {
 	List []entity.SearchUser `json:"list"`
 }
 
+// 検索_同一企業
+type SearchUserByCompany struct {
+	List []entity.SearchUser `json:"list"`
+}
+
 // 取得
 type GetUser struct {
 	entity.User
@@ -19,6 +24,16 @@ type GetUser struct {
 
 // チーム検索
 type SearchTeam struct {
+	List []entity.SearchTeam `json:"list"`
+}
+
+// チーム取得
+type GetTeam struct {
+	entity.Team
+}
+
+// チーム検索_同一企業
+type SearchTeamByCompany struct {
 	List []entity.SearchTeam `json:"list"`
 }
 

@@ -25,8 +25,12 @@ type IApplicantRepository interface {
 	Get(m *ddl.Applicant) (*entity.Applicant, error)
 	// 応募者ステータス一覧
 	ListStatus(m *ddl.SelectStatus) ([]entity.ApplicantStatus, error)
+	// 応募者ステータス削除
+	DeleteStatus(tx *gorm.DB, m *ddl.SelectStatus) error
 	// 取得_メールアドレス
 	GetByEmail(m *ddl.Applicant) ([]entity.Applicant, error)
+	// 取得_チームID
+	GetByTeamID(m *ddl.Applicant) ([]entity.Applicant, error)
 	// 応募者重複チェック_媒体側ID
 	CheckDuplByOuterId(m *dto.CheckDuplDownloading) ([]entity.Applicant, error)
 }
@@ -189,6 +193,17 @@ func (a *ApplicantRepository) ListStatus(m *ddl.SelectStatus) ([]entity.Applican
 	return res, nil
 }
 
+// 応募者ステータス削除
+func (a *ApplicantRepository) DeleteStatus(tx *gorm.DB, m *ddl.SelectStatus) error {
+	if err := tx.Where(&ddl.SelectStatus{
+		TeamID: m.TeamID,
+	}).Delete(&ddl.SelectStatus{}).Error; err != nil {
+		log.Printf("%v", err)
+		return err
+	}
+	return nil
+}
+
 // PK検索(カウント)
 func (a *ApplicantRepository) CountByPrimaryKey(key *string) (*int64, error) {
 	var count int64
@@ -204,6 +219,19 @@ func (a *ApplicantRepository) GetByEmail(m *ddl.Applicant) ([]entity.Applicant, 
 	var l []entity.Applicant
 	if err := a.db.Where(&ddl.Applicant{
 		Email: m.Email,
+	}).Find(&l).Error; err != nil {
+		log.Printf("%v", err)
+		return nil, err
+	}
+
+	return l, nil
+}
+
+// 取得_チームID
+func (a *ApplicantRepository) GetByTeamID(m *ddl.Applicant) ([]entity.Applicant, error) {
+	var l []entity.Applicant
+	if err := a.db.Where(&ddl.Applicant{
+		TeamID: m.TeamID,
 	}).Find(&l).Error; err != nil {
 		log.Printf("%v", err)
 		return nil, err

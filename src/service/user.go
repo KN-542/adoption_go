@@ -21,12 +21,22 @@ type IUserService interface {
 	Create(req *request.CreateUser) (*response.CreateUser, *response.Error)
 	// 検索
 	Search(req *request.SearchUser) (*response.SearchUser, *response.Error)
+	// 検索_同一企業
+	SearchByCompany(req *request.SearchUserByCompany) (*response.SearchUserByCompany, *response.Error)
 	// 取得
 	Get(req *request.GetUser) (*response.GetUser, *response.Error)
 	// チーム登録
 	CreateTeam(req *request.CreateTeam) *response.Error
+	// チーム更新
+	UpdateTeam(req *request.UpdateTeam) *response.Error
+	// チーム削除
+	DeleteTeam(req *request.DeleteTeam) *response.Error
 	// チーム検索
 	SearchTeam(req *request.SearchTeam) (*response.SearchTeam, *response.Error)
+	// チーム取得
+	GetTeam(req *request.GetTeam) (*response.GetTeam, *response.Error)
+	// チーム検索_同一企業
+	SearchTeamByCompany(req *request.SearchTeamByCompany) (*response.SearchTeamByCompany, *response.Error)
 	// 予定登録種別一覧
 	SearchScheduleType() (*response.SearchScheduleType, *response.Error)
 	// 予定登録
@@ -122,7 +132,7 @@ func (u *UserService) Create(req *request.CreateUser) (*response.CreateUser, *re
 			}
 		}
 
-		// メールアドレス重複チェック
+		// メールアドレス重複チェック_管理者
 		if err := u.user.EmailDuplCheckManagement(&req.User, teams); err != nil {
 			return nil, &response.Error{
 				Status: http.StatusConflict,
@@ -277,6 +287,41 @@ func (u *UserService) Search(req *request.SearchUser) (*response.SearchUser, *re
 	}, nil
 }
 
+// 検索_同一企業
+func (u *UserService) SearchByCompany(req *request.SearchUserByCompany) (*response.SearchUserByCompany, *response.Error) {
+	// 企業ID取得
+	ctx := context.Background()
+	company, companyErr := u.redis.Get(ctx, req.HashKey, static.REDIS_USER_COMPANY_ID)
+	if companyErr != nil {
+		return nil, &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+	companyID, companyParseErr := strconv.ParseUint(*company, 10, 64)
+	if companyParseErr != nil {
+		log.Printf("%v", companyParseErr)
+		return nil, &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// 検索
+	users, err := u.user.SearchByCompany(&ddl.User{
+		AbstractTransactionModel: ddl.AbstractTransactionModel{
+			CompanyID: companyID,
+		},
+	})
+	if err != nil {
+		return nil, &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	return &response.SearchUserByCompany{
+		List: users,
+	}, nil
+}
+
 // 取得
 func (u *UserService) Get(req *request.GetUser) (*response.GetUser, *response.Error) {
 	// バリデーション
@@ -323,7 +368,7 @@ func (u *UserService) SearchTeam(req *request.SearchTeam) (*response.SearchTeam,
 
 	// 企業ID取得
 	ctx := context.Background()
-	company, companyErr := u.redis.Get(ctx, req.HashKey, static.REDIS_USER_COMPANY_ID)
+	company, companyErr := u.redis.Get(ctx, req.UserHashKey, static.REDIS_USER_COMPANY_ID)
 	if companyErr != nil {
 		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
@@ -338,34 +383,75 @@ func (u *UserService) SearchTeam(req *request.SearchTeam) (*response.SearchTeam,
 	}
 	req.CompanyID = companyID
 
-	// チーム取得
+	// チーム検索
 	teams, err := u.user.SearchTeam(&req.Team)
 	if err != nil {
-		log.Printf("%v", err)
 		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
 
-	// 所属ユーザー取得
 	var res []entity.SearchTeam
 	for _, team := range teams {
-		var t entity.SearchTeam
+		team.ID = 0
 
-		t.Team = team.Team
+		var filteredUsers []*ddl.User
+
 		for _, row := range team.Users {
-			t.Users = append(t.Users, &ddl.User{
+			filteredUsers = append(filteredUsers, &ddl.User{
 				AbstractTransactionModel: ddl.AbstractTransactionModel{
 					HashKey: row.HashKey,
 				},
 				Name: row.Name,
 			})
 		}
-		res = append(res, t)
+		team.Users = filteredUsers
+		res = append(res, *team)
 	}
 
 	return &response.SearchTeam{
 		List: res,
+	}, nil
+}
+
+// チーム取得
+func (u *UserService) GetTeam(req *request.GetTeam) (*response.GetTeam, *response.Error) {
+	// バリデーション
+	if err := u.v.GetTeam(req); err != nil {
+		log.Printf("%v", err)
+		return nil, &response.Error{
+			Status: http.StatusBadRequest,
+			Code:   static.CODE_BAD_REQUEST,
+		}
+	}
+
+	// 取得
+	team, err := u.user.GetTeam(&ddl.Team{
+		AbstractTransactionModel: ddl.AbstractTransactionModel{
+			HashKey: req.HashKey,
+		},
+	})
+	if err != nil {
+		return nil, &response.Error{
+			Status: http.StatusBadRequest,
+			Code:   static.CODE_BAD_REQUEST,
+		}
+	}
+
+	for _, row := range team.Users {
+		row.ID = 0
+	}
+
+	return &response.GetTeam{
+		Team: entity.Team{
+			Team: ddl.Team{
+				AbstractTransactionModel: ddl.AbstractTransactionModel{
+					HashKey: team.HashKey,
+				},
+				Name: team.Name,
+			},
+			Users: team.Users,
+		},
 	}, nil
 }
 
@@ -379,6 +465,23 @@ func (u *UserService) CreateTeam(req *request.CreateTeam) *response.Error {
 			Code:   static.CODE_BAD_REQUEST,
 		}
 	}
+
+	// 企業ID取得
+	ctx := context.Background()
+	company, companyErr := u.redis.Get(ctx, req.UserHashKey, static.REDIS_USER_COMPANY_ID)
+	if companyErr != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+	companyID, companyParseErr := strconv.ParseUint(*company, 10, 64)
+	if companyParseErr != nil {
+		log.Printf("%v", companyParseErr)
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+	req.CompanyID = companyID
 
 	// ユーザー存在確認
 	ids, idsErr := u.user.GetIDs(req.Users)
@@ -405,7 +508,7 @@ func (u *UserService) CreateTeam(req *request.CreateTeam) *response.Error {
 	}
 
 	// チーム登録
-	req.HashKey = *hashKey
+	req.HashKey = string(static.PRE_TEAM) + "_" + *hashKey
 	team, err := u.user.InsertTeam(tx, &req.Team)
 	if err != nil {
 		if err := u.d.TxRollback(tx); err != nil {
@@ -437,6 +540,57 @@ func (u *UserService) CreateTeam(req *request.CreateTeam) *response.Error {
 		}
 	}
 
+	_, selectHash, selectHashErr := GenerateHash(1, 25)
+	if selectHashErr != nil {
+		log.Printf("%v", selectHashErr)
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+	_, selectHash2, selectHash2Err := GenerateHash(1, 25)
+	if selectHash2Err != nil {
+		log.Printf("%v", selectHash2Err)
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// 選考状況登録
+	if err := u.user.InsertSelectStatus(tx, &ddl.SelectStatus{
+		AbstractTransactionModel: ddl.AbstractTransactionModel{
+			HashKey:   string(static.PRE_SELECT_STATUS) + "_" + *selectHash,
+			CompanyID: companyID,
+		},
+		TeamID:     team.ID,
+		StatusName: "日程未回答",
+	}); err != nil {
+		if err := u.d.TxRollback(tx); err != nil {
+			return &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+	if err := u.user.InsertSelectStatus(tx, &ddl.SelectStatus{
+		AbstractTransactionModel: ddl.AbstractTransactionModel{
+			HashKey:   string(static.PRE_SELECT_STATUS) + "_" + *selectHash2,
+			CompanyID: companyID,
+		},
+		TeamID:     team.ID,
+		StatusName: "日程回答済み",
+	}); err != nil {
+		if err := u.d.TxRollback(tx); err != nil {
+			return &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
 	if err := u.d.TxCommit(tx); err != nil {
 		return &response.Error{
 			Status: http.StatusInternalServerError,
@@ -444,6 +598,227 @@ func (u *UserService) CreateTeam(req *request.CreateTeam) *response.Error {
 	}
 
 	return nil
+}
+
+// チーム更新
+func (u *UserService) UpdateTeam(req *request.UpdateTeam) *response.Error {
+	// バリデーション
+	if err := u.v.UpdateTeam(req); err != nil {
+		log.Printf("%v", err)
+		return &response.Error{
+			Status: http.StatusBadRequest,
+			Code:   static.CODE_BAD_REQUEST,
+		}
+	}
+
+	// 企業ID取得
+	ctx := context.Background()
+	company, companyErr := u.redis.Get(ctx, req.UserHashKey, static.REDIS_USER_COMPANY_ID)
+	if companyErr != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+	companyID, companyParseErr := strconv.ParseUint(*company, 10, 64)
+	if companyParseErr != nil {
+		log.Printf("%v", companyParseErr)
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+	req.CompanyID = companyID
+
+	// ユーザー存在確認
+	ids, idsErr := u.user.GetIDs(req.Users)
+	if idsErr != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	tx, txErr := u.d.TxStart()
+	if txErr != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// チーム更新
+	team, err := u.user.UpdateTeam(tx, &req.Team)
+	if err != nil {
+		if err := u.d.TxRollback(tx); err != nil {
+			return &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	if len(ids) > 0 {
+		var teamAssociations []*ddl.TeamAssociation
+		for _, id := range ids {
+			teamAssociations = append(teamAssociations, &ddl.TeamAssociation{
+				TeamID: team.ID,
+				UserID: id,
+			})
+		}
+
+		// チーム紐づけ一括登録
+		if err := u.user.InsertsTeamAssociation(tx, teamAssociations); err != nil {
+			if err := u.d.TxRollback(tx); err != nil {
+				return &response.Error{
+					Status: http.StatusInternalServerError,
+				}
+			}
+			return &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+	}
+
+	if err := u.d.TxCommit(tx); err != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	return nil
+}
+
+// チーム削除
+func (u *UserService) DeleteTeam(req *request.DeleteTeam) *response.Error {
+	// バリデーション
+	if err := u.v.DeleteTeam(req); err != nil {
+		log.Printf("%v", err)
+		return &response.Error{
+			Status: http.StatusBadRequest,
+			Code:   static.CODE_BAD_REQUEST,
+		}
+	}
+
+	// チーム取得
+	team, teamErr := u.user.GetTeam(&ddl.Team{
+		AbstractTransactionModel: ddl.AbstractTransactionModel{
+			HashKey: req.HashKey,
+		},
+	})
+	if teamErr != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// 削除可能判定
+	apps, appsErr := u.applicant.GetByTeamID(&ddl.Applicant{
+		TeamID: team.ID,
+	})
+	if appsErr != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+	if len(apps) > 0 {
+		return &response.Error{
+			Status: http.StatusConflict,
+			Code:   static.CODE_TEAM_USER_CANNOT_DELETE,
+		}
+	}
+
+	tx, txErr := u.d.TxStart()
+	if txErr != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// 紐づけ削除
+	if err := u.user.DeleteTeamAssociation(tx, &ddl.TeamAssociation{
+		TeamID: team.ID,
+	}); err != nil {
+		if err := u.d.TxRollback(tx); err != nil {
+			return &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// 選考状況削除
+	if err := u.applicant.DeleteStatus(tx, &ddl.SelectStatus{
+		TeamID: team.ID,
+	}); err != nil {
+		if err := u.d.TxRollback(tx); err != nil {
+			return &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// チーム削除
+	if err := u.user.DeleteTeam(tx, &ddl.Team{
+		AbstractTransactionModel: ddl.AbstractTransactionModel{
+			HashKey: req.HashKey,
+		},
+	}); err != nil {
+		if err := u.d.TxRollback(tx); err != nil {
+			return &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	if err := u.d.TxCommit(tx); err != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	return nil
+}
+
+// チーム検索_同一企業
+func (u *UserService) SearchTeamByCompany(req *request.SearchTeamByCompany) (*response.SearchTeamByCompany, *response.Error) {
+	// 企業ID取得
+	ctx := context.Background()
+	company, companyErr := u.redis.Get(ctx, req.HashKey, static.REDIS_USER_COMPANY_ID)
+	if companyErr != nil {
+		return nil, &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+	companyID, companyParseErr := strconv.ParseUint(*company, 10, 64)
+	if companyParseErr != nil {
+		log.Printf("%v", companyParseErr)
+		return nil, &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// 検索
+	team, err := u.user.SearchTeamByCompany(&ddl.Team{
+		AbstractTransactionModel: ddl.AbstractTransactionModel{
+			CompanyID: companyID,
+		},
+	})
+	if err != nil {
+		return nil, &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	return &response.SearchTeamByCompany{
+		List: team,
+	}, nil
 }
 
 // 予定登録種別一覧

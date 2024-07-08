@@ -17,12 +17,15 @@ type User struct {
 // Search
 type SearchUser struct {
 	ddl.User
-	// TODO
+	// ロール名
+	RoleName string `json:"role_name"`
 }
 
 // Team
 type Team struct {
 	ddl.Team
+	// 所属ユーザー
+	Users []*ddl.User `json:"users" gorm:"many2many:t_team_association;foreignKey:id;joinForeignKey:team_id;References:id;joinReferences:user_id"`
 }
 
 // Team Search
