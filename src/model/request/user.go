@@ -16,6 +16,11 @@ type SearchUser struct {
 	ddl.User
 }
 
+// 検索_同一企業
+type SearchUserByCompany struct {
+	ddl.User
+}
+
 // 取得
 type GetUser struct {
 	ddl.User
@@ -29,10 +34,35 @@ type CreateTeam struct {
 	Users []string `json:"users"`
 }
 
+// チーム更新
+type UpdateTeam struct {
+	Abstract
+	ddl.Team
+	// ユーザーリスト
+	Users []string `json:"users"`
+}
+
+// チーム削除
+type DeleteTeam struct {
+	Abstract
+	ddl.Team
+}
+
+// チーム取得
+type GetTeam struct {
+	Abstract
+	ddl.Team
+}
+
 // チーム検索
 type SearchTeam struct {
 	Abstract
 	ddl.Team
+}
+
+// チーム検索_同一企業
+type SearchTeamByCompany struct {
+	ddl.User
 }
 
 // 予定登録

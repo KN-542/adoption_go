@@ -6,3 +6,8 @@ type CheckRole struct {
 	// 該当ロールID
 	ID uint `json:"id"`
 }
+
+// ロール検索_企業ID
+type SearchRoleByComapny struct {
+	Abstract
+}

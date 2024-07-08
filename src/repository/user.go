@@ -19,6 +19,8 @@ type IUserRepository interface {
 	Insert(tx *gorm.DB, m *ddl.User) (*entity.User, error)
 	// 検索
 	Search(m *dto.SearchUser) ([]entity.SearchUser, error)
+	// 検索_同一企業
+	SearchByCompany(m *ddl.User) ([]entity.SearchUser, error)
 	// 取得
 	Get(m *ddl.User) (*entity.User, error)
 	// 取得_PK
@@ -34,9 +36,11 @@ type IUserRepository interface {
 	// チーム取得
 	GetTeam(m *ddl.Team) (*entity.Team, error)
 	// チーム更新
-	UpdateTeam(tx *gorm.DB, m *ddl.Team) error
+	UpdateTeam(tx *gorm.DB, m *ddl.Team) (*entity.Team, error)
 	// チーム削除
 	DeleteTeam(tx *gorm.DB, m *ddl.Team) error
+	// チーム検索_同一企業
+	SearchTeamByCompany(m *ddl.Team) ([]entity.SearchTeam, error)
 	// 予定登録
 	InsertSchedule(tx *gorm.DB, m *ddl.UserSchedule) (*uint64, error)
 	// 予定検索
@@ -78,7 +82,7 @@ type IUserRepository interface {
 	// ユーザー紐づけ登録
 	InsertUserAssociation(tx *gorm.DB, m *ddl.ApplicantUserAssociation) error
 	// ユーザー紐づけ取得
-	GetUserAssociation(m *ddl.ApplicantUserAssociation) ([]entity.User, error)
+	GetUserAssociation(m []uint64) ([]entity.ApplicantUserAssociation, error)
 	// ユーザー紐づけ削除
 	DeleteUserAssociation(tx *gorm.DB, m *ddl.ApplicantUserAssociation) error
 	// メールアドレス重複チェック
@@ -145,12 +149,28 @@ func (u *UserRepository) Search(m *dto.SearchUser) ([]entity.SearchUser, error) 
 		Select(`
 			t_user.hash_key,
 			t_user.name,
-			t_user.email
+			t_user.email,
+			t_role.name as role_name
 		`).
 		Joins("left join t_team_association on t_team_association.user_id = t_user.id").
+		Joins("left join t_role on t_role.id = t_user.role_id").
 		Where("t_team_association.team_id = ?", m.TeamID)
 
 	if err := query.Find(&l).Error; err != nil {
+		log.Printf("%v", err)
+		return nil, err
+	}
+	return l, nil
+}
+
+// 検索_同一企業
+func (u *UserRepository) SearchByCompany(m *ddl.User) ([]entity.SearchUser, error) {
+	var l []entity.SearchUser
+
+	if err := u.db.Model(&entity.SearchUser{}).
+		Select("hash_key, name, email").
+		Where("company_id = ?", m.CompanyID).
+		Find(&l).Error; err != nil {
 		log.Printf("%v", err)
 		return nil, err
 	}
@@ -248,15 +268,14 @@ func (u *UserRepository) SearchTeam(m *ddl.Team) ([]*entity.SearchTeam, error) {
 
 	query := u.db.Table("t_team").
 		Select(`
+			t_team.id,
 			t_team.hash_key,
 			t_team.name
 		`).
-		Joins("left join t_team_association on t_team_association.team_id = t_team.id").
-		Joins("left join t_user on t_team_association.user_id = t_user.id").
 		Where("t_team.company_id = ?", m.CompanyID)
 
 	if err := query.Preload("Users", func(db *gorm.DB) *gorm.DB {
-		return db.Select("id", "hash_key", "name")
+		return db.Table("t_user").Select("id, hash_key, name")
 	}).Find(&l).Error; err != nil {
 		log.Printf("%v", err)
 		return nil, err
@@ -274,7 +293,9 @@ func (u *UserRepository) GetTeam(m *ddl.Team) (*entity.Team, error) {
 				HashKey: m.HashKey,
 			},
 		},
-	).First(&res).Error; err != nil {
+	).Preload("Users", func(db *gorm.DB) *gorm.DB {
+		return db.Table("t_user").Select("id, hash_key, name, email")
+	}).First(&res).Error; err != nil {
 		log.Printf("%v", err)
 		return nil, err
 	}
@@ -283,14 +304,14 @@ func (u *UserRepository) GetTeam(m *ddl.Team) (*entity.Team, error) {
 }
 
 // チーム更新
-func (u *UserRepository) UpdateTeam(tx *gorm.DB, m *ddl.Team) error {
+func (u *UserRepository) UpdateTeam(tx *gorm.DB, m *ddl.Team) (*entity.Team, error) {
 	team := ddl.Team{
 		Name: m.Name,
 		AbstractTransactionModel: ddl.AbstractTransactionModel{
 			UpdatedAt: time.Now(),
 		},
 	}
-	if err := tx.Model(&ddl.User{}).Where(
+	if err := tx.Model(&ddl.Team{}).Where(
 		&ddl.Team{
 			AbstractTransactionModel: ddl.AbstractTransactionModel{
 				HashKey: m.HashKey,
@@ -298,10 +319,24 @@ func (u *UserRepository) UpdateTeam(tx *gorm.DB, m *ddl.Team) error {
 		},
 	).Updates(team).Error; err != nil {
 		log.Printf("%v", err)
-		return err
+		return nil, err
 	}
 
-	return nil
+	var updatedTeam ddl.Team
+	if err := tx.Where(
+		&ddl.Team{
+			AbstractTransactionModel: ddl.AbstractTransactionModel{
+				HashKey: m.HashKey,
+			},
+		},
+	).First(&updatedTeam).Error; err != nil {
+		log.Printf("%v", err)
+		return nil, err
+	}
+
+	return &entity.Team{
+		Team: updatedTeam,
+	}, nil
 }
 
 // チーム削除
@@ -315,6 +350,20 @@ func (u *UserRepository) DeleteTeam(tx *gorm.DB, m *ddl.Team) error {
 		return err
 	}
 	return nil
+}
+
+// チーム検索_同一企業
+func (u *UserRepository) SearchTeamByCompany(m *ddl.Team) ([]entity.SearchTeam, error) {
+	var l []entity.SearchTeam
+
+	if err := u.db.Model(&entity.SearchTeam{}).
+		Select("hash_key, name").
+		Where("company_id = ?", m.CompanyID).
+		Find(&l).Error; err != nil {
+		log.Printf("%v", err)
+		return nil, err
+	}
+	return l, nil
 }
 
 // 予定登録
@@ -578,14 +627,11 @@ func (u *UserRepository) InsertUserAssociation(tx *gorm.DB, m *ddl.ApplicantUser
 }
 
 // ユーザー紐づけ取得
-func (a *UserRepository) GetUserAssociation(m *ddl.ApplicantUserAssociation) ([]entity.User, error) {
-	var res []entity.User
+func (a *UserRepository) GetUserAssociation(m []uint64) ([]entity.ApplicantUserAssociation, error) {
+	var res []entity.ApplicantUserAssociation
 
-	tApplicantUserAssociation := "t_applicant_user_association"
-
-	query := a.db.Model(&ddl.User{}).
-		Joins(fmt.Sprintf("left join %s on %s.user_id = t_user.id", tApplicantUserAssociation, tApplicantUserAssociation)).
-		Where(fmt.Sprintf("%s.applicant_id = ?", tApplicantUserAssociation), m.ApplicantID)
+	query := a.db.Table("t_applicant_user_association").
+		Where("user_id IN ?", m)
 
 	if err := query.Find(&res).Error; err != nil {
 		log.Printf("%v", err)
@@ -657,9 +703,10 @@ func (u *UserRepository) EmailDuplCheckManagement(m *ddl.User, teams []uint64) e
 // ID取得
 func (u *UserRepository) GetIDs(m []string) ([]uint64, error) {
 	var res []entity.User
-	if err := u.db.Model(&ddl.User{}).
+	if err := u.db.Table("t_user").
 		Select("id").
-		Where("hash_key IN ?", m).Error; err != nil {
+		Where("hash_key IN ?", m).
+		Find(&res).Error; err != nil {
 		log.Printf("%v", err)
 		return nil, err
 	}
@@ -677,7 +724,8 @@ func (u *UserRepository) GetTeamIDs(m []string) ([]uint64, error) {
 	var res []entity.Team
 	if err := u.db.Model(&ddl.Team{}).
 		Select("id").
-		Where("hash_key IN ?", m).Error; err != nil {
+		Where("hash_key IN ?", m).
+		Find(&res).Error; err != nil {
 		log.Printf("%v", err)
 		return nil, err
 	}

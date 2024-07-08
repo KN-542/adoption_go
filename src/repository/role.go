@@ -13,6 +13,8 @@ type IRoleRepository interface {
 	Insert(tx *gorm.DB, m *ddl.CustomRole) (*entity.CustomRole, error)
 	// 取得
 	Get(m *ddl.CustomRole) (*entity.CustomRole, error)
+	// 検索_企業ID
+	SearchByCompanyID(m *ddl.CustomRole) ([]entity.CustomRole, error)
 	// 付与ロール登録
 	InsertAssociation(tx *gorm.DB, m *ddl.RoleAssociation) error
 	// 付与ロール一括登録
@@ -55,6 +57,21 @@ func (r *RoleRepository) Get(m *ddl.CustomRole) (*entity.CustomRole, error) {
 	}
 
 	return &res, nil
+}
+
+// 検索_企業ID
+func (r *RoleRepository) SearchByCompanyID(m *ddl.CustomRole) ([]entity.CustomRole, error) {
+	var l []entity.CustomRole
+
+	query := r.db.Model(&entity.CustomRole{}).
+		Select(`hash_key, name`).
+		Where("company_id = ?", m.CompanyID)
+
+	if err := query.Find(&l).Error; err != nil {
+		log.Printf("%v", err)
+		return nil, err
+	}
+	return l, nil
 }
 
 // 付与ロール登録

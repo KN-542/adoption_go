@@ -142,11 +142,11 @@ func main() {
 			log.Println(err)
 		}
 		mScheduleFreqStatus := map[string]string{
-			"id":       "ID",
-			"hash_key": "ハッシュキー",
-			"freq":     "頻度",
-			"name_ja":  "名前_日本語",
-			"name_en":  "名前_英語",
+			"id":        "ID",
+			"hash_key":  "ハッシュキー",
+			"freq_name": "頻度名",
+			"name_ja":   "名前_日本語",
+			"name_en":   "名前_英語",
 		}
 		if err := AddColumnComments(dbConn, "m_schedule_freq_status", mScheduleFreqStatus); err != nil {
 			log.Println(err)
@@ -1598,41 +1598,41 @@ func CreateData(db *gorm.DB) {
 			AbstractMasterModel: ddl.AbstractMasterModel{
 				ID: uint(static.FREQ_NONE),
 			},
-			Freq:   "",
-			NameJa: "なし",
-			NameEn: "None",
+			FreqName: "",
+			NameJa:   "なし",
+			NameEn:   "None",
 		},
 		{
 			AbstractMasterModel: ddl.AbstractMasterModel{
 				ID: uint(static.FREQ_DAILY),
 			},
-			Freq:   "daily",
-			NameJa: "毎日",
-			NameEn: "Daily",
+			FreqName: "daily",
+			NameJa:   "毎日",
+			NameEn:   "Daily",
 		},
 		{
 			AbstractMasterModel: ddl.AbstractMasterModel{
 				ID: uint(static.FREQ_WEEKLY),
 			},
-			Freq:   "weekly",
-			NameJa: "毎週",
-			NameEn: "Weekly",
+			FreqName: "weekly",
+			NameJa:   "毎週",
+			NameEn:   "Weekly",
 		},
 		{
 			AbstractMasterModel: ddl.AbstractMasterModel{
 				ID: uint(static.FREQ_MONTHLY),
 			},
-			Freq:   "monthly",
-			NameJa: "毎月",
-			NameEn: "Monthly",
+			FreqName: "monthly",
+			NameJa:   "毎月",
+			NameEn:   "Monthly",
 		},
 		{
 			AbstractMasterModel: ddl.AbstractMasterModel{
 				ID: uint(static.FREQ_YEARLY),
 			},
-			Freq:   "yearly",
-			NameJa: "毎年",
-			NameEn: "Yearly",
+			FreqName: "yearly",
+			NameJa:   "毎年",
+			NameEn:   "Yearly",
 		},
 	}
 	for _, row := range scheduleFreqStatus {

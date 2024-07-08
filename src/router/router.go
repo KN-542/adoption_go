@@ -14,6 +14,7 @@ func NewRouter(
 	user controller.IUserController,
 	company controller.ICompanyController,
 	applicant controller.IApplicantController,
+	role controller.IRoleController,
 ) *echo.Echo {
 	e := echo.New()
 
@@ -47,10 +48,15 @@ func NewRouter(
 	e.POST("/roles", common.Roles)
 
 	// ユーザー
+	e.POST("/user/search_company", user.SearchByCompany)
 	e.POST("/user/search", user.Search)
 	e.POST("/user/create", user.Create)
-	e.POST("/user/create_team", user.InsertTeam)
+	e.POST("/user/create_team", user.CreateTeam)
+	e.POST("/user/update_team", user.UpdateTeam)
+	e.POST("/user/delete_team", user.DeleteTeam)
 	e.POST("/user/search_team", user.SearchTeam)
+	e.POST("/user/search_team_company", user.SearchTeamByCompany)
+	e.POST("/user/get_team", user.GetTeam)
 	e.POST("/user/schedule_type", user.SearchScheduleType)
 	e.POST("/user/create_schedule", user.InsertSchedules)
 	e.POST("/user/update_schedule", user.UpdateSchedule)
@@ -73,6 +79,9 @@ func NewRouter(
 	e.POST("/applicant/sites", applicant.GetSites)
 	e.POST("/applicant/get_google_meet_url", applicant.GetGoogleMeetUrl)
 	e.POST("/applicant/reserve_table", applicant.ReserveTable)
+
+	// ロール
+	e.POST("/role/search_company", role.SearchByCompanyID)
 
 	return e
 }

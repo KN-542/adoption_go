@@ -21,6 +21,12 @@ type IUserValidator interface {
 	SearchTeam(u *request.SearchTeam) error
 	// チーム登録
 	CreateTeam(u *request.CreateTeam) error
+	// チーム更新
+	UpdateTeam(u *request.UpdateTeam) error
+	// チーム削除
+	DeleteTeam(u *request.DeleteTeam) error
+	// チーム取得
+	GetTeam(u *request.GetTeam) error
 	// 予定登録
 	CreateSchedule(u *request.CreateSchedule) error
 	// 予定更新
@@ -89,6 +95,7 @@ func (v *UserValidator) Get(u *request.GetUser) error {
 
 // チーム検索
 func (v *UserValidator) SearchTeam(u *request.SearchTeam) error {
+	// TODO
 	return validation.ValidateStruct(
 		u,
 	)
@@ -102,6 +109,44 @@ func (v *UserValidator) CreateTeam(u *request.CreateTeam) error {
 			&u.Name,
 			validation.Required,
 			validation.Length(1, 30*3),
+		),
+	)
+}
+
+// チーム更新
+func (v *UserValidator) UpdateTeam(u *request.UpdateTeam) error {
+	return validation.ValidateStruct(
+		u,
+		validation.Field(
+			&u.HashKey,
+			validation.Required,
+		),
+		validation.Field(
+			&u.Name,
+			validation.Required,
+			validation.Length(1, 30*3),
+		),
+	)
+}
+
+// チーム削除
+func (v *UserValidator) DeleteTeam(u *request.DeleteTeam) error {
+	return validation.ValidateStruct(
+		u,
+		validation.Field(
+			&u.HashKey,
+			validation.Required,
+		),
+	)
+}
+
+// チーム取得
+func (v *UserValidator) GetTeam(u *request.GetTeam) error {
+	return validation.ValidateStruct(
+		u,
+		validation.Field(
+			&u.HashKey,
+			validation.Required,
 		),
 	)
 }
