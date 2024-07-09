@@ -13,6 +13,8 @@ type ICommonValidator interface {
 	Roles(c *request.Roles) error
 	// 所属チーム一覧
 	Teams(c *request.TeamsBelong) error
+	// チーム変更
+	ChangeTeam(c *request.ChangeTeam) error
 }
 
 type CommonValidator struct{}
@@ -45,6 +47,17 @@ func (v *CommonValidator) Roles(c *request.Roles) error {
 
 // 所属チーム一覧
 func (v *CommonValidator) Teams(c *request.TeamsBelong) error {
+	return validation.ValidateStruct(
+		c,
+		validation.Field(
+			&c.HashKey,
+			validation.Required,
+		),
+	)
+}
+
+// チーム変更
+func (v *CommonValidator) ChangeTeam(c *request.ChangeTeam) error {
 	return validation.ValidateStruct(
 		c,
 		validation.Field(

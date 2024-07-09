@@ -46,6 +46,7 @@ func NewRouter(
 	// 共通
 	e.POST("/sidebar", common.Sidebar)
 	e.POST("/roles", common.Roles)
+	e.POST("/change_team", common.ChangeTeam)
 
 	// ユーザー
 	e.POST("/user/search_company", user.SearchByCompany)
