@@ -12,6 +12,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"time"
 )
 
 type ICommonService interface {
@@ -21,6 +22,8 @@ type ICommonService interface {
 	Roles(req *request.Roles) (*response.Roles, *response.Error)
 	// 所属チーム一覧
 	Teams(req *request.TeamsBelong) (*response.TeamsBelong, *response.Error)
+	// チーム変更
+	ChangeTeam(req *request.ChangeTeam) *response.Error
 }
 
 type CommonService struct {
@@ -251,4 +254,44 @@ func (c *CommonService) Teams(req *request.TeamsBelong) (*response.TeamsBelong, 
 	}
 
 	return &response.TeamsBelong{List: teams}, nil
+}
+
+// チーム変更
+func (c *CommonService) ChangeTeam(req *request.ChangeTeam) *response.Error {
+	// バリデーション
+	if err := c.v.ChangeTeam(req); err != nil {
+		log.Printf("%v", err)
+		return &response.Error{
+			Status: http.StatusBadRequest,
+			Code:   static.CODE_BAD_REQUEST,
+		}
+	}
+
+	// チーム取得
+	team, teamErr := c.user.GetTeam(&ddl.Team{
+		AbstractTransactionModel: ddl.AbstractTransactionModel{
+			HashKey: req.HashKey,
+		},
+	})
+	if teamErr != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	ctx := context.Background()
+	teamID := strconv.FormatUint(team.ID, 10)
+	if err := c.redis.Set(
+		ctx,
+		req.UserHashKey,
+		static.REDIS_USER_TEAM_ID,
+		&teamID,
+		24*time.Hour,
+	); err != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	return nil
 }

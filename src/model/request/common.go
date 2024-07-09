@@ -16,3 +16,9 @@ type Roles struct {
 type TeamsBelong struct {
 	ddl.User
 }
+
+// チーム変更
+type ChangeTeam struct {
+	Abstract
+	ddl.Team
+}

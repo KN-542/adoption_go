@@ -18,7 +18,7 @@ type ICommonController interface {
 	// 使用可能ロール一覧
 	Roles(e echo.Context) error
 	// チーム切り替え
-	// ChangeTeam(e echo.Context) error
+	ChangeTeam(e echo.Context) error
 }
 
 type CommonController struct {
@@ -91,4 +91,31 @@ func (c *CommonController) Roles(e echo.Context) error {
 	}
 
 	return e.JSON(http.StatusOK, res)
+}
+
+// チーム切り替え
+func (c *CommonController) ChangeTeam(e echo.Context) error {
+	req := request.ChangeTeam{}
+	if err := e.Bind(&req); err != nil {
+		log.Printf("%v", err)
+		return e.JSON(http.StatusBadRequest, fmt.Errorf(static.MESSAGE_BAD_REQUEST))
+	}
+
+	// JWT検証
+	if err := JWTDecodeCommon(
+		c,
+		e,
+		req.UserHashKey,
+		JWT_TOKEN,
+		JWT_SECRET,
+		true,
+	); err != nil {
+		return err
+	}
+
+	if err := c.common.ChangeTeam(&req); err != nil {
+		return e.JSON(err.Status, response.ErrorConvert(*err))
+	}
+
+	return e.JSON(http.StatusOK, "OK")
 }
