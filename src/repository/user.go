@@ -152,7 +152,6 @@ func (u *UserRepository) Search(m *dto.SearchUser) ([]entity.SearchUser, error) 
 			t_user.email,
 			t_role.name as role_name
 		`).
-		Joins("left join t_team_association on t_team_association.user_id = t_user.id").
 		Joins("left join t_role on t_role.id = t_user.role_id").
 		Where("t_user.company_id = ?", m.CompanyID)
 
