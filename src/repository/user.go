@@ -154,7 +154,7 @@ func (u *UserRepository) Search(m *dto.SearchUser) ([]entity.SearchUser, error) 
 		`).
 		Joins("left join t_team_association on t_team_association.user_id = t_user.id").
 		Joins("left join t_role on t_role.id = t_user.role_id").
-		Where("t_team_association.team_id = ?", m.TeamID)
+		Where("t_user.company_id = ?", m.CompanyID)
 
 	if err := query.Find(&l).Error; err != nil {
 		log.Printf("%v", err)
