@@ -257,16 +257,17 @@ func (u *UserService) Search(req *request.SearchUser) (*response.SearchUser, *re
 		}
 	}
 
-	// チーム取得
+	// Redisから取得
 	ctx := context.Background()
-	team, teamErr := u.redis.Get(ctx, req.HashKey, static.REDIS_USER_TEAM_ID)
-	if teamErr != nil {
+	company, companyErr := u.redis.Get(ctx, req.HashKey, static.REDIS_USER_COMPANY_ID)
+	if companyErr != nil {
 		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
-	teamID, teamIDErr := strconv.ParseUint(*team, 10, 64)
-	if teamIDErr != nil {
+	companyID, companyParseErr := strconv.ParseUint(*company, 10, 64)
+	if companyParseErr != nil {
+		log.Printf("%v", companyParseErr)
 		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
 		}
@@ -274,7 +275,7 @@ func (u *UserService) Search(req *request.SearchUser) (*response.SearchUser, *re
 
 	users, usersErr := u.user.Search(&dto.SearchUser{
 		SearchUser: *req,
-		TeamID:     teamID,
+		CompanyID:  companyID,
 	})
 	if usersErr != nil {
 		return nil, &response.Error{
