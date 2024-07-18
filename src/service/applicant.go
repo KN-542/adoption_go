@@ -1178,12 +1178,12 @@ func (s *ApplicantService) UpdateStatus(req *request.UpdateStatus) *response.Err
 	}
 
 	// 各応募者のステータス更新
-	for index := range req.Association {
+	for _, row := range req.Association {
 		if err := s.r.UpdateSelectStatus(tx, &ddl.Applicant{
 			AbstractTransactionModel: ddl.AbstractTransactionModel{
-				HashKey: req.Association[index].BeforeHash,
+				HashKey: row.BeforeHash,
 			},
-			Status: ids.List[index].ID,
+			Status: ids.List[row.AfterIndex].ID,
 		}); err != nil {
 			if err := s.d.TxRollback(tx); err != nil {
 				return &response.Error{
@@ -1216,7 +1216,7 @@ func (s *ApplicantService) UpdateStatus(req *request.UpdateStatus) *response.Err
 		eventsDDL = append(eventsDDL, &ddl.TeamEvent{
 			TeamID:   teamID,
 			EventID:  row.EventID,
-			StatusID: uint64(row.Status),
+			StatusID: ids.List[row.Status].ID,
 		})
 	}
 	if err := s.u.InsertsEventAssociation(tx, eventsDDL); err != nil {
