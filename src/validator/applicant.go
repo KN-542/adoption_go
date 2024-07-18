@@ -31,6 +31,12 @@ type IApplicantValidator interface {
 	GetGoogleMeetUrl(a *request.GetGoogleMeetUrl) error
 	// 面接希望日登録
 	InsertDesiredAt(a *request.InsertDesiredAt) error
+	// 応募者ステータス変更
+	UpdateStatus(a *request.UpdateStatus) error
+	// 応募者ステータス変更サブ
+	UpdateStatusSub(a *request.UpdateStatusSub) error
+	// 応募者ステータス変更サブ2
+	UpdateStatusSub2(a *request.UpdateStatusSub2) error
 }
 
 type ApplicantValidator struct{}
@@ -69,6 +75,18 @@ func (v *ApplicantValidator) Search(a *request.SearchApplicant) error {
 			&a.Users,
 			validation.Each(validation.Required),
 			UniqueValidator{},
+		),
+		validation.Field(
+			&a.InterviewerDateFrom,
+			validation.By(func(value interface{}) error {
+				return IsBeforeTime(a.InterviewerDateFrom, a.InterviewerDateTo)
+			}),
+		),
+		validation.Field(
+			&a.CreatedAtFrom,
+			validation.By(func(value interface{}) error {
+				return IsBeforeTime(a.CreatedAtFrom, a.CreatedAtTo)
+			}),
 		),
 	)
 }
@@ -210,6 +228,53 @@ func (v *ApplicantValidator) InsertDesiredAt(a *request.InsertDesiredAt) error {
 		validation.Field(
 			&a.HashKey,
 			validation.Required,
+		),
+	)
+}
+
+// 応募者ステータス変更
+func (v *ApplicantValidator) UpdateStatus(a *request.UpdateStatus) error {
+	return validation.ValidateStruct(
+		a,
+		validation.Field(
+			&a.Status,
+			validation.Required,
+			validation.Length(1, 0),
+			validation.Each(validation.Required),
+		),
+		validation.Field(
+			&a.Association,
+			validation.Required,
+		),
+		validation.Field(
+			&a.Events,
+			validation.Required,
+		),
+	)
+}
+
+// 応募者ステータス変更サブ
+func (v *ApplicantValidator) UpdateStatusSub(a *request.UpdateStatusSub) error {
+	return validation.ValidateStruct(
+		a,
+		validation.Field(
+			&a.BeforeHash,
+			validation.Required,
+		),
+	)
+}
+
+// 応募者ステータス変更サブ2
+func (v *ApplicantValidator) UpdateStatusSub2(a *request.UpdateStatusSub2) error {
+	return validation.ValidateStruct(
+		a,
+		validation.Field(
+			&a.EventHash,
+			validation.Required,
+		),
+		validation.Field(
+			&a.Status,
+			validation.Min(1),
 		),
 	)
 }

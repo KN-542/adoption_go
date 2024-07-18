@@ -27,12 +27,16 @@ type IApplicantRepository interface {
 	ListStatus(m *ddl.SelectStatus) ([]entity.ApplicantStatus, error)
 	// 応募者ステータス削除
 	DeleteStatus(tx *gorm.DB, m *ddl.SelectStatus) error
+	// 応募者ステータス削除_PK
+	DeleteStatusByPrimary(tx *gorm.DB, m *ddl.SelectStatus, ids []uint64) error
 	// 取得_メールアドレス
 	GetByEmail(m *ddl.Applicant) ([]entity.Applicant, error)
 	// 取得_チームID
 	GetByTeamID(m *ddl.Applicant) ([]entity.Applicant, error)
 	// 応募者重複チェック_媒体側ID
 	CheckDuplByOuterId(m *dto.CheckDuplDownloading) ([]entity.Applicant, error)
+	// 選考ステータス更新
+	UpdateSelectStatus(tx *gorm.DB, m *ddl.Applicant) error
 }
 
 type ApplicantRepository struct {
@@ -99,6 +103,7 @@ func (a *ApplicantRepository) Search(m *dto.SearchApplicant) ([]*entity.SearchAp
 			t_applicant.curriculum_vitae,
 			t_applicant.google_meet_url,
 			t_applicant.schedule_id,
+			t_applicant.created_at,
 			t_select_status.status_name as status_name,
 			m_site.site_name as site_name,
 			t_user_schedule.hash_key as schedule_hash_key,
@@ -140,6 +145,22 @@ func (a *ApplicantRepository) Search(m *dto.SearchApplicant) ([]*entity.SearchAp
 
 	if len(m.Users) > 0 {
 		query = query.Where("t_user.hash_key IN ?", m.Users)
+	}
+
+	if m.InterviewerDateFrom.Year() >= 1900 && m.InterviewerDateTo.Year() >= 1900 {
+		query = query.Where("t_user_schedule.start >= ? AND t_user_schedule.start < ?", m.InterviewerDateFrom, m.InterviewerDateTo.AddDate(0, 0, 1))
+	} else if m.InterviewerDateFrom.Year() >= 1900 {
+		query = query.Where("t_user_schedule.start >= ?", m.InterviewerDateFrom)
+	} else if m.InterviewerDateTo.Year() >= 1900 {
+		query = query.Where("t_user_schedule.start < ?", m.InterviewerDateTo.AddDate(0, 0, 1))
+	}
+
+	if m.CreatedAtFrom.Year() >= 1900 && m.CreatedAtTo.Year() >= 1900 {
+		query = query.Where("t_applicant.created_at >= ? AND t_applicant.created_at < ?", m.CreatedAtFrom, m.CreatedAtTo.AddDate(0, 0, 1))
+	} else if m.CreatedAtFrom.Year() >= 1900 {
+		query = query.Where("t_applicant.created_at >= ?", m.CreatedAtFrom)
+	} else if m.CreatedAtTo.Year() >= 1900 {
+		query = query.Where("t_applicant.created_at < ?", m.CreatedAtTo.AddDate(0, 0, 1))
 	}
 
 	if m.SortKey != "" {
@@ -198,6 +219,17 @@ func (a *ApplicantRepository) DeleteStatus(tx *gorm.DB, m *ddl.SelectStatus) err
 	if err := tx.Where(&ddl.SelectStatus{
 		TeamID: m.TeamID,
 	}).Delete(&ddl.SelectStatus{}).Error; err != nil {
+		log.Printf("%v", err)
+		return err
+	}
+	return nil
+}
+
+// 応募者ステータス削除_PK
+func (a *ApplicantRepository) DeleteStatusByPrimary(tx *gorm.DB, m *ddl.SelectStatus, ids []uint64) error {
+	if err := tx.Where(&ddl.SelectStatus{
+		TeamID: m.TeamID,
+	}).Where("id IN ?", ids).Delete(&ddl.SelectStatus{}).Error; err != nil {
 		log.Printf("%v", err)
 		return err
 	}
@@ -275,4 +307,22 @@ func (a *ApplicantRepository) GetDesiredAt(m *ddl.Applicant) (*ddl.UserSchedule,
 	}
 
 	return &l, nil
+}
+
+// 選考ステータス更新
+func (a *ApplicantRepository) UpdateSelectStatus(tx *gorm.DB, m *ddl.Applicant) error {
+	if err := tx.Model(&ddl.Applicant{}).
+		Joins("left join t_applicant on t_applicant.status = t_select_status.id").
+		Where("t_select_status.hash_key = ?", m.HashKey).
+		Updates(&ddl.Applicant{
+			AbstractTransactionModel: ddl.AbstractTransactionModel{
+				UpdatedAt: time.Now(),
+			},
+			Status: m.Status,
+		}).Error; err != nil {
+		log.Printf("%v", err)
+		return err
+	}
+
+	return nil
 }

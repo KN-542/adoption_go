@@ -77,6 +77,8 @@ type IUserRepository interface {
 	DeleteScheduleAssociation(tx *gorm.DB, m *ddl.UserScheduleAssociation) error
 	// 選考状況登録
 	InsertSelectStatus(tx *gorm.DB, m *ddl.SelectStatus) error
+	// 選考状況一括登録
+	InsertsSelectStatus(tx *gorm.DB, m []*ddl.SelectStatus) (*entity.ApplicantStatusList, error)
 	// 選考状況削除
 	DeleteSelectStatus(tx *gorm.DB, m *ddl.SelectStatus) error
 	// ユーザー紐づけ登録
@@ -85,6 +87,10 @@ type IUserRepository interface {
 	GetUserAssociation(m []uint64) ([]entity.ApplicantUserAssociation, error)
 	// ユーザー紐づけ削除
 	DeleteUserAssociation(tx *gorm.DB, m *ddl.ApplicantUserAssociation) error
+	// イベント一括登録
+	InsertsEventAssociation(tx *gorm.DB, m []*ddl.TeamEvent) error
+	// イベント削除
+	DeleteEventAssociation(tx *gorm.DB, m *ddl.TeamEvent) error
 	// メールアドレス重複チェック
 	EmailDuplCheck(m *ddl.User) error
 	// メールアドレス重複チェック_管理者
@@ -596,6 +602,35 @@ func (u *UserRepository) DeleteScheduleAssociation(tx *gorm.DB, m *ddl.UserSched
 	return nil
 }
 
+// イベント登録
+func (u *UserRepository) InsertEventAssociation(tx *gorm.DB, m []*ddl.TeamEvent) error {
+	if err := tx.Create(m).Error; err != nil {
+		log.Printf("%v", err)
+		return err
+	}
+	return nil
+}
+
+// イベント一括登録
+func (u *UserRepository) InsertsEventAssociation(tx *gorm.DB, m []*ddl.TeamEvent) error {
+	if err := tx.Create(m).Error; err != nil {
+		log.Printf("%v", err)
+		return err
+	}
+	return nil
+}
+
+// イベント削除
+func (u *UserRepository) DeleteEventAssociation(tx *gorm.DB, m *ddl.TeamEvent) error {
+	if err := tx.Where(&ddl.TeamEvent{
+		TeamID: m.TeamID,
+	}).Delete(&ddl.User{}).Error; err != nil {
+		log.Printf("%v", err)
+		return err
+	}
+	return nil
+}
+
 // 選考状況登録
 func (u *UserRepository) InsertSelectStatus(tx *gorm.DB, m *ddl.SelectStatus) error {
 	if err := tx.Create(m).Error; err != nil {
@@ -603,6 +638,18 @@ func (u *UserRepository) InsertSelectStatus(tx *gorm.DB, m *ddl.SelectStatus) er
 		return err
 	}
 	return nil
+}
+
+// 選考状況一括登録
+func (u *UserRepository) InsertsSelectStatus(tx *gorm.DB, m []*ddl.SelectStatus) (*entity.ApplicantStatusList, error) {
+	if err := tx.Create(m).Error; err != nil {
+		log.Printf("%v", err)
+		return nil, err
+	}
+
+	return &entity.ApplicantStatusList{
+		List: m,
+	}, nil
 }
 
 // 選考状況削除

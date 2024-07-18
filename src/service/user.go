@@ -47,6 +47,8 @@ type IUserService interface {
 	SearchSchedule(req *request.SearchSchedule) (*response.SearchSchedule, *response.Error)
 	// 予定削除
 	DeleteSchedule(req *request.DeleteSchedule) *response.Error
+	// ステータスイベントマスタ一覧
+	ListStatusEvent() (*response.ListStatusEvent, *response.Error)
 }
 
 type UserService struct {
@@ -1178,4 +1180,18 @@ func (u *UserService) DeleteSchedule(req *request.DeleteSchedule) *response.Erro
 	}
 
 	return nil
+}
+
+// ステータスイベントマスタ一覧
+func (u *UserService) ListStatusEvent() (*response.ListStatusEvent, *response.Error) {
+	res, err := u.master.ListSelectStatusEvent()
+	if err != nil {
+		return nil, &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	return &response.ListStatusEvent{
+		List: res,
+	}, nil
 }

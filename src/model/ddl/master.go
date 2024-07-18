@@ -163,6 +163,18 @@ type S3NamePre struct {
 	Pre string `json:"pre" gorm:"unique;not null;check:pre <> '';type:varchar(20)"`
 }
 
+/*
+m_select_status_event
+応募者ステータスイベントマスタ
+*/
+type SelectStatusEvent struct {
+	AbstractMasterModel
+	// 説明_日本語
+	DescJa string `json:"desc_ja" gorm:"text"`
+	// 説明_英語
+	DescEn string `json:"desc_en" gorm:"text"`
+}
+
 func (m LoginType) TableName() string {
 	return "m_login_type"
 }
@@ -198,6 +210,9 @@ func (m HashKeyPre) TableName() string {
 }
 func (m S3NamePre) TableName() string {
 	return "m_s3_name_pre"
+}
+func (m SelectStatusEvent) TableName() string {
+	return "m_select_status_event"
 }
 
 type Sites struct {

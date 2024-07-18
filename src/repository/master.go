@@ -54,6 +54,17 @@ type IMasterRepository interface {
 	InsertScheduleFreqStatus(tx *gorm.DB, m *ddl.ScheduleFreqStatus) error
 	// select
 	SelectScheduleFreqStatus() ([]entity.ScheduleFreqStatus, error)
+	/*
+		m_select_status_event
+	*/
+	// insert
+	InsertSelectStatusEvent(tx *gorm.DB, m *ddl.SelectStatusEvent) error
+	// select
+	SelectSelectStatusEvent() ([]entity.SelectStatusEvent, error)
+	// list
+	ListSelectStatusEvent() ([]entity.SelectStatusEvent, error)
+	// ハッシュキーから取得
+	SelectSelectStatusEventByHashKeys(m []string) ([]entity.SelectStatusEvent, error)
 }
 
 type MasterRepository struct {
@@ -216,6 +227,48 @@ func (r *MasterRepository) InsertScheduleFreqStatus(tx *gorm.DB, m *ddl.Schedule
 func (r *MasterRepository) SelectScheduleFreqStatus() ([]entity.ScheduleFreqStatus, error) {
 	var res []entity.ScheduleFreqStatus
 	if err := r.db.Find(&res).Error; err != nil {
+		log.Printf("%v", err)
+		return nil, err
+	}
+	return res, nil
+}
+
+/*
+	m_select_status_event
+*/
+// insert
+func (r *MasterRepository) InsertSelectStatusEvent(tx *gorm.DB, m *ddl.SelectStatusEvent) error {
+	if err := tx.Create(m).Error; err != nil {
+		log.Printf("%v", err)
+		return err
+	}
+	return nil
+}
+
+// select
+func (r *MasterRepository) SelectSelectStatusEvent() ([]entity.SelectStatusEvent, error) {
+	var res []entity.SelectStatusEvent
+	if err := r.db.Find(&res).Error; err != nil {
+		log.Printf("%v", err)
+		return nil, err
+	}
+	return res, nil
+}
+
+// list
+func (r *MasterRepository) ListSelectStatusEvent() ([]entity.SelectStatusEvent, error) {
+	var res []entity.SelectStatusEvent
+	if err := r.db.Find(&res).Error; err != nil {
+		log.Printf("%v", err)
+		return nil, err
+	}
+	return res, nil
+}
+
+// ハッシュキーから取得
+func (r *MasterRepository) SelectSelectStatusEventByHashKeys(m []string) ([]entity.SelectStatusEvent, error) {
+	var res []entity.SelectStatusEvent
+	if err := r.db.Where("hash_key IN ?", m).Find(&res).Error; err != nil {
 		log.Printf("%v", err)
 		return nil, err
 	}

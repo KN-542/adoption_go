@@ -42,20 +42,26 @@ type IUserController interface {
 	SearchSchedule(e echo.Context) error
 	// 予定削除
 	DeleteSchedule(e echo.Context) error
+	// 応募者ステータス変更
+	UpdateStatus(e echo.Context) error
+	// ステータスイベントマスタ一覧
+	ListStatusEvent(e echo.Context) error
 }
 
 type UserController struct {
 	s     service.IUserService
+	a     service.IApplicantService
 	login service.ILoginService
 	role  service.IRoleService
 }
 
 func NewUserController(
 	s service.IUserService,
+	a service.IApplicantService,
 	login service.ILoginService,
 	role service.IRoleService,
 ) IUserController {
-	return &UserController{s, login, role}
+	return &UserController{s, a, login, role}
 }
 
 func (c *UserController) GetLoginService() service.ILoginService {
@@ -688,4 +694,56 @@ func (c *UserController) DeleteSchedule(e echo.Context) error {
 		return e.JSON(err.Status, response.ErrorConvert(*err))
 	}
 	return e.JSON(http.StatusOK, "OK")
+}
+
+// 応募者ステータス変更
+func (c *UserController) UpdateStatus(e echo.Context) error {
+	req := request.UpdateStatus{}
+	if err := e.Bind(&req); err != nil {
+		log.Printf("%v", err)
+		return e.JSON(http.StatusBadRequest, fmt.Errorf(static.MESSAGE_BAD_REQUEST))
+	}
+
+	// JWT検証
+	if err := JWTDecodeCommon(
+		c,
+		e,
+		req.UserHashKey,
+		JWT_TOKEN,
+		JWT_SECRET,
+		true,
+	); err != nil {
+		return err
+	}
+
+	// ロールチェック
+	exist, roleErr := c.role.Check(&request.CheckRole{
+		Abstract: request.Abstract{
+			UserHashKey: req.UserHashKey,
+		},
+		ID: static.ROLE_MANAGEMENT_SETTING_TEAM,
+	})
+	if roleErr != nil {
+		return e.JSON(roleErr.Status, response.ErrorConvert(*roleErr))
+	}
+	if !exist {
+		err := &response.Error{
+			Status: http.StatusForbidden,
+		}
+		return e.JSON(err.Status, response.ErrorConvert(*err))
+	}
+
+	if err := c.a.UpdateStatus(&req); err != nil {
+		return e.JSON(err.Status, response.ErrorConvert(*err))
+	}
+	return e.JSON(http.StatusOK, "OK")
+}
+
+// ステータスイベントマスタ一覧
+func (c *UserController) ListStatusEvent(e echo.Context) error {
+	res, err := c.s.ListStatusEvent()
+	if err != nil {
+		return e.JSON(err.Status, response.ErrorConvert(*err))
+	}
+	return e.JSON(http.StatusOK, res)
 }

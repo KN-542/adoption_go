@@ -41,6 +41,25 @@ type Team struct {
 }
 
 /*
+t_team_event
+チームイベント
+*/
+type TeamEvent struct {
+	// チームID
+	TeamID uint64 `json:"team_id" gorm:"primaryKey"`
+	// イベントID
+	EventID uint64 `json:"event_id" gorm:"primaryKey"`
+	// ステータスID
+	StatusID uint64 `json:"status_id"`
+	// チーム(外部キー)
+	Team Team `gorm:"foreignKey:team_id;references:id"`
+	// イベント(外部キー)
+	Event SelectStatusEvent `gorm:"foreignKey:event_id;references:id"`
+	// ステータス(外部キー)
+	Status SelectStatus `gorm:"foreignKey:status_id;references:id"`
+}
+
+/*
 t_team_association
 チーム紐づけ
 */
@@ -109,6 +128,9 @@ func (t User) TableName() string {
 }
 func (t Team) TableName() string {
 	return "t_team"
+}
+func (t TeamEvent) TableName() string {
+	return "t_team_event"
 }
 func (t TeamAssociation) TableName() string {
 	return "t_team_association"

@@ -34,3 +34,8 @@ type SearchApplicant struct {
 type ApplicantStatus struct {
 	ddl.SelectStatus
 }
+
+// 応募者ステータス
+type ApplicantStatusList struct {
+	List []*ddl.SelectStatus
+}

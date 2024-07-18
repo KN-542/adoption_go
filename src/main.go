@@ -81,7 +81,7 @@ func main() {
 	companyController := controller.NewCompanyController(companyService, loginService, roleService)
 	loginController := controller.NewLoginController(loginService)
 	applicantController := controller.NewApplicantController(applicantService, userService, loginService, roleService)
-	userController := controller.NewUserController(userService, loginService, roleService)
+	userController := controller.NewUserController(userService, applicantService, loginService, roleService)
 	roleController := controller.NewRoleController(roleService, loginService)
 
 	e := router.NewRouter(

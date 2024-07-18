@@ -11,3 +11,8 @@ type Site struct {
 type ScheduleFreqStatus struct {
 	ddl.ScheduleFreqStatus
 }
+
+// m_select_status_event
+type SelectStatusEvent struct {
+	ddl.SelectStatusEvent
+}
