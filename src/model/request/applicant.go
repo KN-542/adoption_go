@@ -132,6 +132,8 @@ type UpdateStatus struct {
 type UpdateStatusSub struct {
 	// 変更前ハッシュ
 	BeforeHash string `json:"before_hash"`
+	// 変更後インデックス
+	AfterIndex int `json:"after_index"`
 }
 
 // 応募者ステータス変更サブ2

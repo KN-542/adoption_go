@@ -311,15 +311,14 @@ func (a *ApplicantRepository) GetDesiredAt(m *ddl.Applicant) (*ddl.UserSchedule,
 
 // 選考ステータス更新
 func (a *ApplicantRepository) UpdateSelectStatus(tx *gorm.DB, m *ddl.Applicant) error {
-	if err := tx.Model(&ddl.Applicant{}).
-		Joins("left join t_applicant on t_applicant.status = t_select_status.id").
-		Where("t_select_status.hash_key = ?", m.HashKey).
-		Updates(&ddl.Applicant{
-			AbstractTransactionModel: ddl.AbstractTransactionModel{
-				UpdatedAt: time.Now(),
-			},
-			Status: m.Status,
-		}).Error; err != nil {
+	sql := `
+		UPDATE t_applicant
+		SET status = ?, updated_at = ?
+		FROM t_select_status
+		WHERE t_applicant.status = t_select_status.id AND t_select_status.hash_key = ?
+	`
+
+	if err := tx.Exec(sql, m.Status, time.Now(), m.HashKey).Error; err != nil {
 		log.Printf("%v", err)
 		return err
 	}

@@ -622,7 +622,7 @@ func (u *UserRepository) InsertsEventAssociation(tx *gorm.DB, m []*ddl.TeamEvent
 
 // イベント削除
 func (u *UserRepository) DeleteEventAssociation(tx *gorm.DB, m *ddl.TeamEvent) error {
-	if err := tx.Where(&ddl.TeamEvent{
+	if err := tx.Model(&ddl.TeamEvent{}).Where(&ddl.TeamEvent{
 		TeamID: m.TeamID,
 	}).Delete(&ddl.User{}).Error; err != nil {
 		log.Printf("%v", err)
@@ -654,7 +654,7 @@ func (u *UserRepository) InsertsSelectStatus(tx *gorm.DB, m []*ddl.SelectStatus)
 
 // 選考状況削除
 func (u *UserRepository) DeleteSelectStatus(tx *gorm.DB, m *ddl.SelectStatus) error {
-	if err := tx.Where(&ddl.SelectStatus{
+	if err := tx.Model(&ddl.SelectStatus{}).Where(&ddl.SelectStatus{
 		TeamID: m.TeamID,
 	}).Delete(&ddl.User{}).Error; err != nil {
 		log.Printf("%v", err)
