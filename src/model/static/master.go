@@ -78,6 +78,9 @@ const (
 	// management_操作ログ関連
 	ROLE_MANAGEMENT_LOG_READ        uint = 1801
 	ROLE_MANAGEMENT_LOG_DETAIL_READ uint = 1802
+	// management_設定関連
+	ROLE_MANAGEMENT_SETTING_COMPANY uint = 1901
+	ROLE_MANAGEMENT_SETTING_TEAM    uint = 1902
 )
 
 // m_sidebar
@@ -101,6 +104,12 @@ const (
 const (
 	LOGIN_TYPE_ADMIN      uint = 1
 	LOGIN_TYPE_MANAGEMENT uint = 2
+)
+
+// m_select_status_event
+const (
+	STATUS_EVENT_DECIDE_SCHEDULE  uint = 1
+	STATUS_EVENT_SUBMIT_DOCUMENTS uint = 2
 )
 
 // m_hash_key_pre

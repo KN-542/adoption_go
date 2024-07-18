@@ -17,6 +17,14 @@ type SearchApplicant struct {
 	ResumeFlg uint `json:"resume_flg"`
 	// 職務経歴書フラグ
 	CurriculumVitaeFlg uint `json:"curriculum_vitae_flg"`
+	// 面接予定日_From
+	InterviewerDateFrom time.Time `json:"interviewer_date_from"`
+	// 面接予定日_To
+	InterviewerDateTo time.Time `json:"interviewer_date_to"`
+	// 登録日時_From
+	CreatedAtFrom time.Time `json:"created_at_from"`
+	// 登録日時_To
+	CreatedAtTo time.Time `json:"created_at_to"`
 	// 面接官
 	Users []string `json:"users"`
 	// ソート(key)
@@ -106,4 +114,32 @@ type InsertDesiredAt struct {
 	Title string `json:"title"`
 	// 予定ハッシュキー
 	ScheduleHashKey string `json:"schedule_hash_key"`
+}
+
+// 応募者ステータス変更
+type UpdateStatus struct {
+	Abstract
+	ddl.SelectStatus
+	// ステータス
+	Status []string `json:"status"`
+	// ステータス紐づけ
+	Association []UpdateStatusSub `json:"association"`
+	// イベント
+	Events []UpdateStatusSub2 `json:"events"`
+}
+
+// 応募者ステータス変更サブ
+type UpdateStatusSub struct {
+	// 変更前ハッシュ
+	BeforeHash string `json:"before_hash"`
+}
+
+// 応募者ステータス変更サブ2
+type UpdateStatusSub2 struct {
+	// イベントマスタID
+	EventID uint64 `json:"event_id"`
+	// イベントマスタハッシュ
+	EventHash string `json:"event_hash"`
+	// ステータス
+	Status int `json:"status"`
 }

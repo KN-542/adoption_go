@@ -40,6 +40,8 @@ type IApplicantService interface {
 	GetOauthURL(req *request.GetOauthURL) (*response.GetOauthURL, *response.Error)
 	// GoogleMeetUrl発行
 	GetGoogleMeetUrl(req *request.GetGoogleMeetUrl) (*response.GetGoogleMeetUrl, *response.Error)
+	// 応募者ステータス変更
+	UpdateStatus(req *request.UpdateStatus) *response.Error
 }
 
 type ApplicantService struct {
@@ -355,48 +357,50 @@ func (s *ApplicantService) Download(req *request.ApplicantDownload) (*response.A
 
 	// 一括登録
 	var applicants []*ddl.Applicant
-	for _, row := range request.Applicants {
-		// ハッシュキー生成
-		_, hash, hashErr := GenerateHash(1, 25)
-		if hashErr != nil {
-			if err := s.d.TxRollback(tx); err != nil {
+	if len(request.Applicants) > 0 {
+		for _, row := range request.Applicants {
+			// ハッシュキー生成
+			_, hash, hashErr := GenerateHash(1, 25)
+			if hashErr != nil {
+				if err := s.d.TxRollback(tx); err != nil {
+					return nil, &response.Error{
+						Status: http.StatusInternalServerError,
+					}
+				}
+
+				log.Printf("%v", hashErr)
 				return nil, &response.Error{
 					Status: http.StatusInternalServerError,
 				}
 			}
 
-			log.Printf("%v", hashErr)
+			// 構造体生成
+			applicant := &ddl.Applicant{
+				AbstractTransactionModel: ddl.AbstractTransactionModel{
+					HashKey:   *hash,
+					CompanyID: companyID,
+				},
+				OuterID: row.OuterID,
+				SiteID:  site.ID,
+				Status:  1,
+				Name:    row.Name,
+				Email:   row.Email,
+				Tel:     row.Tel,
+				Age:     uint(row.Age),
+				TeamID:  teamID,
+			}
+			applicants = append(applicants, applicant)
+		}
+
+		if err := s.r.Inserts(tx, applicants); err != nil {
+			if err := s.d.TxRollback(tx); err != nil {
+				return nil, &response.Error{
+					Status: http.StatusInternalServerError,
+				}
+			}
 			return nil, &response.Error{
 				Status: http.StatusInternalServerError,
 			}
-		}
-
-		// 構造体生成
-		applicant := &ddl.Applicant{
-			AbstractTransactionModel: ddl.AbstractTransactionModel{
-				HashKey:   *hash,
-				CompanyID: companyID,
-			},
-			OuterID: row.OuterID,
-			SiteID:  site.ID,
-			Status:  1,
-			Name:    row.Name,
-			Email:   row.Email,
-			Tel:     row.Tel,
-			Age:     uint(row.Age),
-			TeamID:  teamID,
-		}
-		applicants = append(applicants, applicant)
-	}
-
-	if err := s.r.Inserts(tx, applicants); err != nil {
-		if err := s.d.TxRollback(tx); err != nil {
-			return nil, &response.Error{
-				Status: http.StatusInternalServerError,
-			}
-		}
-		return nil, &response.Error{
-			Status: http.StatusInternalServerError,
 		}
 	}
 
@@ -1047,4 +1051,208 @@ func (s *ApplicantService) GetGoogleMeetUrl(req *request.GetGoogleMeetUrl) (*res
 			},
 		},
 	}, nil
+}
+
+// 応募者ステータス変更
+func (s *ApplicantService) UpdateStatus(req *request.UpdateStatus) *response.Error {
+	// バリデーション
+	if err := s.v.UpdateStatus(req); err != nil {
+		log.Printf("%v", err)
+		return &response.Error{
+			Status: http.StatusBadRequest,
+			Code:   static.CODE_BAD_REQUEST,
+		}
+	}
+	for _, row := range req.Association {
+		if err := s.v.UpdateStatusSub(&row); err != nil {
+			log.Printf("%v", err)
+			return &response.Error{
+				Status: http.StatusBadRequest,
+				Code:   static.CODE_BAD_REQUEST,
+			}
+		}
+	}
+	for _, row := range req.Events {
+		if err := s.v.UpdateStatusSub2(&row); err != nil {
+			log.Printf("%v", err)
+			return &response.Error{
+				Status: http.StatusBadRequest,
+				Code:   static.CODE_BAD_REQUEST,
+			}
+		}
+	}
+
+	// Redisから取得
+	ctx := context.Background()
+	team, teamErr := s.redis.Get(ctx, req.UserHashKey, static.REDIS_USER_TEAM_ID)
+	if teamErr != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+	teamID, teamIDErr := strconv.ParseUint(*team, 10, 64)
+	if teamIDErr != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+	req.TeamID = teamID
+
+	company, companyErr := s.redis.Get(ctx, req.UserHashKey, static.REDIS_USER_COMPANY_ID)
+	if companyErr != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+	companyID, companyParseErr := strconv.ParseUint(*company, 10, 64)
+	if companyParseErr != nil {
+		log.Printf("%v", companyParseErr)
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+	req.CompanyID = companyID
+
+	// 旧スタータス取得
+	oldStatus, oldStatusErr := s.r.ListStatus(&ddl.SelectStatus{
+		TeamID: req.TeamID,
+	})
+	if oldStatusErr != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// イベントハッシュキーからイベント取得
+	var hashKeys []string
+	for _, row := range req.Events {
+		hashKeys = append(hashKeys, row.EventHash)
+	}
+	events, eventsErr := s.m.SelectSelectStatusEventByHashKeys(hashKeys)
+	if eventsErr != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+	for index := range req.Events {
+		req.Events[index].EventID = uint64(events[index].ID)
+	}
+
+	tx, txErr := s.d.TxStart()
+	if txErr != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// 新ステータス登録
+	var status []*ddl.SelectStatus
+	for _, row := range req.Status {
+		_, hashKey, hashErr := GenerateHash(1, 25)
+		if hashErr != nil {
+			log.Printf("%v", hashErr)
+			return &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+
+		status = append(status, &ddl.SelectStatus{
+			AbstractTransactionModel: ddl.AbstractTransactionModel{
+				HashKey:   string(static.PRE_SELECT_STATUS) + "_" + *hashKey,
+				CompanyID: companyID,
+			},
+			TeamID:     teamID,
+			StatusName: row,
+		})
+	}
+	ids, idsErr := s.u.InsertsSelectStatus(tx, status)
+	if idsErr != nil {
+		if err := s.d.TxRollback(tx); err != nil {
+			return &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// 各応募者のステータス更新
+	for index := range req.Association {
+		if err := s.r.UpdateSelectStatus(tx, &ddl.Applicant{
+			AbstractTransactionModel: ddl.AbstractTransactionModel{
+				HashKey: req.Association[index].BeforeHash,
+			},
+			Status: ids.List[index].ID,
+		}); err != nil {
+			if err := s.d.TxRollback(tx); err != nil {
+				return &response.Error{
+					Status: http.StatusInternalServerError,
+				}
+			}
+			return &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+	}
+
+	// イベントを一度全削除
+	if err := s.u.DeleteEventAssociation(tx, &ddl.TeamEvent{
+		TeamID: teamID,
+	}); err != nil {
+		if err := s.d.TxRollback(tx); err != nil {
+			return &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// イベントに登録
+	var eventsDDL []*ddl.TeamEvent
+	for _, row := range req.Events {
+		eventsDDL = append(eventsDDL, &ddl.TeamEvent{
+			TeamID:   teamID,
+			EventID:  row.EventID,
+			StatusID: uint64(row.Status),
+		})
+	}
+	if err := s.u.InsertsEventAssociation(tx, eventsDDL); err != nil {
+		if err := s.d.TxRollback(tx); err != nil {
+			return &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// 旧ステータス削除
+	var oldStatusIds []uint64
+	for _, row := range oldStatus {
+		oldStatusIds = append(oldStatusIds, row.ID)
+	}
+	if err := s.r.DeleteStatusByPrimary(tx, &ddl.SelectStatus{
+		TeamID: teamID,
+	}, oldStatusIds); err != nil {
+		if err := s.d.TxRollback(tx); err != nil {
+			return &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	if err := s.d.TxCommit(tx); err != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	return nil
 }

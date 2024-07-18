@@ -51,3 +51,8 @@ type CreateSchedule struct {
 type SearchSchedule struct {
 	List []entity.UserSchedule `json:"list"`
 }
+
+// ステータスイベントマスタ一覧
+type ListStatusEvent struct {
+	List []entity.SelectStatusEvent `json:"list"`
+}

@@ -36,6 +36,7 @@ func main() {
 			&ddl.AnalysisTerm{},
 			&ddl.HashKeyPre{},
 			&ddl.S3NamePre{},
+			&ddl.SelectStatusEvent{},
 			// t
 			&ddl.Company{},
 			&ddl.CustomRole{},
@@ -44,6 +45,7 @@ func main() {
 			&ddl.Team{},
 			&ddl.TeamAssociation{},
 			&ddl.SelectStatus{},
+			&ddl.TeamEvent{},
 			&ddl.UserSchedule{},
 			&ddl.UserScheduleAssociation{},
 			&ddl.Applicant{},
@@ -231,6 +233,20 @@ func main() {
 			log.Println(err)
 		}
 
+		// m_select_status_event
+		if err := AddTableComment(dbConn, "m_select_status_event", "応募者ステータスイベントマスタ"); err != nil {
+			log.Println(err)
+		}
+		mSelectStatusEvent := map[string]string{
+			"id":       "ID",
+			"hash_key": "ハッシュキー",
+			"desc_ja":  "説明_日本語",
+			"desc_en":  "説明_英語",
+		}
+		if err := AddColumnComments(dbConn, "m_select_status_event", mSelectStatusEvent); err != nil {
+			log.Println(err)
+		}
+
 		// t_company
 		if err := AddTableComment(dbConn, "t_company", "企業"); err != nil {
 			log.Println(err)
@@ -342,6 +358,19 @@ func main() {
 			"updated_at":  "更新日時",
 		}
 		if err := AddColumnComments(dbConn, "t_select_status", selectStatus); err != nil {
+			log.Println(err)
+		}
+
+		// t_team_event
+		if err := AddTableComment(dbConn, "t_team_event", "チームイベント"); err != nil {
+			log.Println(err)
+		}
+		teamEvent := map[string]string{
+			"team_id":   "チームID",
+			"event_id":  "イベントID",
+			"status_id": "ステータスID",
+		}
+		if err := AddColumnComments(dbConn, "t_team_event", teamEvent); err != nil {
 			log.Println(err)
 		}
 
@@ -543,6 +572,7 @@ func main() {
 			&ddl.AnalysisTerm{},
 			&ddl.HashKeyPre{},
 			&ddl.S3NamePre{},
+			&ddl.SelectStatusEvent{},
 			// t
 			&ddl.Company{},
 			&ddl.CustomRole{},
@@ -551,6 +581,7 @@ func main() {
 			&ddl.Team{},
 			&ddl.TeamAssociation{},
 			&ddl.SelectStatus{},
+			&ddl.TeamEvent{},
 			&ddl.UserSchedule{},
 			&ddl.UserScheduleAssociation{},
 			&ddl.Applicant{},
@@ -669,6 +700,35 @@ func CreateData(db *gorm.DB) {
 		_, hash, _ := service.GenerateHash(1, 25)
 		row.HashKey = "m_site" + "_" + *hash
 		if err := master.InsertSite(tx, row); err != nil {
+			if err := tx.Rollback().Error; err != nil {
+				log.Printf("%v", err)
+				return
+			}
+			return
+		}
+	}
+
+	// m_select_status_event
+	events := []*ddl.SelectStatusEvent{
+		{
+			AbstractMasterModel: ddl.AbstractMasterModel{
+				ID: uint(static.STATUS_EVENT_DECIDE_SCHEDULE),
+			},
+			DescJa: "応募者が日程調整のフォームを入力した時",
+			DescEn: "When an applicant fills out the scheduling form",
+		},
+		{
+			AbstractMasterModel: ddl.AbstractMasterModel{
+				ID: uint(static.STATUS_EVENT_SUBMIT_DOCUMENTS),
+			},
+			DescJa: "応募者がフォームから必要書類を提出した時",
+			DescEn: "When the applicant submits the required documents via the form",
+		},
+	}
+	for _, row := range events {
+		_, hash, _ := service.GenerateHash(1, 25)
+		row.HashKey = "m_select_status_event" + "_" + *hash
+		if err := master.InsertSelectStatusEvent(tx, row); err != nil {
 			if err := tx.Rollback().Error; err != nil {
 				log.Printf("%v", err)
 				return
@@ -1154,6 +1214,23 @@ func CreateData(db *gorm.DB) {
 			},
 			NameJa:   "管理者操作ログ詳細閲覧",
 			NameEn:   "ManagementLogDetailRead",
+			RoleType: uint(static.LOGIN_TYPE_MANAGEMENT),
+		},
+		// management_設定関連
+		{
+			AbstractMasterModel: ddl.AbstractMasterModel{
+				ID: uint(static.ROLE_MANAGEMENT_SETTING_COMPANY),
+			},
+			NameJa:   "管理者企業設定",
+			NameEn:   "ManagementSettingCompany",
+			RoleType: uint(static.LOGIN_TYPE_MANAGEMENT),
+		},
+		{
+			AbstractMasterModel: ddl.AbstractMasterModel{
+				ID: uint(static.ROLE_MANAGEMENT_SETTING_TEAM),
+			},
+			NameJa:   "管理者チーム設定",
+			NameEn:   "ManagementSettingTeam",
 			RoleType: uint(static.LOGIN_TYPE_MANAGEMENT),
 		},
 	}

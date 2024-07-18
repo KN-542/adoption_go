@@ -63,6 +63,7 @@ func NewRouter(
 	e.POST("/user/update_schedule", user.UpdateSchedule)
 	e.POST("/user/schedules", user.SearchSchedule)
 	e.POST("/user/delete_schedule", user.DeleteSchedule)
+	e.POST("/user/team_setting", user.UpdateStatus)
 
 	// 企業
 	e.POST("/company/create", company.Create)
@@ -83,6 +84,9 @@ func NewRouter(
 
 	// ロール
 	e.POST("/role/search_company", role.SearchByCompanyID)
+
+	// 設定
+	e.POST("/setting/status_events", user.ListStatusEvent)
 
 	return e
 }
