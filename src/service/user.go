@@ -49,6 +49,8 @@ type IUserService interface {
 	DeleteSchedule(req *request.DeleteSchedule) *response.Error
 	// ステータスイベントマスタ一覧
 	ListStatusEvent() (*response.ListStatusEvent, *response.Error)
+	// チーム毎ステータスイベント取得
+	StatusEventsByTeam(req *request.StatusEventsByTeam) (*response.StatusEventsByTeam, *response.Error)
 }
 
 type UserService struct {
@@ -1192,6 +1194,40 @@ func (u *UserService) ListStatusEvent() (*response.ListStatusEvent, *response.Er
 	}
 
 	return &response.ListStatusEvent{
+		List: res,
+	}, nil
+}
+
+// チーム毎ステータスイベント取得
+func (u *UserService) StatusEventsByTeam(req *request.StatusEventsByTeam) (*response.StatusEventsByTeam, *response.Error) {
+	// チームID取得
+	ctx := context.Background()
+	team, teamErr := u.redis.Get(ctx, req.UserHashKey, static.REDIS_USER_TEAM_ID)
+	if teamErr != nil {
+		return nil, &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+	teamID, teamIDErr := strconv.ParseUint(*team, 10, 64)
+	if teamIDErr != nil {
+		return nil, &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// 取得
+	res, err := u.user.StatusEventsByTeam(&ddl.Team{
+		AbstractTransactionModel: ddl.AbstractTransactionModel{
+			ID: teamID,
+		},
+	})
+	if err != nil {
+		return nil, &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	return &response.StatusEventsByTeam{
 		List: res,
 	}, nil
 }

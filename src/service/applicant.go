@@ -1211,22 +1211,24 @@ func (s *ApplicantService) UpdateStatus(req *request.UpdateStatus) *response.Err
 	}
 
 	// イベントに登録
-	var eventsDDL []*ddl.TeamEvent
-	for _, row := range req.Events {
-		eventsDDL = append(eventsDDL, &ddl.TeamEvent{
-			TeamID:   teamID,
-			EventID:  row.EventID,
-			StatusID: ids.List[row.Status].ID,
-		})
-	}
-	if err := s.u.InsertsEventAssociation(tx, eventsDDL); err != nil {
-		if err := s.d.TxRollback(tx); err != nil {
+	if len(req.Events) > 0 {
+		var eventsDDL []*ddl.TeamEvent
+		for _, row := range req.Events {
+			eventsDDL = append(eventsDDL, &ddl.TeamEvent{
+				TeamID:   teamID,
+				EventID:  row.EventID,
+				StatusID: ids.List[row.Status].ID,
+			})
+		}
+		if err := s.u.InsertsEventAssociation(tx, eventsDDL); err != nil {
+			if err := s.d.TxRollback(tx); err != nil {
+				return &response.Error{
+					Status: http.StatusInternalServerError,
+				}
+			}
 			return &response.Error{
 				Status: http.StatusInternalServerError,
 			}
-		}
-		return &response.Error{
-			Status: http.StatusInternalServerError,
 		}
 	}
 

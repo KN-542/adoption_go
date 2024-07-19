@@ -248,7 +248,6 @@ func (v *ApplicantValidator) UpdateStatus(a *request.UpdateStatus) error {
 		),
 		validation.Field(
 			&a.Events,
-			validation.Required,
 		),
 	)
 }

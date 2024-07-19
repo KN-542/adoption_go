@@ -92,3 +92,8 @@ type DeleteSchedule struct {
 	Abstract
 	ddl.UserSchedule
 }
+
+// チーム毎ステータスイベント取得
+type StatusEventsByTeam struct {
+	Abstract
+}

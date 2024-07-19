@@ -49,3 +49,17 @@ type TeamAssociation struct {
 type UserScheduleAssociation struct {
 	ddl.UserScheduleAssociation
 }
+
+// チーム毎イベント
+type StatusEventsByTeam struct {
+	// イベントハッシュキー
+	EventHashKey string `json:"event_hash_key"`
+	// 説明_日本語
+	DescJa string `json:"desc_ja" gorm:"text"`
+	// 説明_英語
+	DescEn string `json:"desc_en" gorm:"text"`
+	// 選考状況ハッシュキー
+	SelectStatusHashKey string `json:"select_status_hash_key"`
+	// ステータス名
+	StatusName string `json:"status_name"`
+}
