@@ -99,6 +99,8 @@ type IUserRepository interface {
 	GetIDs(m []string) ([]uint64, error)
 	// チームID取得
 	GetTeamIDs(m []string) ([]uint64, error)
+	// チーム毎ステータスイベント取得
+	StatusEventsByTeam(m *ddl.Team) ([]entity.StatusEventsByTeam, error)
 }
 
 type UserRepository struct {
@@ -782,4 +784,28 @@ func (u *UserRepository) GetTeamIDs(m []string) ([]uint64, error) {
 	}
 
 	return IDs, nil
+}
+
+// チーム毎ステータスイベント取得
+func (u *UserRepository) StatusEventsByTeam(m *ddl.Team) ([]entity.StatusEventsByTeam, error) {
+	var res []entity.StatusEventsByTeam
+
+	query := u.db.Table("t_team_event").
+		Select(`
+			m_select_status_event.hash_key as event_hash_key,
+			m_select_status_event.desc_ja as desc_ja,
+			m_select_status_event.desc_en as desc_en,
+			t_select_status.hash_key as select_status_hash_key,
+			t_select_status.status_name as status_name
+		`).
+		Joins("left join t_select_status on t_team_event.status_id = t_select_status.id").
+		Joins("left join m_select_status_event on t_team_event.event_id = m_select_status_event.id").
+		Where("t_team_event.team_id = ?", m.ID)
+
+	if err := query.Find(&res).Error; err != nil {
+		log.Printf("%v", err)
+		return nil, err
+	}
+
+	return res, nil
 }

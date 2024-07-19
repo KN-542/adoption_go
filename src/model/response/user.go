@@ -56,3 +56,8 @@ type SearchSchedule struct {
 type ListStatusEvent struct {
 	List []entity.SelectStatusEvent `json:"list"`
 }
+
+// チーム毎ステータスイベント取得
+type StatusEventsByTeam struct {
+	List []entity.StatusEventsByTeam `json:"list"`
+}
