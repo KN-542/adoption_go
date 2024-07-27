@@ -38,6 +38,8 @@ type Team struct {
 	AbstractTransactionModel
 	// チーム名
 	Name string `json:"name" gorm:"not null;check:name <> '';type:varchar(30);index"`
+	// 最大面接回数
+	NumOfInterview uint `json:"num_of_interview" gorm:"check:num_of_interview >= 1 AND num_of_interview <= 30"`
 }
 
 /*
@@ -48,13 +50,30 @@ type TeamEvent struct {
 	// チームID
 	TeamID uint64 `json:"team_id" gorm:"primaryKey"`
 	// イベントID
-	EventID uint64 `json:"event_id" gorm:"primaryKey"`
+	EventID uint `json:"event_id" gorm:"primaryKey"`
 	// ステータスID
 	StatusID uint64 `json:"status_id"`
 	// チーム(外部キー)
 	Team Team `gorm:"foreignKey:team_id;references:id"`
 	// イベント(外部キー)
 	Event SelectStatusEvent `gorm:"foreignKey:event_id;references:id"`
+	// ステータス(外部キー)
+	Status SelectStatus `gorm:"foreignKey:status_id;references:id"`
+}
+
+/*
+t_team_event_each_interview
+チーム面接毎イベント
+*/
+type TeamEventEachInterview struct {
+	// チームID
+	TeamID uint64 `json:"team_id" gorm:"primaryKey"`
+	// 面接回数
+	NumOfInterview uint `json:"num_of_interview" gorm:"primaryKey"`
+	// ステータスID
+	StatusID uint64 `json:"status_id"`
+	// チーム(外部キー)
+	Team Team `gorm:"foreignKey:team_id;references:id"`
 	// ステータス(外部キー)
 	Status SelectStatus `gorm:"foreignKey:status_id;references:id"`
 }
@@ -89,10 +108,10 @@ type SelectStatus struct {
 }
 
 /*
-t_user_schedule
-ユーザー予定
+t_schedule
+予定
 */
-type UserSchedule struct {
+type Schedule struct {
 	AbstractTransactionModel
 	// タイトル
 	Title string `json:"title" gorm:"not null;check:title <> '';type:varchar(30)"`
@@ -109,16 +128,16 @@ type UserSchedule struct {
 }
 
 /*
-t_user_schedule_association
-ユーザー予定紐づけ
+t_schedule_association
+予定紐づけ
 */
-type UserScheduleAssociation struct {
-	// ユーザー予定ID
-	UserScheduleID uint64 `json:"user_schedule_id" gorm:"primaryKey"`
+type ScheduleAssociation struct {
+	// 予定ID
+	ScheduleID uint64 `json:"schedule_id" gorm:"primaryKey"`
 	// ユーザーID
 	UserID uint64 `json:"user_id" gorm:"primaryKey"`
-	// ユーザー予定(外部キー)
-	UserSchedule UserSchedule `gorm:"foreignKey:user_schedule_id;references:id"`
+	// 予定(外部キー)
+	Schedule Schedule `gorm:"foreignKey:schedule_id;references:id"`
 	// ユーザー(外部キー)
 	User User `gorm:"foreignKey:user_id;references:id"`
 }
@@ -132,15 +151,18 @@ func (t Team) TableName() string {
 func (t TeamEvent) TableName() string {
 	return "t_team_event"
 }
+func (t TeamEventEachInterview) TableName() string {
+	return "t_team_event_each_interview"
+}
 func (t TeamAssociation) TableName() string {
 	return "t_team_association"
 }
 func (t SelectStatus) TableName() string {
 	return "t_select_status"
 }
-func (t UserSchedule) TableName() string {
-	return "t_user_schedule"
+func (t Schedule) TableName() string {
+	return "t_schedule"
 }
-func (t UserScheduleAssociation) TableName() string {
-	return "t_user_schedule_association"
+func (t ScheduleAssociation) TableName() string {
+	return "t_schedule_association"
 }

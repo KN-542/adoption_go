@@ -32,6 +32,12 @@ type GetTeam struct {
 	entity.Team
 }
 
+// チーム取得
+type GetOwnTeam struct {
+	Team   entity.Team                    `json:"team"`
+	Events []entity.InterviewEventsByTeam `json:"events"`
+}
+
 // チーム検索_同一企業
 type SearchTeamByCompany struct {
 	List []entity.SearchTeam `json:"list"`
@@ -49,7 +55,7 @@ type CreateSchedule struct {
 
 // 予定検索
 type SearchSchedule struct {
-	List []entity.UserSchedule `json:"list"`
+	List []entity.Schedule `json:"list"`
 }
 
 // ステータスイベントマスタ一覧

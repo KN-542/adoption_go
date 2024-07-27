@@ -524,7 +524,7 @@ func TestUserRepository_InsertSchedule(t *testing.T) {
 	}
 	type args struct {
 		tx *gorm.DB
-		m  *ddl.UserSchedule
+		m  *ddl.Schedule
 	}
 	tests := []struct {
 		name    string
@@ -551,13 +551,13 @@ func TestUserRepository_SearchSchedule(t *testing.T) {
 		db *gorm.DB
 	}
 	type args struct {
-		m *ddl.UserSchedule
+		m *ddl.Schedule
 	}
 	tests := []struct {
 		name    string
 		fields  fields
 		args    args
-		want    []*entity.UserSchedule
+		want    []*entity.Schedule
 		wantErr bool
 	}{
 		// TODO: Add test cases.
@@ -585,7 +585,7 @@ func TestUserRepository_DeleteSchedule(t *testing.T) {
 	}
 	type args struct {
 		tx *gorm.DB
-		m  *ddl.UserSchedule
+		m  *ddl.Schedule
 	}
 	tests := []struct {
 		name    string

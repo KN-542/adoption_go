@@ -37,6 +37,8 @@ type IApplicantRepository interface {
 	CheckDuplByOuterId(m *dto.CheckDuplDownloading) ([]entity.Applicant, error)
 	// 選考ステータス更新
 	UpdateSelectStatus(tx *gorm.DB, m *ddl.Applicant) error
+	// 応募者面接予定紐づけ更新
+	UpdateApplicantScheduleAssociation(tx *gorm.DB, m *ddl.ApplicantScheduleAssociation) error
 }
 
 type ApplicantRepository struct {
@@ -81,7 +83,6 @@ func (a *ApplicantRepository) Update(tx *gorm.DB, m *ddl.Applicant) error {
 		CurriculumVitae: m.CurriculumVitae,
 		GoogleMeetURL:   m.GoogleMeetURL,
 		TeamID:          m.TeamID,
-		ScheduleID:      m.ScheduleID,
 	}).Error; err != nil {
 		log.Printf("%v", err)
 		return err
@@ -102,18 +103,18 @@ func (a *ApplicantRepository) Search(m *dto.SearchApplicant) ([]*entity.SearchAp
 			t_applicant.resume,
 			t_applicant.curriculum_vitae,
 			t_applicant.google_meet_url,
-			t_applicant.schedule_id,
 			t_applicant.created_at,
 			t_select_status.status_name as status_name,
 			m_site.site_name as site_name,
-			t_user_schedule.hash_key as schedule_hash_key,
-			t_user_schedule.start as start
+			t_schedule.hash_key as schedule_hash_key,
+			t_schedule.start as start
 		`).
 		Joins("left join t_select_status on t_applicant.status = t_select_status.id").
 		Joins("left join m_site on t_applicant.site_id = m_site.id").
-		Joins("left join t_user_schedule on t_applicant.schedule_id = t_user_schedule.id").
 		Joins("left join t_applicant_user_association on t_applicant_user_association.applicant_id = t_applicant.id").
 		Joins("left join t_user on t_applicant_user_association.user_id = t_user.id").
+		Joins("left join t_applicant_schedule_association on t_applicant_schedule_association.applicant_id = t_applicant.id").
+		Joins("left join t_schedule on t_applicant_schedule_association.schedule_id = t_schedule.id").
 		Where("t_applicant.team_id = ?", m.TeamID).
 		Where("t_applicant.company_id = ?", m.CompanyID)
 
@@ -148,11 +149,11 @@ func (a *ApplicantRepository) Search(m *dto.SearchApplicant) ([]*entity.SearchAp
 	}
 
 	if m.InterviewerDateFrom.Year() >= 1900 && m.InterviewerDateTo.Year() >= 1900 {
-		query = query.Where("t_user_schedule.start >= ? AND t_user_schedule.start < ?", m.InterviewerDateFrom, m.InterviewerDateTo.AddDate(0, 0, 1))
+		query = query.Where("t_schedule.start >= ? AND t_schedule.start < ?", m.InterviewerDateFrom, m.InterviewerDateTo.AddDate(0, 0, 1))
 	} else if m.InterviewerDateFrom.Year() >= 1900 {
-		query = query.Where("t_user_schedule.start >= ?", m.InterviewerDateFrom)
+		query = query.Where("t_schedule.start >= ?", m.InterviewerDateFrom)
 	} else if m.InterviewerDateTo.Year() >= 1900 {
-		query = query.Where("t_user_schedule.start < ?", m.InterviewerDateTo.AddDate(0, 0, 1))
+		query = query.Where("t_schedule.start < ?", m.InterviewerDateTo.AddDate(0, 0, 1))
 	}
 
 	if m.CreatedAtFrom.Year() >= 1900 && m.CreatedAtTo.Year() >= 1900 {
@@ -184,13 +185,16 @@ func (a *ApplicantRepository) Search(m *dto.SearchApplicant) ([]*entity.SearchAp
 // 応募者取得(ハッシュキー)
 func (a *ApplicantRepository) Get(m *ddl.Applicant) (*entity.Applicant, error) {
 	var res entity.Applicant
-	if err := a.db.Where(
-		&ddl.Applicant{
-			AbstractTransactionModel: ddl.AbstractTransactionModel{
-				HashKey: m.HashKey,
+	if err := a.db.Model(&ddl.Applicant{}).
+		Select("t_applicant.*, t_applicant_schedule_association.schedule_id").
+		Joins("left join t_applicant_schedule_association on t_applicant_schedule_association.applicant_id = t_applicant.id").
+		Where(
+			&ddl.Applicant{
+				AbstractTransactionModel: ddl.AbstractTransactionModel{
+					HashKey: m.HashKey,
+				},
 			},
-		},
-	).First(&res).Error; err != nil {
+		).First(&res).Error; err != nil {
 		log.Printf("%v", err)
 		return nil, err
 	}
@@ -275,7 +279,7 @@ func (a *ApplicantRepository) GetByTeamID(m *ddl.Applicant) ([]entity.Applicant,
 // 応募者重複チェック_媒体側ID
 func (a *ApplicantRepository) CheckDuplByOuterId(m *dto.CheckDuplDownloading) ([]entity.Applicant, error) {
 	var res []entity.Applicant
-	if err := a.db.Model(&ddl.Applicant{}).
+	if err := a.db.Table("t_applicant").
 		Where(&ddl.Applicant{
 			AbstractTransactionModel: ddl.AbstractTransactionModel{
 				CompanyID: m.CompanyID,
@@ -290,11 +294,11 @@ func (a *ApplicantRepository) CheckDuplByOuterId(m *dto.CheckDuplDownloading) ([
 }
 
 // 面接希望日取得
-func (a *ApplicantRepository) GetDesiredAt(m *ddl.Applicant) (*ddl.UserSchedule, error) {
-	var l ddl.UserSchedule
-	if err := a.db.Model(&ddl.UserSchedule{}).
-		Select("t_user_schedule.start, t_user_schedule.end").
-		Joins("left join t_applicant on t_applicant.schedule_id = t_user_schedule.id").
+func (a *ApplicantRepository) GetDesiredAt(m *ddl.Applicant) (*ddl.Schedule, error) {
+	var l ddl.Schedule
+	if err := a.db.Model(&ddl.Schedule{}).
+		Select("t_schedule.start, t_schedule.end").
+		Joins("left join t_applicant on t_applicant.schedule_id = t_schedule.id").
 		Where(
 			&ddl.Applicant{
 				AbstractTransactionModel: ddl.AbstractTransactionModel{
@@ -323,5 +327,20 @@ func (a *ApplicantRepository) UpdateSelectStatus(tx *gorm.DB, m *ddl.Applicant) 
 		return err
 	}
 
+	return nil
+}
+
+// 応募者面接予定紐づけ更新
+func (a *ApplicantRepository) UpdateApplicantScheduleAssociation(tx *gorm.DB, m *ddl.ApplicantScheduleAssociation) error {
+	if err := tx.Model(&ddl.ApplicantScheduleAssociation{}).
+		Where(&ddl.ApplicantScheduleAssociation{
+			ApplicantID: m.ApplicantID,
+		}).
+		Updates(&ddl.ApplicantScheduleAssociation{
+			ScheduleID: m.ScheduleID,
+		}).Error; err != nil {
+		log.Printf("%v", err)
+		return err
+	}
 	return nil
 }

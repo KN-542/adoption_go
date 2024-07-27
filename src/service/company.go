@@ -207,7 +207,8 @@ func (c *CompanyService) Create(req *request.CreateCompany) (*response.CreateCom
 			HashKey:   string(static.PRE_TEAM) + "_" + *teamHash,
 			CompanyID: company.ID,
 		},
-		Name: "Initial team " + company.Name,
+		Name:           "Initial team " + company.Name,
+		NumOfInterview: 3,
 	})
 	if teamErr != nil {
 		if err := c.db.TxRollback(tx); err != nil {

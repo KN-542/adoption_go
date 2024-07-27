@@ -46,10 +46,15 @@ func main() {
 			&ddl.TeamAssociation{},
 			&ddl.SelectStatus{},
 			&ddl.TeamEvent{},
-			&ddl.UserSchedule{},
-			&ddl.UserScheduleAssociation{},
+			&ddl.TeamEventEachInterview{},
+			&ddl.Schedule{},
+			&ddl.ScheduleAssociation{},
 			&ddl.Applicant{},
 			&ddl.ApplicantUserAssociation{},
+			&ddl.ApplicantScheduleAssociation{},
+			&ddl.Manuscript{},
+			&ddl.ManuscriptTeamAssociation{},
+			&ddl.ManuscriptSiteAssociation{},
 			&ddl.MailTemplate{},
 			&ddl.Variable{},
 			&ddl.MailPreview{},
@@ -321,12 +326,13 @@ func main() {
 			log.Println(err)
 		}
 		team := map[string]string{
-			"id":         "ID",
-			"hash_key":   "ハッシュキー",
-			"name":       "チーム名",
-			"company_id": "企業ID",
-			"created_at": "登録日時",
-			"updated_at": "更新日時",
+			"id":               "ID",
+			"hash_key":         "ハッシュキー",
+			"name":             "チーム名",
+			"num_of_interview": "最大面接回数",
+			"company_id":       "企業ID",
+			"created_at":       "登録日時",
+			"updated_at":       "更新日時",
 		}
 		if err := AddColumnComments(dbConn, "t_team", team); err != nil {
 			log.Println(err)
@@ -374,8 +380,21 @@ func main() {
 			log.Println(err)
 		}
 
-		// t_user_schedule
-		if err := AddTableComment(dbConn, "t_user_schedule", "ユーザー予定"); err != nil {
+		// t_team_event_each_interview
+		if err := AddTableComment(dbConn, "t_team_event_each_interview", "チーム面接毎イベント"); err != nil {
+			log.Println(err)
+		}
+		teamEventEachInterview := map[string]string{
+			"team_id":          "チームID",
+			"num_of_interview": "面接回数",
+			"status_id":        "ステータスID",
+		}
+		if err := AddColumnComments(dbConn, "t_team_event_each_interview", teamEventEachInterview); err != nil {
+			log.Println(err)
+		}
+
+		// t_schedule
+		if err := AddTableComment(dbConn, "t_schedule", "予定"); err != nil {
 			log.Println(err)
 		}
 		userSchedule := map[string]string{
@@ -390,19 +409,19 @@ func main() {
 			"created_at":    "登録日時",
 			"updated_at":    "更新日時",
 		}
-		if err := AddColumnComments(dbConn, "t_user_schedule", userSchedule); err != nil {
+		if err := AddColumnComments(dbConn, "t_schedule", userSchedule); err != nil {
 			log.Println(err)
 		}
 
-		// t_user_schedule_association
-		if err := AddTableComment(dbConn, "t_user_schedule_association", "ユーザー予定紐づけ"); err != nil {
+		// t_schedule_association
+		if err := AddTableComment(dbConn, "t_schedule_association", "予定紐づけ"); err != nil {
 			log.Println(err)
 		}
 		userScheduleAssociation := map[string]string{
-			"user_schedule_id": "ユーザー予定ID",
-			"user_id":          "ユーザーID",
+			"schedule_id": "予定ID",
+			"user_id":     "ユーザーID",
 		}
-		if err := AddColumnComments(dbConn, "t_user_schedule_association", userScheduleAssociation); err != nil {
+		if err := AddColumnComments(dbConn, "t_schedule_association", userScheduleAssociation); err != nil {
 			log.Println(err)
 		}
 
@@ -423,7 +442,6 @@ func main() {
 			"resume":           "履歴書",
 			"curriculum_vitae": "職務経歴書",
 			"google_meet_url":  "Google Meet URL",
-			"schedule_id":      "予定ID",
 			"company_id":       "企業ID",
 			"created_at":       "登録日時",
 			"updated_at":       "更新日時",
@@ -441,6 +459,58 @@ func main() {
 			"user_id":      "ユーザーID",
 		}
 		if err := AddColumnComments(dbConn, "t_applicant_user_association", applicantUserAssociation); err != nil {
+			log.Println(err)
+		}
+
+		// t_applicant_schedule_association
+		if err := AddTableComment(dbConn, "t_applicant_schedule_association", "応募者面接予定紐づけ"); err != nil {
+			log.Println(err)
+		}
+		applicantScheduleAssociation := map[string]string{
+			"applicant_id": "応募者ID",
+			"schedule_id":  "予定ID",
+		}
+		if err := AddColumnComments(dbConn, "t_applicant_schedule_association", applicantScheduleAssociation); err != nil {
+			log.Println(err)
+		}
+
+		// t_manuscript
+		if err := AddTableComment(dbConn, "t_manuscript", "原稿"); err != nil {
+			log.Println(err)
+		}
+		manuscript := map[string]string{
+			"id":         "ID",
+			"hash_key":   "ハッシュキー",
+			"company_id": "企業ID",
+			"content":    "原稿内容",
+			"created_at": "登録日時",
+			"updated_at": "更新日時",
+		}
+		if err := AddColumnComments(dbConn, "t_manuscript", manuscript); err != nil {
+			log.Println(err)
+		}
+
+		// t_manuscript_team_association
+		if err := AddTableComment(dbConn, "t_manuscript_team_association", "原稿チーム紐づけ"); err != nil {
+			log.Println(err)
+		}
+		manuscriptTeamAssociation := map[string]string{
+			"manuscript_id": "原稿ID",
+			"team_id":       "チームID",
+		}
+		if err := AddColumnComments(dbConn, "t_manuscript_team_association", manuscriptTeamAssociation); err != nil {
+			log.Println(err)
+		}
+
+		// t_manuscript_site_association
+		if err := AddTableComment(dbConn, "t_manuscript_site_association", "原稿サイト紐づけ"); err != nil {
+			log.Println(err)
+		}
+		manuscriptSiteAssociation := map[string]string{
+			"manuscript_id": "原稿ID",
+			"site_id":       "サイトID",
+		}
+		if err := AddColumnComments(dbConn, "t_manuscript_site_association", manuscriptSiteAssociation); err != nil {
 			log.Println(err)
 		}
 
@@ -582,10 +652,15 @@ func main() {
 			&ddl.TeamAssociation{},
 			&ddl.SelectStatus{},
 			&ddl.TeamEvent{},
-			&ddl.UserSchedule{},
-			&ddl.UserScheduleAssociation{},
+			&ddl.TeamEventEachInterview{},
+			&ddl.Schedule{},
+			&ddl.ScheduleAssociation{},
 			&ddl.Applicant{},
 			&ddl.ApplicantUserAssociation{},
+			&ddl.ApplicantScheduleAssociation{},
+			&ddl.Manuscript{},
+			&ddl.ManuscriptTeamAssociation{},
+			&ddl.ManuscriptSiteAssociation{},
 			&ddl.MailTemplate{},
 			&ddl.Variable{},
 			&ddl.MailPreview{},
@@ -714,15 +789,15 @@ func CreateData(db *gorm.DB) {
 			AbstractMasterModel: ddl.AbstractMasterModel{
 				ID: uint(static.STATUS_EVENT_DECIDE_SCHEDULE),
 			},
-			DescJa: "応募者が日程調整のフォームを入力した時",
-			DescEn: "When an applicant fills out the scheduling form",
+			DescJa: "応募者が日程調整のフォームを入力した時(初回面接)",
+			DescEn: "When an applicant fills out the scheduling form (initial interview)",
 		},
 		{
 			AbstractMasterModel: ddl.AbstractMasterModel{
 				ID: uint(static.STATUS_EVENT_SUBMIT_DOCUMENTS),
 			},
-			DescJa: "応募者がフォームから必要書類を提出した時",
-			DescEn: "When the applicant submits the required documents via the form",
+			DescJa: "応募者がフォームから必要書類を提出した時(初回面接)",
+			DescEn: "When the applicant submits the required documents via the form (initial interview)",
 		},
 	}
 	for _, row := range events {
