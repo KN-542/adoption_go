@@ -126,6 +126,8 @@ type UpdateStatus struct {
 	Association []UpdateStatusSub `json:"association"`
 	// イベント
 	Events []UpdateStatusSub2 `json:"events"`
+	// 面接毎イベント
+	EventsOfInterview []UpdateStatusSub3 `json:"events_of_interview"`
 }
 
 // 応募者ステータス変更サブ
@@ -139,9 +141,17 @@ type UpdateStatusSub struct {
 // 応募者ステータス変更サブ2
 type UpdateStatusSub2 struct {
 	// イベントマスタID
-	EventID uint64 `json:"event_id"`
+	EventID uint `json:"event_id"`
 	// イベントマスタハッシュ
 	EventHash string `json:"event_hash"`
+	// ステータス
+	Status int `json:"status"`
+}
+
+// 応募者ステータス変更サブ3
+type UpdateStatusSub3 struct {
+	// 面接回数
+	Num uint `json:"num"`
 	// ステータス
 	Status int `json:"status"`
 }

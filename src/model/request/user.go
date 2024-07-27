@@ -42,6 +42,12 @@ type UpdateTeam struct {
 	Users []string `json:"users"`
 }
 
+// チーム基本情報更新
+type UpdateBasicTeam struct {
+	Abstract
+	ddl.Team
+}
+
 // チーム削除
 type DeleteTeam struct {
 	Abstract
@@ -52,6 +58,11 @@ type DeleteTeam struct {
 type GetTeam struct {
 	Abstract
 	ddl.Team
+}
+
+// 自チーム取得
+type GetOwnTeam struct {
+	Abstract
 }
 
 // チーム検索
@@ -68,7 +79,7 @@ type SearchTeamByCompany struct {
 // 予定登録
 type CreateSchedule struct {
 	Abstract
-	ddl.UserSchedule
+	ddl.Schedule
 	// ユーザーリスト
 	Users []string `json:"users"`
 }
@@ -76,7 +87,7 @@ type CreateSchedule struct {
 // 予定更新
 type UpdateSchedule struct {
 	Abstract
-	ddl.UserSchedule
+	ddl.Schedule
 	// ユーザーリスト
 	Users []string `json:"users"`
 }
@@ -84,13 +95,13 @@ type UpdateSchedule struct {
 // 予定検索
 type SearchSchedule struct {
 	Abstract
-	ddl.UserSchedule
+	ddl.Schedule
 }
 
 // 予定削除
 type DeleteSchedule struct {
 	Abstract
-	ddl.UserSchedule
+	ddl.Schedule
 }
 
 // チーム毎ステータスイベント取得

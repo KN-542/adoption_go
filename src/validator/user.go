@@ -23,6 +23,8 @@ type IUserValidator interface {
 	CreateTeam(u *request.CreateTeam) error
 	// チーム更新
 	UpdateTeam(u *request.UpdateTeam) error
+	// チーム基本情報更新
+	UpdateBasicTeam(u *request.UpdateBasicTeam) error
 	// チーム削除
 	DeleteTeam(u *request.DeleteTeam) error
 	// チーム取得
@@ -125,6 +127,18 @@ func (v *UserValidator) UpdateTeam(u *request.UpdateTeam) error {
 			&u.Name,
 			validation.Required,
 			validation.Length(1, 30*3),
+		),
+	)
+}
+
+// チーム基本情報更新
+func (v *UserValidator) UpdateBasicTeam(u *request.UpdateBasicTeam) error {
+	return validation.ValidateStruct(
+		u,
+		validation.Field(
+			&u.NumOfInterview,
+			validation.Min(uint(1)),
+			validation.Max(uint(30)),
 		),
 	)
 }

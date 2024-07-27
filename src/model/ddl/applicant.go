@@ -28,8 +28,6 @@ type Applicant struct {
 	GoogleMeetURL string `json:"google_meet_url" gorm:"type:text"`
 	// チームID
 	TeamID uint64 `json:"team_id"`
-	// 予定ID
-	ScheduleID uint64 `json:"schedule_id"`
 	// サイト(外部キー)
 	Sites Site `gorm:"foreignKey:site_id;references:id"`
 	// ステータス(外部キー)
@@ -53,10 +51,27 @@ type ApplicantUserAssociation struct {
 	User User `gorm:"foreignKey:user_id;references:id"`
 }
 
+/*
+t_applicant_schedule_association
+応募者面接予定紐づけ
+*/
+type ApplicantScheduleAssociation struct {
+	// 応募者ID
+	ApplicantID uint64 `json:"applicant_id" gorm:"primaryKey"`
+	// 予定ID
+	ScheduleID uint64 `json:"schedule_id"`
+	// 応募者(外部キー)
+	Applicant Applicant `gorm:"foreignKey:applicant_id;references:id"`
+	// ユーザー(外部キー)
+	Schedule Schedule `gorm:"foreignKey:schedule_id;references:id"`
+}
+
 func (t Applicant) TableName() string {
 	return "t_applicant"
 }
-
 func (t ApplicantUserAssociation) TableName() string {
 	return "t_applicant_user_association"
+}
+func (t ApplicantScheduleAssociation) TableName() string {
+	return "t_applicant_schedule_association"
 }

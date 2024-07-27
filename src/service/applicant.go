@@ -419,7 +419,7 @@ func (s *ApplicantService) Download(req *request.ApplicantDownload) (*response.A
 func (s *ApplicantService) ReserveTable(req *request.ReserveTable) (*response.ReserveTable, *response.Error) {
 	const WEEKS = 7
 	const RESERVE_DURATION = 2 * WEEKS
-	var schedules []entity.UserSchedule
+	var schedules []entity.Schedule
 
 	// バリデーション
 	if err := s.v.ReserveTable(req); err != nil {
@@ -474,8 +474,8 @@ func (s *ApplicantService) ReserveTable(req *request.ReserveTable) (*response.Re
 
 	// ユーザー毎チェック
 	for _, user := range users {
-		// ユーザー予定取得
-		schedulesUTC, schedulesErr := s.u.ListUserScheduleAssociation(&ddl.UserScheduleAssociation{
+		// 予定取得
+		schedulesUTC, schedulesErr := s.u.ListUserScheduleAssociation(&ddl.ScheduleAssociation{
 			UserID: user.UserID,
 		})
 		if schedulesErr != nil {
@@ -484,7 +484,7 @@ func (s *ApplicantService) ReserveTable(req *request.ReserveTable) (*response.Re
 			}
 		}
 		// TZを日本に
-		var schedulesJST []entity.UserSchedule
+		var schedulesJST []entity.Schedule
 		for _, row := range schedulesUTC {
 			start := row.Start.In(jst)
 			end := row.End.In(jst)
@@ -579,8 +579,8 @@ func (s *ApplicantService) ReserveTable(req *request.ReserveTable) (*response.Re
 				var count int = 0
 				for _, schedule := range schedules {
 					// 予定毎ユーザー数
-					users2, users2Err := s.u.SearchScheduleUserAssociation(&ddl.UserScheduleAssociation{
-						UserScheduleID: schedule.ID,
+					users2, users2Err := s.u.SearchScheduleUserAssociation(&ddl.ScheduleAssociation{
+						ScheduleID: schedule.ID,
 					})
 					if users2Err != nil {
 						return nil, &response.Error{
@@ -609,7 +609,7 @@ func (s *ApplicantService) ReserveTable(req *request.ReserveTable) (*response.Re
 	}
 
 	// 面接予定取得
-	var resSchedule entity.UserSchedule
+	var resSchedule entity.Schedule
 	applicant, applicantErr := s.r.Get(&ddl.Applicant{
 		AbstractTransactionModel: ddl.AbstractTransactionModel{
 			HashKey: req.HashKey,
@@ -621,7 +621,7 @@ func (s *ApplicantService) ReserveTable(req *request.ReserveTable) (*response.Re
 		}
 	}
 	if applicant.ScheduleID > 0 {
-		schedule, err := s.u.GetScheduleByPrimary(&ddl.UserSchedule{
+		schedule, err := s.u.GetScheduleByPrimary(&ddl.Schedule{
 			AbstractTransactionModel: ddl.AbstractTransactionModel{
 				ID: applicant.ScheduleID,
 			},
@@ -842,7 +842,7 @@ func (s *ApplicantService) InsertDesiredAt(req *request.InsertDesiredAt) *respon
 		}
 
 		// 予定登録
-		id, sheduleErr := s.u.InsertSchedule(tx, &ddl.UserSchedule{
+		id, sheduleErr := s.u.InsertSchedule(tx, &ddl.Schedule{
 			AbstractTransactionModel: ddl.AbstractTransactionModel{
 				HashKey:   *hash,
 				CompanyID: applicant.CompanyID,
@@ -865,11 +865,9 @@ func (s *ApplicantService) InsertDesiredAt(req *request.InsertDesiredAt) *respon
 		}
 
 		// 応募者側更新
-		if err := s.r.Update(tx, &ddl.Applicant{
-			AbstractTransactionModel: ddl.AbstractTransactionModel{
-				HashKey: req.HashKey,
-			},
-			ScheduleID: *id,
+		if err := s.r.UpdateApplicantScheduleAssociation(tx, &ddl.ApplicantScheduleAssociation{
+			ApplicantID: applicant.ID,
+			ScheduleID:  *id,
 		}); err != nil {
 			if err := s.d.TxRollback(tx); err != nil {
 				return &response.Error{
@@ -888,7 +886,7 @@ func (s *ApplicantService) InsertDesiredAt(req *request.InsertDesiredAt) *respon
 		}
 	} else {
 		// 予定取得
-		schedule, scheduleErr := s.u.GetScheduleByPrimary(&ddl.UserSchedule{
+		schedule, scheduleErr := s.u.GetScheduleByPrimary(&ddl.Schedule{
 			AbstractTransactionModel: ddl.AbstractTransactionModel{
 				ID: applicant.ScheduleID,
 			},
@@ -907,7 +905,7 @@ func (s *ApplicantService) InsertDesiredAt(req *request.InsertDesiredAt) *respon
 		}
 
 		// 予定更新
-		_, updateErr := s.u.UpdateSchedule(tx, &ddl.UserSchedule{
+		_, updateErr := s.u.UpdateSchedule(tx, &ddl.Schedule{
 			AbstractTransactionModel: ddl.AbstractTransactionModel{
 				HashKey: schedule.HashKey,
 			},
@@ -968,7 +966,7 @@ func (s *ApplicantService) GetGoogleMeetUrl(req *request.GetGoogleMeetUrl) (*res
 	}
 
 	// 予定取得
-	schedule, scheduleErr := s.u.GetScheduleByPrimary(&ddl.UserSchedule{
+	schedule, scheduleErr := s.u.GetScheduleByPrimary(&ddl.Schedule{
 		AbstractTransactionModel: ddl.AbstractTransactionModel{
 			ID: applicant.ScheduleID,
 		},
@@ -1135,7 +1133,7 @@ func (s *ApplicantService) UpdateStatus(req *request.UpdateStatus) *response.Err
 		}
 	}
 	for index := range req.Events {
-		req.Events[index].EventID = uint64(events[index].ID)
+		req.Events[index].EventID = events[index].ID
 	}
 
 	tx, txErr := s.d.TxStart()
@@ -1221,6 +1219,42 @@ func (s *ApplicantService) UpdateStatus(req *request.UpdateStatus) *response.Err
 			})
 		}
 		if err := s.u.InsertsEventAssociation(tx, eventsDDL); err != nil {
+			if err := s.d.TxRollback(tx); err != nil {
+				return &response.Error{
+					Status: http.StatusInternalServerError,
+				}
+			}
+			return &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+	}
+
+	// 面接毎イベントを一度全削除
+	if err := s.u.DeleteEventEachInterviewAssociation(tx, &ddl.TeamEventEachInterview{
+		TeamID: teamID,
+	}); err != nil {
+		if err := s.d.TxRollback(tx); err != nil {
+			return &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// 面接毎イベントに登録
+	if len(req.EventsOfInterview) > 0 {
+		var eventsDDL []*ddl.TeamEventEachInterview
+		for _, row := range req.EventsOfInterview {
+			eventsDDL = append(eventsDDL, &ddl.TeamEventEachInterview{
+				TeamID:         teamID,
+				NumOfInterview: row.Num,
+				StatusID:       ids.List[row.Status].ID,
+			})
+		}
+		if err := s.u.InsertsEventEachInterviewAssociation(tx, eventsDDL); err != nil {
 			if err := s.d.TxRollback(tx); err != nil {
 				return &response.Error{
 					Status: http.StatusInternalServerError,

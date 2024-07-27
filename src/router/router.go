@@ -85,6 +85,8 @@ func NewRouter(
 	e.POST("/role/search_company", role.SearchByCompanyID)
 
 	// 設定
+	e.POST("/setting/get_team", user.GetOwnTeam)
+	e.POST("/setting/update_team", user.UpdateBasicTeam)
 	e.POST("/setting/team", user.UpdateStatus)
 	e.POST("/setting/status_events", user.ListStatusEvent)
 	e.POST("/setting/status_events_of_team", user.StatusEventsByTeam)

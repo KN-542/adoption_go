@@ -35,9 +35,9 @@ type SearchTeam struct {
 	Users []*ddl.User `json:"users" gorm:"many2many:t_team_association;foreignKey:id;joinForeignKey:team_id;References:id;joinReferences:user_id"`
 }
 
-// UserSchedule
-type UserSchedule struct {
-	ddl.UserSchedule
+// Schedule
+type Schedule struct {
+	ddl.Schedule
 }
 
 // Team Association
@@ -45,9 +45,9 @@ type TeamAssociation struct {
 	ddl.TeamAssociation
 }
 
-// UserScheduleAssociation
-type UserScheduleAssociation struct {
-	ddl.UserScheduleAssociation
+// ScheduleAssociation
+type ScheduleAssociation struct {
+	ddl.ScheduleAssociation
 }
 
 // チーム毎イベント
@@ -58,6 +58,16 @@ type StatusEventsByTeam struct {
 	DescJa string `json:"desc_ja" gorm:"text"`
 	// 説明_英語
 	DescEn string `json:"desc_en" gorm:"text"`
+	// 選考状況ハッシュキー
+	SelectStatusHashKey string `json:"select_status_hash_key"`
+	// ステータス名
+	StatusName string `json:"status_name"`
+}
+
+// チーム面接毎イベント
+type InterviewEventsByTeam struct {
+	// 面接回数
+	NumOfInterview uint `json:"num_of_interview"`
 	// 選考状況ハッシュキー
 	SelectStatusHashKey string `json:"select_status_hash_key"`
 	// ステータス名
