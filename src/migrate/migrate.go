@@ -37,6 +37,8 @@ func main() {
 			&ddl.HashKeyPre{},
 			&ddl.S3NamePre{},
 			&ddl.SelectStatusEvent{},
+			&ddl.AssignRule{},
+			&ddl.AutoAssignRule{},
 			// t
 			&ddl.Company{},
 			&ddl.CustomRole{},
@@ -47,6 +49,8 @@ func main() {
 			&ddl.SelectStatus{},
 			&ddl.TeamEvent{},
 			&ddl.TeamEventEachInterview{},
+			&ddl.TeamAutoAssignRule{},
+			&ddl.TeamAssignPriority{},
 			&ddl.Schedule{},
 			&ddl.ScheduleAssociation{},
 			&ddl.Applicant{},
@@ -252,6 +256,36 @@ func main() {
 			log.Println(err)
 		}
 
+		// m_assign_rule
+		if err := AddTableComment(dbConn, "m_assign_rule", "面接アサインルールマスタ"); err != nil {
+			log.Println(err)
+		}
+		mAssignRule := map[string]string{
+			"id":                       "ID",
+			"hash_key":                 "ハッシュキー",
+			"desc_ja":                  "説明_日本語",
+			"desc_en":                  "説明_英語",
+			"additional_configuration": "追加設定必要性",
+		}
+		if err := AddColumnComments(dbConn, "m_assign_rule", mAssignRule); err != nil {
+			log.Println(err)
+		}
+
+		// m_auto_assign_rule
+		if err := AddTableComment(dbConn, "m_auto_assign_rule", "面接自動割り当てルールマスタ"); err != nil {
+			log.Println(err)
+		}
+		mAutoAssignRule := map[string]string{
+			"id":                       "ID",
+			"hash_key":                 "ハッシュキー",
+			"desc_ja":                  "説明_日本語",
+			"desc_en":                  "説明_英語",
+			"additional_configuration": "追加設定必要性",
+		}
+		if err := AddColumnComments(dbConn, "m_auto_assign_rule", mAutoAssignRule); err != nil {
+			log.Println(err)
+		}
+
 		// t_company
 		if err := AddTableComment(dbConn, "t_company", "企業"); err != nil {
 			log.Println(err)
@@ -330,6 +364,8 @@ func main() {
 			"hash_key":         "ハッシュキー",
 			"name":             "チーム名",
 			"num_of_interview": "最大面接回数",
+			"user_min":         "最低面接人数",
+			"rule_id":          "ルールID",
 			"company_id":       "企業ID",
 			"created_at":       "登録日時",
 			"updated_at":       "更新日時",
@@ -343,7 +379,7 @@ func main() {
 			log.Println(err)
 		}
 		teamAssociation := map[string]string{
-			"team_id": "チーム",
+			"team_id": "チームID",
 			"user_id": "ユーザーID",
 		}
 		if err := AddColumnComments(dbConn, "t_team_association", teamAssociation); err != nil {
@@ -390,6 +426,31 @@ func main() {
 			"status_id":        "ステータスID",
 		}
 		if err := AddColumnComments(dbConn, "t_team_event_each_interview", teamEventEachInterview); err != nil {
+			log.Println(err)
+		}
+
+		// t_team_auto_assign_rule_association
+		if err := AddTableComment(dbConn, "t_team_auto_assign_rule_association", "チーム面接自動割り当てルール紐づけ"); err != nil {
+			log.Println(err)
+		}
+		teamAutoAssignRule := map[string]string{
+			"team_id": "チームID",
+			"rule_id": "ルールID",
+		}
+		if err := AddColumnComments(dbConn, "t_team_auto_assign_rule_association", teamAutoAssignRule); err != nil {
+			log.Println(err)
+		}
+
+		// t_assign_priority
+		if err := AddTableComment(dbConn, "t_assign_priority", "面接割り振り優先順位"); err != nil {
+			log.Println(err)
+		}
+		teamAssignPriority := map[string]string{
+			"team_id":  "チームID",
+			"user_id":  "ユーザーID",
+			"priority": "優先順位",
+		}
+		if err := AddColumnComments(dbConn, "t_assign_priority", teamAssignPriority); err != nil {
 			log.Println(err)
 		}
 
@@ -643,6 +704,8 @@ func main() {
 			&ddl.HashKeyPre{},
 			&ddl.S3NamePre{},
 			&ddl.SelectStatusEvent{},
+			&ddl.AssignRule{},
+			&ddl.AutoAssignRule{},
 			// t
 			&ddl.Company{},
 			&ddl.CustomRole{},
@@ -653,6 +716,8 @@ func main() {
 			&ddl.SelectStatus{},
 			&ddl.TeamEvent{},
 			&ddl.TeamEventEachInterview{},
+			&ddl.TeamAutoAssignRule{},
+			&ddl.TeamAssignPriority{},
 			&ddl.Schedule{},
 			&ddl.ScheduleAssociation{},
 			&ddl.Applicant{},
@@ -804,6 +869,76 @@ func CreateData(db *gorm.DB) {
 		_, hash, _ := service.GenerateHash(1, 25)
 		row.HashKey = "m_select_status_event" + "_" + *hash
 		if err := master.InsertSelectStatusEvent(tx, row); err != nil {
+			if err := tx.Rollback().Error; err != nil {
+				log.Printf("%v", err)
+				return
+			}
+			return
+		}
+	}
+
+	// m_assign_rule
+	rules := []*ddl.AssignRule{
+		{
+			AbstractMasterModel: ddl.AbstractMasterModel{
+				ID: uint(static.ASSIGN_RULE_MANUAL),
+			},
+			DescJa:                  "手動で割り当て",
+			DescEn:                  "Manual assignment",
+			AdditionalConfiguration: static.ASSIGN_RULE_CONFIG_UNREQUIRED,
+		},
+		{
+			AbstractMasterModel: ddl.AbstractMasterModel{
+				ID: uint(static.ASSIGN_RULE_AUTO),
+			},
+			DescJa:                  "自動で割り当て",
+			DescEn:                  "Auto assignment",
+			AdditionalConfiguration: static.ASSIGN_RULE_CONFIG_REQUIRED,
+		},
+	}
+	for _, row := range rules {
+		_, hash, _ := service.GenerateHash(1, 25)
+		row.HashKey = "m_assign_rule" + "_" + *hash
+		if err := master.InsertAssignRule(tx, row); err != nil {
+			if err := tx.Rollback().Error; err != nil {
+				log.Printf("%v", err)
+				return
+			}
+			return
+		}
+	}
+
+	// m_auto_assign_rule
+	autoAssignRules := []*ddl.AutoAssignRule{
+		{
+			AbstractMasterModel: ddl.AbstractMasterModel{
+				ID: uint(static.AUTO_ASSIGN_RULE_RANDOM),
+			},
+			DescJa:                  "ランダム",
+			DescEn:                  "Random",
+			AdditionalConfiguration: static.AUTO_ASSIGN_RULE_CONFIG_UNREQUIRED,
+		},
+		{
+			AbstractMasterModel: ddl.AbstractMasterModel{
+				ID: uint(static.AUTO_ASSIGN_RULE_ASC),
+			},
+			DescJa:                  "優先順位を事前決定",
+			DescEn:                  "Pre-determine priorities",
+			AdditionalConfiguration: static.AUTO_ASSIGN_RULE_CONFIG_REQUIRED,
+		},
+		{
+			AbstractMasterModel: ddl.AbstractMasterModel{
+				ID: uint(static.AUTO_ASSIGN_RULE_DESC_SCHEDULE),
+			},
+			DescJa:                  "予定が少ない順",
+			DescEn:                  "In order of least scheduled",
+			AdditionalConfiguration: static.AUTO_ASSIGN_RULE_CONFIG_UNREQUIRED,
+		},
+	}
+	for _, row := range autoAssignRules {
+		_, hash, _ := service.GenerateHash(1, 25)
+		row.HashKey = "m_auto_assign_rule" + "_" + *hash
+		if err := master.InsertAutoAssignRule(tx, row); err != nil {
 			if err := tx.Rollback().Error; err != nil {
 				log.Printf("%v", err)
 				return

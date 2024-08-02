@@ -12,6 +12,7 @@ import (
 	"context"
 	"log"
 	"net/http"
+	"sort"
 	"strconv"
 	"time"
 )
@@ -55,6 +56,10 @@ type IUserService interface {
 	ListStatusEvent() (*response.ListStatusEvent, *response.Error)
 	// チーム毎ステータスイベント取得
 	StatusEventsByTeam(req *request.StatusEventsByTeam) (*response.StatusEventsByTeam, *response.Error)
+	// アサイン関連マスタ取得
+	AssignMaster() (*response.AssignMaster, *response.Error)
+	// 面接官割り振り方法更新
+	UpdateAssignMethod(req *request.UpdateAssignMethod) *response.Error
 }
 
 type UserService struct {
@@ -511,6 +516,38 @@ func (u *UserService) GetOwnTeam(req *request.GetOwnTeam) (*response.GetOwnTeam,
 		}
 	}
 
+	// 面接自動割り当てルール取得
+	var autoRule entity.TeamAutoAssignRule
+	if res.RuleID == static.ASSIGN_RULE_AUTO {
+		temp, tempErr := u.user.GetAutoAssignRule(&ddl.TeamAutoAssignRule{
+			TeamID: teamID,
+		})
+		if tempErr != nil {
+			return nil, &response.Error{
+				Status: http.StatusBadRequest,
+				Code:   static.CODE_BAD_REQUEST,
+			}
+		}
+		autoRule = *temp
+	}
+
+	// 面接割り振り優先順位取得
+	var priority []entity.TeamAssignPriority
+	if autoRule.RuleID == static.AUTO_ASSIGN_RULE_ASC {
+		tempList, tempErr := u.user.GetAssignPriority(&ddl.TeamAssignPriority{
+			TeamID: teamID,
+		})
+		if tempErr != nil {
+			return nil, &response.Error{
+				Status: http.StatusBadRequest,
+				Code:   static.CODE_BAD_REQUEST,
+			}
+		}
+		for _, row := range tempList {
+			priority = append(priority, *row)
+		}
+	}
+
 	return &response.GetOwnTeam{
 		Team: entity.Team{
 			Team: ddl.Team{
@@ -519,10 +556,16 @@ func (u *UserService) GetOwnTeam(req *request.GetOwnTeam) (*response.GetOwnTeam,
 				},
 				Name:           res.Name,
 				NumOfInterview: res.NumOfInterview,
+				UserMin:        res.UserMin,
 			},
-			Users: res.Users,
+			RuleHash: res.RuleHash,
+			Users:    res.Users,
 		},
 		Events: events,
+		AutoRule: entity.TeamAutoAssignRule{
+			HashKey: autoRule.HashKey,
+		},
+		Priority: priority,
 	}, nil
 }
 
@@ -581,6 +624,8 @@ func (u *UserService) CreateTeam(req *request.CreateTeam) *response.Error {
 	// チーム登録
 	req.HashKey = string(static.PRE_TEAM) + "_" + *hashKey
 	req.NumOfInterview = 3
+	req.UserMin = 1
+	req.RuleID = static.ASSIGN_RULE_MANUAL
 	team, err := u.user.InsertTeam(tx, &req.Team)
 	if err != nil {
 		if err := u.d.TxRollback(tx); err != nil {
@@ -1336,15 +1381,15 @@ func (u *UserService) ListStatusEvent() (*response.ListStatusEvent, *response.Er
 
 // チーム毎ステータスイベント取得
 func (u *UserService) StatusEventsByTeam(req *request.StatusEventsByTeam) (*response.StatusEventsByTeam, *response.Error) {
-	// チームID取得
+	// チーム取得
 	ctx := context.Background()
-	team, teamErr := u.redis.Get(ctx, req.UserHashKey, static.REDIS_USER_TEAM_ID)
-	if teamErr != nil {
+	teamRedis, teamRedisErr := u.redis.Get(ctx, req.UserHashKey, static.REDIS_USER_TEAM_ID)
+	if teamRedisErr != nil {
 		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
-	teamID, teamIDErr := strconv.ParseUint(*team, 10, 64)
+	teamID, teamIDErr := strconv.ParseUint(*teamRedis, 10, 64)
 	if teamIDErr != nil {
 		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
@@ -1366,4 +1411,231 @@ func (u *UserService) StatusEventsByTeam(req *request.StatusEventsByTeam) (*resp
 	return &response.StatusEventsByTeam{
 		List: res,
 	}, nil
+}
+
+// アサイン関連マスタ取得
+func (u *UserService) AssignMaster() (*response.AssignMaster, *response.Error) {
+	// アサインルール取得
+	rules, rulesErr := u.master.ListAssignRule()
+	if rulesErr != nil {
+		return nil, &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// 自動アサインルール取得
+	autoRule, autoRulesErr := u.master.ListAutoAssignRule()
+	if autoRulesErr != nil {
+		return nil, &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	return &response.AssignMaster{
+		Rule:     rules,
+		AutoRule: autoRule,
+	}, nil
+}
+
+// 面接官割り振り方法更新
+func (u *UserService) UpdateAssignMethod(req *request.UpdateAssignMethod) *response.Error {
+	// バリデーション
+	if err := u.v.UpdateAssignMethod(req); err != nil {
+		log.Printf("%v", err)
+		return &response.Error{
+			Status: http.StatusBadRequest,
+			Code:   static.CODE_BAD_REQUEST,
+		}
+	}
+
+	// チームID取得
+	ctx := context.Background()
+	teamRedis, teamRedisErr := u.redis.Get(ctx, req.UserHashKey, static.REDIS_USER_TEAM_ID)
+	if teamRedisErr != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+	teamID, teamIDErr := strconv.ParseUint(*teamRedis, 10, 64)
+	if teamIDErr != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+	team, teamErr := u.user.GetTeamByPrimary(&ddl.Team{
+		AbstractTransactionModel: ddl.AbstractTransactionModel{
+			ID: teamID,
+		},
+	})
+	if teamErr != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// ルールハッシュからルール取得
+	rule, ruleErr := u.master.SelectAssignRule(&ddl.AssignRule{
+		AbstractMasterModel: ddl.AbstractMasterModel{
+			HashKey: req.RuleHash,
+		},
+	})
+	if ruleErr != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	var autoRule entity.AutoAssignRule
+	if rule.ID == static.ASSIGN_RULE_AUTO {
+		// 相関バリデーション1
+		if err := u.v.UpdateAssignMethod2(req); err != nil {
+			log.Printf("%v", err)
+			return &response.Error{
+				Status: http.StatusBadRequest,
+				Code:   static.CODE_BAD_REQUEST,
+			}
+		}
+
+		// 自動ルールハッシュから自動ルール取得
+		temp, tempErr := u.master.SelectAutoAssignRule(&ddl.AutoAssignRule{
+			AbstractMasterModel: ddl.AbstractMasterModel{
+				HashKey: req.AutoRuleHash,
+			},
+		})
+		if tempErr != nil {
+			return &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+		autoRule.ID = temp.ID
+	}
+
+	var priority []uint64
+	if autoRule.ID == static.AUTO_ASSIGN_RULE_ASC {
+		// 相関バリデーション2
+		if err := u.v.UpdateAssignMethod3(req); err != nil {
+			log.Printf("%v", err)
+			return &response.Error{
+				Status: http.StatusBadRequest,
+				Code:   static.CODE_BAD_REQUEST,
+			}
+		}
+
+		indexMap := make(map[string]int)
+		for i, v := range req.Priority {
+			indexMap[v] = i
+		}
+
+		sort.Slice(team.Users, func(i, j int) bool {
+			return indexMap[team.Users[i].HashKey] < indexMap[team.Users[j].HashKey]
+		})
+
+		for _, row := range team.Users {
+			priority = append(priority, row.ID)
+		}
+	}
+
+	tx, txErr := u.d.TxStart()
+	if txErr != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// ルール更新
+	_, updateTeamErr := u.user.UpdateTeam(tx, &ddl.Team{
+		AbstractTransactionModel: ddl.AbstractTransactionModel{
+			HashKey: team.HashKey,
+		},
+		RuleID:  rule.ID,
+		UserMin: req.UserMin,
+	})
+	if updateTeamErr != nil {
+		if err := u.d.TxRollback(tx); err != nil {
+			return &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// 自動ルール削除
+	if err := u.user.DeleteAutoAssignRule(tx, &ddl.TeamAutoAssignRule{
+		TeamID: team.ID,
+	}); err != nil {
+		if err := u.d.TxRollback(tx); err != nil {
+			return &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// 優先順位削除
+	if err := u.user.DeleteAssignPriority(tx, &ddl.TeamAssignPriority{
+		TeamID: team.ID,
+	}); err != nil {
+		if err := u.d.TxRollback(tx); err != nil {
+			return &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// 自動ルール更新
+	if rule.ID == static.ASSIGN_RULE_AUTO && autoRule.ID > 0 {
+		// 登録
+		if err := u.user.InsertAutoAssignRule(tx, &ddl.TeamAutoAssignRule{
+			TeamID: team.ID,
+			RuleID: autoRule.ID,
+		}); err != nil {
+			if err := u.d.TxRollback(tx); err != nil {
+				return &response.Error{
+					Status: http.StatusInternalServerError,
+				}
+			}
+			return &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+
+		// 優先順位更新
+		if autoRule.ID == static.AUTO_ASSIGN_RULE_ASC && len(priority) == len(team.Users) {
+			var list []*ddl.TeamAssignPriority
+			for index, row := range priority {
+				list = append(list, &ddl.TeamAssignPriority{
+					TeamID:   team.ID,
+					UserID:   row,
+					Priority: uint(index + 1),
+				})
+			}
+
+			// 一括登録
+			if err := u.user.InsertsAssignPriority(tx, list); err != nil {
+				if err := u.d.TxRollback(tx); err != nil {
+					return &response.Error{
+						Status: http.StatusInternalServerError,
+					}
+				}
+				return &response.Error{
+					Status: http.StatusInternalServerError,
+				}
+			}
+		}
+	}
+
+	if err := u.d.TxCommit(tx); err != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	return nil
 }

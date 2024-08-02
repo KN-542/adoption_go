@@ -24,6 +24,8 @@ type SearchUser struct {
 // Team
 type Team struct {
 	ddl.Team
+	// ルールハッシュ
+	RuleHash string `json:"rule_hash"`
 	// 所属ユーザー
 	Users []*ddl.User `json:"users" gorm:"many2many:t_team_association;foreignKey:id;joinForeignKey:team_id;References:id;joinReferences:user_id"`
 }
@@ -43,6 +45,21 @@ type Schedule struct {
 // Team Association
 type TeamAssociation struct {
 	ddl.TeamAssociation
+}
+
+// Team Auto Assign Rule
+type TeamAutoAssignRule struct {
+	ddl.TeamAutoAssignRule
+	HashKey string `json:"hash_key"`
+}
+
+// Team Assign Priority
+type TeamAssignPriority struct {
+	ddl.TeamAssignPriority
+	// ハッシュキー
+	HashKey string `json:"hash_key"`
+	// 氏名
+	Name string `json:"name"`
 }
 
 // ScheduleAssociation

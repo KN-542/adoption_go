@@ -37,6 +37,12 @@ type IUserValidator interface {
 	SearchSchedule(u *request.SearchSchedule) error
 	// 予定削除
 	DeleteSchedule(u *request.DeleteSchedule) error
+	// 面接官割り振り方法更新
+	UpdateAssignMethod(u *request.UpdateAssignMethod) error
+	// 面接官割り振り方法更新2
+	UpdateAssignMethod2(u *request.UpdateAssignMethod) error
+	// 面接官割り振り方法更新3
+	UpdateAssignMethod3(u *request.UpdateAssignMethod) error
 }
 
 type UserValidator struct{}
@@ -230,6 +236,42 @@ func (v *UserValidator) DeleteSchedule(u *request.DeleteSchedule) error {
 		validation.Field(
 			&u.HashKey,
 			validation.Required,
+		),
+	)
+}
+
+// 面接官割り振り方法更新
+func (v *UserValidator) UpdateAssignMethod(u *request.UpdateAssignMethod) error {
+	return validation.ValidateStruct(
+		u,
+		validation.Field(
+			&u.RuleHash,
+			validation.Required,
+		),
+	)
+}
+
+// 面接官割り振り方法更新2
+func (v *UserValidator) UpdateAssignMethod2(u *request.UpdateAssignMethod) error {
+	return validation.ValidateStruct(
+		u,
+		validation.Field(
+			&u.AutoRuleHash,
+			validation.Required,
+		),
+	)
+}
+
+// 面接官割り振り方法更新3
+func (v *UserValidator) UpdateAssignMethod3(u *request.UpdateAssignMethod) error {
+	return validation.ValidateStruct(
+		u,
+		validation.Field(
+			&u.Priority,
+			validation.Required,
+			validation.Length(1, 0),
+			validation.Each(validation.Required),
+			UniqueValidator{},
 		),
 	)
 }
