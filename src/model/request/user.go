@@ -108,3 +108,16 @@ type DeleteSchedule struct {
 type StatusEventsByTeam struct {
 	Abstract
 }
+
+// 面接官割り振り方法更新
+type UpdateAssignMethod struct {
+	Abstract
+	// 最低面接人数
+	UserMin uint `json:"user_min"`
+	// ルールハッシュ
+	RuleHash string `json:"rule_hash"`
+	// 自動ルールハッシュ
+	AutoRuleHash string `json:"auto_rule_hash"`
+	// 優先順位
+	Priority []string `json:"priority"`
+}

@@ -209,6 +209,8 @@ func (c *CompanyService) Create(req *request.CreateCompany) (*response.CreateCom
 		},
 		Name:           "Initial team " + company.Name,
 		NumOfInterview: 3,
+		UserMin:        1,
+		RuleID:         static.ASSIGN_RULE_MANUAL,
 	})
 	if teamErr != nil {
 		if err := c.db.TxRollback(tx); err != nil {

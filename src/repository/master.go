@@ -65,6 +65,24 @@ type IMasterRepository interface {
 	ListSelectStatusEvent() ([]entity.SelectStatusEvent, error)
 	// ハッシュキーから取得
 	SelectSelectStatusEventByHashKeys(m []string) ([]entity.SelectStatusEvent, error)
+	/*
+		m_assign_rule
+	*/
+	// insert
+	InsertAssignRule(tx *gorm.DB, m *ddl.AssignRule) error
+	// select
+	ListAssignRule() ([]entity.AssignRule, error)
+	// select by hash key
+	SelectAssignRule(m *ddl.AssignRule) (*entity.AssignRule, error)
+	/*
+		m_auto_assign_rule
+	*/
+	// insert
+	InsertAutoAssignRule(tx *gorm.DB, m *ddl.AutoAssignRule) error
+	// list
+	ListAutoAssignRule() ([]entity.AutoAssignRule, error)
+	// select by hash key
+	SelectAutoAssignRule(m *ddl.AutoAssignRule) (*entity.AutoAssignRule, error)
 }
 
 type MasterRepository struct {
@@ -109,7 +127,7 @@ func (r *MasterRepository) ListSite() ([]entity.Site, error) {
 	return res, nil
 }
 
-// select by primary key
+// select by hash key
 func (r *MasterRepository) SelectSite(m *ddl.Site) (*entity.Site, error) {
 	var res entity.Site
 	if err := r.db.Model(&ddl.Site{}).Where(&ddl.Site{
@@ -273,4 +291,76 @@ func (r *MasterRepository) SelectSelectStatusEventByHashKeys(m []string) ([]enti
 		return nil, err
 	}
 	return res, nil
+}
+
+/*
+	m_assign_rule
+*/
+// insert
+func (r *MasterRepository) InsertAssignRule(tx *gorm.DB, m *ddl.AssignRule) error {
+	if err := tx.Create(m).Error; err != nil {
+		log.Printf("%v", err)
+		return err
+	}
+	return nil
+}
+
+// list
+func (r *MasterRepository) ListAssignRule() ([]entity.AssignRule, error) {
+	var res []entity.AssignRule
+	if err := r.db.Find(&res).Error; err != nil {
+		log.Printf("%v", err)
+		return nil, err
+	}
+	return res, nil
+}
+
+// select by hash key
+func (r *MasterRepository) SelectAssignRule(m *ddl.AssignRule) (*entity.AssignRule, error) {
+	var res entity.AssignRule
+	if err := r.db.Model(&ddl.AssignRule{}).Where(&ddl.AssignRule{
+		AbstractMasterModel: ddl.AbstractMasterModel{
+			HashKey: m.HashKey,
+		},
+	}).First(&res).Error; err != nil {
+		log.Printf("%v", err)
+		return nil, err
+	}
+	return &res, nil
+}
+
+/*
+	m_auto_assign_rule
+*/
+// insert
+func (r *MasterRepository) InsertAutoAssignRule(tx *gorm.DB, m *ddl.AutoAssignRule) error {
+	if err := tx.Create(m).Error; err != nil {
+		log.Printf("%v", err)
+		return err
+	}
+	return nil
+}
+
+// list
+func (r *MasterRepository) ListAutoAssignRule() ([]entity.AutoAssignRule, error) {
+	var res []entity.AutoAssignRule
+	if err := r.db.Find(&res).Error; err != nil {
+		log.Printf("%v", err)
+		return nil, err
+	}
+	return res, nil
+}
+
+// select by hash key
+func (r *MasterRepository) SelectAutoAssignRule(m *ddl.AutoAssignRule) (*entity.AutoAssignRule, error) {
+	var res entity.AutoAssignRule
+	if err := r.db.Model(&ddl.AutoAssignRule{}).Where(&ddl.AutoAssignRule{
+		AbstractMasterModel: ddl.AbstractMasterModel{
+			HashKey: m.HashKey,
+		},
+	}).First(&res).Error; err != nil {
+		log.Printf("%v", err)
+		return nil, err
+	}
+	return &res, nil
 }
