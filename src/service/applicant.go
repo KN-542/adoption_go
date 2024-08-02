@@ -380,14 +380,15 @@ func (s *ApplicantService) Download(req *request.ApplicantDownload) (*response.A
 					HashKey:   *hash,
 					CompanyID: companyID,
 				},
-				OuterID: row.OuterID,
-				SiteID:  site.ID,
-				Status:  1,
-				Name:    row.Name,
-				Email:   row.Email,
-				Tel:     row.Tel,
-				Age:     uint(row.Age),
-				TeamID:  teamID,
+				OuterID:        row.OuterID,
+				SiteID:         site.ID,
+				Status:         1,
+				Name:           row.Name,
+				Email:          row.Email,
+				Tel:            row.Tel,
+				Age:            uint(row.Age),
+				TeamID:         teamID,
+				NumOfInterview: 1,
 			}
 			applicants = append(applicants, applicant)
 		}

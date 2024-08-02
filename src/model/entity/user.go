@@ -62,6 +62,17 @@ type TeamAssignPriority struct {
 	Name string `json:"name"`
 }
 
+// Team Assign Possible
+type TeamAssignPossible struct {
+	ddl.TeamAssignPossible
+	// ハッシュキー
+	HashKey string `json:"hash_key"`
+	// 氏名
+	Name string `json:"name"`
+	// メールアドレス
+	Email string `json:"email"`
+}
+
 // ScheduleAssociation
 type ScheduleAssociation struct {
 	ddl.ScheduleAssociation

@@ -43,6 +43,8 @@ type IUserValidator interface {
 	UpdateAssignMethod2(u *request.UpdateAssignMethod) error
 	// 面接官割り振り方法更新3
 	UpdateAssignMethod3(u *request.UpdateAssignMethod) error
+	// 面接官割り振り方法更新4
+	UpdateAssignMethod4(u *request.UpdateAssignMethodSub) error
 }
 
 type UserValidator struct{}
@@ -248,6 +250,11 @@ func (v *UserValidator) UpdateAssignMethod(u *request.UpdateAssignMethod) error 
 			&u.RuleHash,
 			validation.Required,
 		),
+		validation.Field(
+			&u.PossibleList,
+			validation.Required,
+			validation.Length(1, 0),
+		),
 	)
 }
 
@@ -272,6 +279,26 @@ func (v *UserValidator) UpdateAssignMethod3(u *request.UpdateAssignMethod) error
 			validation.Length(1, 0),
 			validation.Each(validation.Required),
 			UniqueValidator{},
+		),
+		validation.Field(
+			&u.PossibleList,
+			validation.Required,
+			validation.Length(1, 0),
+		),
+	)
+}
+
+// 面接官割り振り方法更新4
+func (v *UserValidator) UpdateAssignMethod4(u *request.UpdateAssignMethodSub) error {
+	return validation.ValidateStruct(
+		u,
+		validation.Field(
+			&u.HashKey,
+			validation.Required,
+		),
+		validation.Field(
+			&u.NumOfInterview,
+			validation.Min(uint(1)),
 		),
 	)
 }

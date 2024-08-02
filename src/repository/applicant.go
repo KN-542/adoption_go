@@ -83,6 +83,7 @@ func (a *ApplicantRepository) Update(tx *gorm.DB, m *ddl.Applicant) error {
 		CurriculumVitae: m.CurriculumVitae,
 		GoogleMeetURL:   m.GoogleMeetURL,
 		TeamID:          m.TeamID,
+		NumOfInterview:  m.NumOfInterview,
 	}).Error; err != nil {
 		log.Printf("%v", err)
 		return err
