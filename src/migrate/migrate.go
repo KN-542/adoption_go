@@ -51,6 +51,7 @@ func main() {
 			&ddl.TeamEventEachInterview{},
 			&ddl.TeamAutoAssignRule{},
 			&ddl.TeamAssignPriority{},
+			&ddl.TeamAssignPossible{},
 			&ddl.Schedule{},
 			&ddl.ScheduleAssociation{},
 			&ddl.Applicant{},
@@ -441,8 +442,8 @@ func main() {
 			log.Println(err)
 		}
 
-		// t_assign_priority
-		if err := AddTableComment(dbConn, "t_assign_priority", "面接割り振り優先順位"); err != nil {
+		// t_team_assign_priority
+		if err := AddTableComment(dbConn, "t_team_assign_priority", "面接割り振り優先順位"); err != nil {
 			log.Println(err)
 		}
 		teamAssignPriority := map[string]string{
@@ -450,7 +451,20 @@ func main() {
 			"user_id":  "ユーザーID",
 			"priority": "優先順位",
 		}
-		if err := AddColumnComments(dbConn, "t_assign_priority", teamAssignPriority); err != nil {
+		if err := AddColumnComments(dbConn, "t_team_assign_priority", teamAssignPriority); err != nil {
+			log.Println(err)
+		}
+
+		// t_team_assign_possible
+		if err := AddTableComment(dbConn, "t_team_assign_possible", "面接毎参加可能者"); err != nil {
+			log.Println(err)
+		}
+		teamAssignPossible := map[string]string{
+			"team_id":          "チームID",
+			"num_of_interview": "面接回数",
+			"user_id":          "ユーザーID",
+		}
+		if err := AddColumnComments(dbConn, "t_team_assign_possible", teamAssignPossible); err != nil {
 			log.Println(err)
 		}
 
@@ -718,6 +732,7 @@ func main() {
 			&ddl.TeamEventEachInterview{},
 			&ddl.TeamAutoAssignRule{},
 			&ddl.TeamAssignPriority{},
+			&ddl.TeamAssignPossible{},
 			&ddl.Schedule{},
 			&ddl.ScheduleAssociation{},
 			&ddl.Applicant{},

@@ -548,6 +548,17 @@ func (u *UserService) GetOwnTeam(req *request.GetOwnTeam) (*response.GetOwnTeam,
 		}
 	}
 
+	// 面接毎参加可能者取得
+	possibleList, possibleErr := u.user.GetAssignPossible(&ddl.TeamAssignPossible{
+		TeamID: teamID,
+	})
+	if possibleErr != nil {
+		return nil, &response.Error{
+			Status: http.StatusBadRequest,
+			Code:   static.CODE_BAD_REQUEST,
+		}
+	}
+
 	return &response.GetOwnTeam{
 		Team: entity.Team{
 			Team: ddl.Team{
@@ -565,7 +576,8 @@ func (u *UserService) GetOwnTeam(req *request.GetOwnTeam) (*response.GetOwnTeam,
 		AutoRule: entity.TeamAutoAssignRule{
 			HashKey: autoRule.HashKey,
 		},
-		Priority: priority,
+		Priority:     priority,
+		PossibleList: possibleList,
 	}, nil
 }
 
@@ -647,6 +659,28 @@ func (u *UserService) CreateTeam(req *request.CreateTeam) *response.Error {
 	}
 	// チーム紐づけ一括登録
 	if err := u.user.InsertsTeamAssociation(tx, teamAssociations); err != nil {
+		if err := u.d.TxRollback(tx); err != nil {
+			return &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// 面接毎参加可能者登録(全員参加可能)
+	var possibleList []*ddl.TeamAssignPossible
+	for i := 1; i <= int(team.NumOfInterview); i++ {
+		for _, id := range ids {
+			possibleList = append(possibleList, &ddl.TeamAssignPossible{
+				TeamID:         team.ID,
+				UserID:         id,
+				NumOfInterview: uint(i),
+			})
+		}
+	}
+	if err := u.user.InsertsAssignPossible(tx, possibleList); err != nil {
 		if err := u.d.TxRollback(tx); err != nil {
 			return &response.Error{
 				Status: http.StatusInternalServerError,
@@ -1447,6 +1481,15 @@ func (u *UserService) UpdateAssignMethod(req *request.UpdateAssignMethod) *respo
 			Code:   static.CODE_BAD_REQUEST,
 		}
 	}
+	for _, row := range req.PossibleList {
+		if err := u.v.UpdateAssignMethod4(&row); err != nil {
+			log.Printf("%v", err)
+			return &response.Error{
+				Status: http.StatusBadRequest,
+				Code:   static.CODE_BAD_REQUEST,
+			}
+		}
+	}
 
 	// チームID取得
 	ctx := context.Background()
@@ -1535,6 +1578,24 @@ func (u *UserService) UpdateAssignMethod(req *request.UpdateAssignMethod) *respo
 		}
 	}
 
+	// 参加可能者ID取得
+	var possibleList []*ddl.TeamAssignPossible
+	for _, possible := range req.PossibleList {
+		newPossible := &ddl.TeamAssignPossible{
+			TeamID:         teamID,
+			NumOfInterview: possible.NumOfInterview,
+		}
+
+		for _, user := range team.Users {
+			if possible.HashKey == user.HashKey {
+				newPossible.UserID = user.ID
+				break
+			}
+		}
+
+		possibleList = append(possibleList, newPossible)
+	}
+
 	tx, txErr := u.d.TxStart()
 	if txErr != nil {
 		return &response.Error{
@@ -1579,6 +1640,32 @@ func (u *UserService) UpdateAssignMethod(req *request.UpdateAssignMethod) *respo
 	if err := u.user.DeleteAssignPriority(tx, &ddl.TeamAssignPriority{
 		TeamID: team.ID,
 	}); err != nil {
+		if err := u.d.TxRollback(tx); err != nil {
+			return &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// 面接参加可能者削除
+	if err := u.user.DeleteAssignPossible(tx, &ddl.TeamAssignPossible{
+		TeamID: team.ID,
+	}); err != nil {
+		if err := u.d.TxRollback(tx); err != nil {
+			return &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// 面接参加可能者一括登録
+	if err := u.user.InsertsAssignPossible(tx, possibleList); err != nil {
 		if err := u.d.TxRollback(tx); err != nil {
 			return &response.Error{
 				Status: http.StatusInternalServerError,

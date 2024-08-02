@@ -26,6 +26,8 @@ type Applicant struct {
 	CurriculumVitae string `json:"curriculum_vitae" gorm:"type:varchar(255);index"`
 	// Google Meet URL
 	GoogleMeetURL string `json:"google_meet_url" gorm:"type:text"`
+	// 面接回数
+	NumOfInterview uint `json:"num_of_interview"`
 	// チームID
 	TeamID uint64 `json:"team_id"`
 	// サイト(外部キー)

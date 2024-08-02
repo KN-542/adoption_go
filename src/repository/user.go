@@ -113,6 +113,12 @@ type IUserRepository interface {
 	GetAssignPriority(m *ddl.TeamAssignPriority) ([]*entity.TeamAssignPriority, error)
 	// 面接割り振り優先順位削除
 	DeleteAssignPriority(tx *gorm.DB, m *ddl.TeamAssignPriority) error
+	// 面接毎参加可能者一括登録
+	InsertsAssignPossible(tx *gorm.DB, m []*ddl.TeamAssignPossible) error
+	// 面接毎参加可能者取得
+	GetAssignPossible(m *ddl.TeamAssignPossible) ([]entity.TeamAssignPossible, error)
+	// 面接毎参加可能者削除
+	DeleteAssignPossible(tx *gorm.DB, m *ddl.TeamAssignPossible) error
 	// メールアドレス重複チェック
 	EmailDuplCheck(m *ddl.User) error
 	// メールアドレス重複チェック_管理者
@@ -814,8 +820,7 @@ func (u *UserRepository) DeleteUserAssociation(tx *gorm.DB, m *ddl.ApplicantUser
 
 // 面接自動割り当てルールイベント登録
 func (u *UserRepository) InsertAutoAssignRule(tx *gorm.DB, m *ddl.TeamAutoAssignRule) error {
-	// fmt.Print(tx.Table("t_team_auto_assign_rule_association").Create(m))
-	if err := tx.Table("t_team_auto_assign_rule_association").Create(m).Error; err != nil {
+	if err := tx.Create(m).Error; err != nil {
 		log.Printf("%v", err)
 		return err
 	}
@@ -828,7 +833,7 @@ func (u *UserRepository) GetAutoAssignRule(m *ddl.TeamAutoAssignRule) (*entity.T
 
 	query := u.db.Table("t_team_auto_assign_rule_association").
 		Select(`
-		t_team_auto_assign_rule_association.*,
+			t_team_auto_assign_rule_association.*,
 			m_auto_assign_rule.hash_key as hash_key
 		`).
 		Joins(`
@@ -872,17 +877,17 @@ func (u *UserRepository) InsertsAssignPriority(tx *gorm.DB, m []*ddl.TeamAssignP
 func (u *UserRepository) GetAssignPriority(m *ddl.TeamAssignPriority) ([]*entity.TeamAssignPriority, error) {
 	var res []*entity.TeamAssignPriority
 
-	query := u.db.Table("t_assign_priority").
+	query := u.db.Table("t_team_assign_priority").
 		Select(`
-			t_assign_priority.priority,
+			t_team_assign_priority.priority,
 			t_user.hash_key as hash_key,
 			t_user.name as name
 		`).
-		Joins(`left join t_user on t_assign_priority.user_id = t_user.id`).
-		Where(&ddl.TeamAutoAssignRule{
+		Joins(`left join t_user on t_team_assign_priority.user_id = t_user.id`).
+		Where(&ddl.TeamAssignPriority{
 			TeamID: m.TeamID,
 		}).
-		Order("t_assign_priority.priority ASC")
+		Order("t_team_assign_priority.priority ASC")
 
 	if err := query.Find(&res).Error; err != nil {
 		log.Printf("%v", err)
@@ -896,6 +901,49 @@ func (u *UserRepository) DeleteAssignPriority(tx *gorm.DB, m *ddl.TeamAssignPrio
 	if err := tx.Where(&ddl.TeamAssignPriority{
 		TeamID: m.TeamID,
 	}).Delete(&ddl.TeamAssignPriority{}).Error; err != nil {
+		log.Printf("%v", err)
+		return err
+	}
+	return nil
+}
+
+// 面接毎参加可能者一括登録
+func (u *UserRepository) InsertsAssignPossible(tx *gorm.DB, m []*ddl.TeamAssignPossible) error {
+	if err := tx.Create(m).Error; err != nil {
+		log.Printf("%v", err)
+		return err
+	}
+	return nil
+}
+
+// 面接毎参加可能者取得
+func (u *UserRepository) GetAssignPossible(m *ddl.TeamAssignPossible) ([]entity.TeamAssignPossible, error) {
+	var res []entity.TeamAssignPossible
+
+	query := u.db.Table("t_team_assign_possible").
+		Select(`
+			t_team_assign_possible.num_of_interview,
+			t_user.hash_key as hash_key,
+			t_user.name as name,
+			t_user.email as email
+		`).
+		Joins(`left join t_user on t_team_assign_possible.user_id = t_user.id`).
+		Where(&ddl.TeamAssignPossible{
+			TeamID: m.TeamID,
+		})
+
+	if err := query.Find(&res).Error; err != nil {
+		log.Printf("%v", err)
+		return nil, err
+	}
+	return res, nil
+}
+
+// 面接毎参加可能者削除
+func (u *UserRepository) DeleteAssignPossible(tx *gorm.DB, m *ddl.TeamAssignPossible) error {
+	if err := tx.Where(&ddl.TeamAssignPossible{
+		TeamID: m.TeamID,
+	}).Delete(&ddl.TeamAssignPossible{}).Error; err != nil {
 		log.Printf("%v", err)
 		return err
 	}

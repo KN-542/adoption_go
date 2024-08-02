@@ -115,7 +115,7 @@ type TeamAutoAssignRule struct {
 }
 
 /*
-t_assign_priority
+t_team_assign_priority
 面接割り振り優先順位
 */
 type TeamAssignPriority struct {
@@ -125,6 +125,23 @@ type TeamAssignPriority struct {
 	UserID uint64 `json:"user_id" gorm:"primaryKey"`
 	// 優先順位
 	Priority uint `json:"priority"`
+	// チーム(外部キー)
+	Team Team `gorm:"foreignKey:team_id;references:id"`
+	// ユーザー(外部キー)
+	User User `gorm:"foreignKey:user_id;references:id"`
+}
+
+/*
+t_team_assign_possible
+面接毎参加可能者
+*/
+type TeamAssignPossible struct {
+	// チームID
+	TeamID uint64 `json:"team_id" gorm:"primaryKey"`
+	// 面接回数
+	NumOfInterview uint `json:"num_of_interview" gorm:"primaryKey"`
+	// ユーザーID
+	UserID uint64 `json:"user_id" gorm:"primaryKey"`
 	// チーム(外部キー)
 	Team Team `gorm:"foreignKey:team_id;references:id"`
 	// ユーザー(外部キー)
@@ -199,7 +216,10 @@ func (t TeamAutoAssignRule) TableName() string {
 	return "t_team_auto_assign_rule_association"
 }
 func (t TeamAssignPriority) TableName() string {
-	return "t_assign_priority"
+	return "t_team_assign_priority"
+}
+func (t TeamAssignPossible) TableName() string {
+	return "t_team_assign_possible"
 }
 func (t SelectStatus) TableName() string {
 	return "t_select_status"

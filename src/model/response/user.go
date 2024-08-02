@@ -34,10 +34,11 @@ type GetTeam struct {
 
 // チーム取得
 type GetOwnTeam struct {
-	Team     entity.Team                    `json:"team"`
-	Events   []entity.InterviewEventsByTeam `json:"events"`
-	AutoRule entity.TeamAutoAssignRule      `json:"auto_rule"`
-	Priority []entity.TeamAssignPriority    `json:"priority"`
+	Team         entity.Team                    `json:"team"`
+	Events       []entity.InterviewEventsByTeam `json:"events"`
+	AutoRule     entity.TeamAutoAssignRule      `json:"auto_rule"`
+	Priority     []entity.TeamAssignPriority    `json:"priority"`
+	PossibleList []entity.TeamAssignPossible    `json:"possible_list"`
 }
 
 // チーム検索_同一企業

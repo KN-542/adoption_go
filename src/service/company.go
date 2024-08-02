@@ -238,6 +238,26 @@ func (c *CompanyService) Create(req *request.CreateCompany) (*response.CreateCom
 		}
 	}
 
+	// 面接毎参加可能者登録(全員参加可能)
+	var possibleList []*ddl.TeamAssignPossible
+	for i := 1; i <= int(team.NumOfInterview); i++ {
+		possibleList = append(possibleList, &ddl.TeamAssignPossible{
+			TeamID:         team.ID,
+			UserID:         user.ID,
+			NumOfInterview: uint(i),
+		})
+	}
+	if err := c.user.InsertsAssignPossible(tx, possibleList); err != nil {
+		if err := c.db.TxRollback(tx); err != nil {
+			return nil, &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+		return nil, &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
 	// 選考状況用モデル作成
 	_, selectHash, selectHashErr := GenerateHash(1, 25)
 	if selectHashErr != nil {

@@ -120,4 +120,11 @@ type UpdateAssignMethod struct {
 	AutoRuleHash string `json:"auto_rule_hash"`
 	// 優先順位
 	Priority []string `json:"priority"`
+	// 各面接参加可能者
+	PossibleList []UpdateAssignMethodSub `json:"possible_list"`
+}
+type UpdateAssignMethodSub struct {
+	ddl.TeamAssignPossible
+	// ハッシュキー
+	HashKey string `json:"hash_key"`
 }
