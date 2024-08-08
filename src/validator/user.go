@@ -33,8 +33,6 @@ type IUserValidator interface {
 	CreateSchedule(u *request.CreateSchedule) error
 	// 予定更新
 	UpdateSchedule(u *request.UpdateSchedule) error
-	// 予定検索
-	SearchSchedule(u *request.SearchSchedule) error
 	// 予定削除
 	DeleteSchedule(u *request.DeleteSchedule) error
 	// 面接官割り振り方法更新
@@ -173,12 +171,13 @@ func (v *UserValidator) GetTeam(u *request.GetTeam) error {
 	)
 }
 
+// 予定登録
 func (v *UserValidator) CreateSchedule(u *request.CreateSchedule) error {
 	return validation.ValidateStruct(
 		u,
 		validation.Field(
 			&u.FreqID,
-			validation.Min(0),
+			validation.Min(uint(0)),
 			validation.Max(uint(static.FREQ_NONE)),
 			IsUintValidator{},
 		),
@@ -203,12 +202,6 @@ func (v *UserValidator) UpdateSchedule(u *request.UpdateSchedule) error {
 	return validation.ValidateStruct(
 		u,
 		validation.Field(
-			&u.FreqID,
-			validation.Min(0),
-			validation.Max(uint(static.FREQ_NONE)),
-			IsUintValidator{},
-		),
-		validation.Field(
 			&u.Start,
 			validation.Required,
 		),
@@ -221,13 +214,6 @@ func (v *UserValidator) UpdateSchedule(u *request.UpdateSchedule) error {
 			validation.Required,
 			validation.Length(1, 30),
 		),
-	)
-}
-
-// 予定検索
-func (v *UserValidator) SearchSchedule(u *request.SearchSchedule) error {
-	return validation.ValidateStruct(
-		u,
 	)
 }
 

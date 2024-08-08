@@ -463,6 +463,18 @@ func (s *ApplicantService) ReserveTable(req *request.ReserveTable) (*response.Re
 		}
 	}
 
+	// 面接毎参加可能者予定取得
+	// models, modelsErr := s.u.GetAssignPossibleSchedule(&ddl.Team{
+	// 	AbstractTransactionModel: ddl.AbstractTransactionModel{
+	// 		ID: teamID,
+	// 	},
+	// })
+	// if modelsErr != nil {
+	// 	return nil, &response.Error{
+	// 		Status: http.StatusInternalServerError,
+	// 	}
+	// }
+
 	// チーム所属ユーザー一覧取得
 	users, usersErr := s.u.ListUserAssociation(&ddl.TeamAssociation{
 		TeamID: teamID,
@@ -906,15 +918,14 @@ func (s *ApplicantService) InsertDesiredAt(req *request.InsertDesiredAt) *respon
 		}
 
 		// 予定更新
-		_, updateErr := s.u.UpdateSchedule(tx, &ddl.Schedule{
+		if err := s.u.UpdateSchedule(tx, &ddl.Schedule{
 			AbstractTransactionModel: ddl.AbstractTransactionModel{
 				HashKey: schedule.HashKey,
 			},
 			Start: req.DesiredAt,
 			End:   req.DesiredAt.Add(time.Hour),
 			Title: req.Title,
-		})
-		if updateErr != nil {
+		}); err != nil {
 			if err := s.d.TxRollback(tx); err != nil {
 				return &response.Error{
 					Status: http.StatusInternalServerError,

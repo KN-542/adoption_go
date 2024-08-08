@@ -45,7 +45,7 @@ type IUserService interface {
 	// 予定登録種別一覧
 	SearchScheduleType() (*response.SearchScheduleType, *response.Error)
 	// 予定登録
-	CreateSchedule(req *request.CreateSchedule) (*response.CreateSchedule, *response.Error)
+	CreateSchedule(req *request.CreateSchedule) *response.Error
 	// 予定更新
 	UpdateSchedule(req *request.UpdateSchedule) *response.Error
 	// 予定検索
@@ -1056,20 +1056,48 @@ func (u *UserService) SearchScheduleType() (*response.SearchScheduleType, *respo
 }
 
 // 予定登録
-func (u *UserService) CreateSchedule(req *request.CreateSchedule) (*response.CreateSchedule, *response.Error) {
+func (u *UserService) CreateSchedule(req *request.CreateSchedule) *response.Error {
 	// バリデーション
 	if err := u.v.CreateSchedule(req); err != nil {
 		log.Printf("%v", err)
-		return nil, &response.Error{
+		return &response.Error{
 			Status: http.StatusBadRequest,
 			Code:   static.CODE_BAD_REQUEST,
+		}
+	}
+
+	// Redisから取得
+	ctx := context.Background()
+	teamRedis, teamRedisErr := u.redis.Get(ctx, req.UserHashKey, static.REDIS_USER_TEAM_ID)
+	if teamRedisErr != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+	teamID, teamIDErr := strconv.ParseUint(*teamRedis, 10, 64)
+	if teamIDErr != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+	company, companyErr := u.redis.Get(ctx, req.UserHashKey, static.REDIS_USER_COMPANY_ID)
+	if companyErr != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+	companyID, companyParseErr := strconv.ParseUint(*company, 10, 64)
+	if companyParseErr != nil {
+		log.Printf("%v", companyParseErr)
+		return &response.Error{
+			Status: http.StatusInternalServerError,
 		}
 	}
 
 	// ユーザー存在確認
 	ids, idsErr := u.user.GetIDs(req.Users)
 	if idsErr != nil {
-		return nil, &response.Error{
+		return &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
@@ -1078,14 +1106,14 @@ func (u *UserService) CreateSchedule(req *request.CreateSchedule) (*response.Cre
 	_, hashKey, hashErr := GenerateHash(1, 25)
 	if hashErr != nil {
 		log.Printf("%v", hashErr)
-		return nil, &response.Error{
+		return &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
 
 	tx, txErr := u.d.TxStart()
 	if txErr != nil {
-		return nil, &response.Error{
+		return &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
@@ -1093,25 +1121,28 @@ func (u *UserService) CreateSchedule(req *request.CreateSchedule) (*response.Cre
 	// 予定登録
 	scheduleID, err := u.user.InsertSchedule(tx, &ddl.Schedule{
 		AbstractTransactionModel: ddl.AbstractTransactionModel{
-			HashKey: *hashKey,
+			HashKey:   *hashKey,
+			CompanyID: companyID,
 		},
 		InterviewFlg: req.InterviewFlg,
 		FreqID:       req.FreqID,
 		Start:        req.Start,
 		End:          req.End,
 		Title:        req.Title,
+		TeamID:       teamID,
 	})
 	if err != nil {
 		if err := u.d.TxRollback(tx); err != nil {
-			return nil, &response.Error{
+			return &response.Error{
 				Status: http.StatusInternalServerError,
 			}
 		}
-		return nil, &response.Error{
+		return &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
 
+	// 予定紐づけ一括登録
 	var userScheduleAssociations []*ddl.ScheduleAssociation
 	for _, id := range ids {
 		userScheduleAssociations = append(userScheduleAssociations, &ddl.ScheduleAssociation{
@@ -1119,27 +1150,24 @@ func (u *UserService) CreateSchedule(req *request.CreateSchedule) (*response.Cre
 			UserID:     id,
 		})
 	}
-	// 予定紐づけ一括登録
 	if err := u.user.InsertsScheduleAssociation(tx, userScheduleAssociations); err != nil {
 		if err := u.d.TxRollback(tx); err != nil {
-			return nil, &response.Error{
+			return &response.Error{
 				Status: http.StatusInternalServerError,
 			}
 		}
-		return nil, &response.Error{
+		return &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
 
 	if err := u.d.TxCommit(tx); err != nil {
-		return nil, &response.Error{
+		return &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
 
-	return &response.CreateSchedule{
-		HashKey: *hashKey,
-	}, nil
+	return nil
 }
 
 // 予定更新
@@ -1150,6 +1178,18 @@ func (u *UserService) UpdateSchedule(req *request.UpdateSchedule) *response.Erro
 		return &response.Error{
 			Status: http.StatusBadRequest,
 			Code:   static.CODE_BAD_REQUEST,
+		}
+	}
+
+	// 予定取得
+	schedule, scheduleErr := u.user.GetSchedule(&ddl.Schedule{
+		AbstractTransactionModel: ddl.AbstractTransactionModel{
+			HashKey: req.HashKey,
+		},
+	})
+	if scheduleErr != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
 		}
 	}
 
@@ -1169,13 +1209,16 @@ func (u *UserService) UpdateSchedule(req *request.UpdateSchedule) *response.Erro
 	}
 
 	// 予定更新
-	scheduleID, err := u.user.UpdateSchedule(tx, &ddl.Schedule{
+	if err := u.user.UpdateSchedule(tx, &ddl.Schedule{
 		AbstractTransactionModel: ddl.AbstractTransactionModel{
-			HashKey:   req.HashKey,
+			HashKey:   schedule.HashKey,
 			UpdatedAt: time.Now(),
 		},
-	})
-	if err != nil {
+		FreqID: req.FreqID,
+		Start:  req.Start,
+		End:    req.End,
+		Title:  req.Title,
+	}); err != nil {
 		if err := u.d.TxRollback(tx); err != nil {
 			return &response.Error{
 				Status: http.StatusInternalServerError,
@@ -1187,7 +1230,7 @@ func (u *UserService) UpdateSchedule(req *request.UpdateSchedule) *response.Erro
 	}
 	// 問答無用で紐づけテーブルの該当予定IDのレコード削除
 	if err := u.user.DeleteScheduleAssociation(tx, &ddl.ScheduleAssociation{
-		ScheduleID: *scheduleID,
+		ScheduleID: schedule.ID,
 	}); err != nil {
 		if err := u.d.TxRollback(tx); err != nil {
 			return &response.Error{
@@ -1199,14 +1242,14 @@ func (u *UserService) UpdateSchedule(req *request.UpdateSchedule) *response.Erro
 		}
 	}
 
+	// 予定紐づけ一括登録
 	var userScheduleAssociations []*ddl.ScheduleAssociation
 	for _, id := range ids {
 		userScheduleAssociations = append(userScheduleAssociations, &ddl.ScheduleAssociation{
-			ScheduleID: *scheduleID,
+			ScheduleID: schedule.ID,
 			UserID:     id,
 		})
 	}
-	// 予定紐づけ一括登録
 	if err := u.user.InsertsScheduleAssociation(tx, userScheduleAssociations); err != nil {
 		if err := u.d.TxRollback(tx); err != nil {
 			return &response.Error{
@@ -1229,41 +1272,32 @@ func (u *UserService) UpdateSchedule(req *request.UpdateSchedule) *response.Erro
 
 // 予定検索 (バッチでも実行したい)
 func (u *UserService) SearchSchedule(req *request.SearchSchedule) (*response.SearchSchedule, *response.Error) {
-	// バリデーション
-	if err := u.v.SearchSchedule(req); err != nil {
-		log.Printf("%v", err)
-		return nil, &response.Error{
-			Status: http.StatusBadRequest,
-			Code:   static.CODE_BAD_REQUEST,
-		}
-	}
-
-	// 企業ID取得
+	// チームID取得
 	ctx := context.Background()
-	company, companyErr := u.redis.Get(ctx, req.HashKey, static.REDIS_USER_COMPANY_ID)
-	if companyErr != nil {
+	teamRedis, teamRedisErr := u.redis.Get(ctx, req.UserHashKey, static.REDIS_USER_TEAM_ID)
+	if teamRedisErr != nil {
 		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
-	companyID, companyParseErr := strconv.ParseUint(*company, 10, 64)
-	if companyParseErr != nil {
-		log.Printf("%v", companyParseErr)
+	teamID, teamIDErr := strconv.ParseUint(*teamRedis, 10, 64)
+	if teamIDErr != nil {
 		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
 
 	schedulesBefore, sErr := u.user.SearchSchedule(&ddl.Schedule{
-		AbstractTransactionModel: ddl.AbstractTransactionModel{
-			CompanyID: companyID,
-		},
+		TeamID: teamID,
 	})
 	if sErr != nil {
 		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
+
+	var deleteList []uint64
+	var editList []*ddl.Schedule
 
 	tx, txErr := u.d.TxStart()
 	if txErr != nil {
@@ -1273,62 +1307,71 @@ func (u *UserService) SearchSchedule(req *request.SearchSchedule) (*response.Sea
 	}
 
 	// 日付が過去の場合、更新or削除
-	for _, schedule := range schedulesBefore {
-		if schedule.Start.Before(time.Now()) {
-			// なしの場合
-			if schedule.FreqID == uint(static.FREQ_NONE) {
-				if err := u.user.DeleteSchedule(tx, &ddl.Schedule{
-					AbstractTransactionModel: ddl.AbstractTransactionModel{
-						HashKey: schedule.HashKey,
-					},
-				}); err != nil {
-					if err := u.d.TxRollback(tx); err != nil {
-						return nil, &response.Error{
-							Status: http.StatusInternalServerError,
-						}
-					}
-					return nil, &response.Error{
-						Status: http.StatusInternalServerError,
-					}
-				}
-			} else {
-				s := schedule.Start
-				e := schedule.End
-				if schedule.FreqID == uint(static.FREQ_DAILY) {
-					s = s.AddDate(0, 0, 1)
-					e = e.AddDate(0, 0, 1)
-				}
-				if schedule.FreqID == uint(static.FREQ_WEEKLY) {
-					s = s.AddDate(0, 0, 7)
-					e = e.AddDate(0, 0, 7)
-				}
-				if schedule.FreqID == uint(static.FREQ_MONTHLY) {
-					s = s.AddDate(0, 1, 0)
-					e = e.AddDate(0, 1, 0)
-				}
-				if schedule.FreqID == uint(static.FREQ_YEARLY) {
-					s = s.AddDate(1, 0, 0)
-					e = e.AddDate(1, 0, 0)
-				}
+	if len(schedulesBefore) > 0 {
+		for _, schedule := range schedulesBefore {
+			if schedule.Start.Before(time.Now()) {
+				deleteList = append(deleteList, schedule.ID)
 
-				_, updateErr := u.user.UpdateSchedule(tx, &ddl.Schedule{
-					AbstractTransactionModel: ddl.AbstractTransactionModel{
-						HashKey:   schedule.HashKey,
-						UpdatedAt: time.Now(),
-					},
-					Start: s,
-					End:   e,
-				})
-				if updateErr != nil {
-					if err := u.d.TxRollback(tx); err != nil {
-						return nil, &response.Error{
-							Status: http.StatusInternalServerError,
-						}
+				// なし以外の場合
+				if schedule.FreqID != uint(static.FREQ_NONE) {
+					s := schedule.Start
+					e := schedule.End
+					if schedule.FreqID == uint(static.FREQ_DAILY) {
+						s = s.AddDate(0, 0, 1)
+						e = e.AddDate(0, 0, 1)
 					}
-					return nil, &response.Error{
-						Status: http.StatusInternalServerError,
+					if schedule.FreqID == uint(static.FREQ_WEEKLY) {
+						s = s.AddDate(0, 0, 7)
+						e = e.AddDate(0, 0, 7)
 					}
+					if schedule.FreqID == uint(static.FREQ_MONTHLY) {
+						s = s.AddDate(0, 1, 0)
+						e = e.AddDate(0, 1, 0)
+					}
+					if schedule.FreqID == uint(static.FREQ_YEARLY) {
+						s = s.AddDate(1, 0, 0)
+						e = e.AddDate(1, 0, 0)
+					}
+
+					editList = append(editList, &ddl.Schedule{
+						AbstractTransactionModel: ddl.AbstractTransactionModel{
+							HashKey:   schedule.HashKey,
+							CompanyID: schedule.CompanyID,
+							CreatedAt: schedule.CreatedAt,
+							UpdatedAt: time.Now(),
+						},
+						Start:        s,
+						End:          e,
+						Title:        schedule.Title,
+						FreqID:       schedule.FreqID,
+						InterviewFlg: schedule.InterviewFlg,
+						TeamID:       schedule.TeamID,
+					})
 				}
+			}
+		}
+	}
+
+	if err := u.user.DeletesSchedule(tx, deleteList); err != nil {
+		if err := u.d.TxRollback(tx); err != nil {
+			return nil, &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+		return nil, &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	if len(editList) > 0 {
+		if err := u.user.InsertsSchedule(tx, editList); err != nil {
+			if err := u.d.TxRollback(tx); err != nil {
+				return nil, &response.Error{
+					Status: http.StatusInternalServerError,
+				}
+			}
+			return nil, &response.Error{
+				Status: http.StatusInternalServerError,
 			}
 		}
 	}
@@ -1340,9 +1383,7 @@ func (u *UserService) SearchSchedule(req *request.SearchSchedule) (*response.Sea
 	}
 
 	schedulesAfter, err := u.user.SearchSchedule(&ddl.Schedule{
-		AbstractTransactionModel: ddl.AbstractTransactionModel{
-			CompanyID: companyID,
-		},
+		TeamID: teamID,
 	})
 	if err != nil {
 		return nil, &response.Error{
@@ -1352,6 +1393,11 @@ func (u *UserService) SearchSchedule(req *request.SearchSchedule) (*response.Sea
 
 	var res []entity.Schedule
 	for _, row := range schedulesAfter {
+		row.ID = 0
+		for _, row2 := range row.Users {
+			row2.ID = 0
+		}
+
 		res = append(res, *row)
 	}
 
@@ -1371,6 +1417,18 @@ func (u *UserService) DeleteSchedule(req *request.DeleteSchedule) *response.Erro
 		}
 	}
 
+	// 予定取得
+	schedule, scheduleErr := u.user.GetSchedule(&ddl.Schedule{
+		AbstractTransactionModel: ddl.AbstractTransactionModel{
+			HashKey: req.HashKey,
+		},
+	})
+	if scheduleErr != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
 	tx, err := u.d.TxStart()
 	if err != nil {
 		return &response.Error{
@@ -1378,8 +1436,26 @@ func (u *UserService) DeleteSchedule(req *request.DeleteSchedule) *response.Erro
 		}
 	}
 
+	// 紐づけ削除
+	if err := u.user.DeleteScheduleAssociation(tx, &ddl.ScheduleAssociation{
+		ScheduleID: schedule.ID,
+	}); err != nil {
+		if err := u.d.TxRollback(tx); err != nil {
+			return &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
 	// 削除
-	if err := u.user.DeleteSchedule(tx, &req.Schedule); err != nil {
+	if err := u.user.DeleteSchedule(tx, &ddl.Schedule{
+		AbstractTransactionModel: ddl.AbstractTransactionModel{
+			HashKey: schedule.HashKey,
+		},
+	}); err != nil {
 		if err := u.d.TxRollback(tx); err != nil {
 			return &response.Error{
 				Status: http.StatusInternalServerError,

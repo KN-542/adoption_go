@@ -656,8 +656,7 @@ func (c *UserController) InsertSchedules(e echo.Context) error {
 		return e.JSON(err.Status, response.ErrorConvert(*err))
 	}
 
-	_, err := c.s.CreateSchedule(&req)
-	if err != nil {
+	if err := c.s.CreateSchedule(&req); err != nil {
 		return e.JSON(err.Status, response.ErrorConvert(*err))
 	}
 	return e.JSON(http.StatusOK, "OK")

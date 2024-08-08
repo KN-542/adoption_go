@@ -40,6 +40,10 @@ type SearchTeam struct {
 // Schedule
 type Schedule struct {
 	ddl.Schedule
+	// 頻度名
+	FreqName string `json:"freq_name"`
+	// 該当ユーザー
+	Users []*User `json:"users" gorm:"many2many:t_schedule_association;foreignKey:id;joinForeignKey:schedule_id;References:id;joinReferences:user_id"`
 }
 
 // Team Association
@@ -83,9 +87,9 @@ type StatusEventsByTeam struct {
 	// イベントハッシュキー
 	EventHashKey string `json:"event_hash_key"`
 	// 説明_日本語
-	DescJa string `json:"desc_ja" gorm:"text"`
+	DescJa string `json:"desc_ja"`
 	// 説明_英語
-	DescEn string `json:"desc_en" gorm:"text"`
+	DescEn string `json:"desc_en"`
 	// 選考状況ハッシュキー
 	SelectStatusHashKey string `json:"select_status_hash_key"`
 	// ステータス名
@@ -100,4 +104,15 @@ type InterviewEventsByTeam struct {
 	SelectStatusHashKey string `json:"select_status_hash_key"`
 	// ステータス名
 	StatusName string `json:"status_name"`
+}
+
+// 面接毎参加可能者予定取得
+type AssignPossibleSchedule struct {
+	ddl.ScheduleAssociation
+	// ユーザーID
+	UserID uint64 `json:"user_id"`
+	// ユーザーハッシュキー
+	UserHashKey string `json:"user_hash_key"`
+	// スケジュール
+	Schedules []*ddl.Schedule `json:"schedules" gorm:"many2many:t_schedule_association;foreignKey:user_id;joinForeignKey:user_id;References:id;joinReferences:schedule_id"`
 }

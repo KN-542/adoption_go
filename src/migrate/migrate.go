@@ -481,6 +481,7 @@ func main() {
 			"company_id":    "企業ID",
 			"start":         "開始時刻",
 			"end":           "終了時刻",
+			"team_id":       "チームID",
 			"created_at":    "登録日時",
 			"updated_at":    "更新日時",
 		}

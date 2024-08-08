@@ -178,8 +178,12 @@ type Schedule struct {
 	Start time.Time `json:"start" gorm:"not null"`
 	// 終了時刻
 	End time.Time `json:"end" gorm:"not null"`
+	// チームID
+	TeamID uint64 `json:"team_id"`
 	// 頻度(外部キー)
 	ScheduleFreqStatus ScheduleFreqStatus `gorm:"foreignKey:freq_id;references:id"`
+	// チーム(外部キー)
+	Team Team `gorm:"foreignKey:team_id;references:id"`
 }
 
 /*
