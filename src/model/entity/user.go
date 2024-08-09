@@ -24,6 +24,8 @@ type SearchUser struct {
 // Team
 type Team struct {
 	ddl.Team
+	// ルールハッシュ
+	RuleHash string `json:"rule_hash"`
 	// 所属ユーザー
 	Users []*ddl.User `json:"users" gorm:"many2many:t_team_association;foreignKey:id;joinForeignKey:team_id;References:id;joinReferences:user_id"`
 }
@@ -35,9 +37,13 @@ type SearchTeam struct {
 	Users []*ddl.User `json:"users" gorm:"many2many:t_team_association;foreignKey:id;joinForeignKey:team_id;References:id;joinReferences:user_id"`
 }
 
-// UserSchedule
-type UserSchedule struct {
-	ddl.UserSchedule
+// Schedule
+type Schedule struct {
+	ddl.Schedule
+	// 頻度名
+	FreqName string `json:"freq_name"`
+	// 該当ユーザー
+	Users []*User `json:"users" gorm:"many2many:t_schedule_association;foreignKey:id;joinForeignKey:schedule_id;References:id;joinReferences:user_id"`
 }
 
 // Team Association
@@ -45,9 +51,35 @@ type TeamAssociation struct {
 	ddl.TeamAssociation
 }
 
-// UserScheduleAssociation
-type UserScheduleAssociation struct {
-	ddl.UserScheduleAssociation
+// Team Auto Assign Rule
+type TeamAutoAssignRule struct {
+	ddl.TeamAutoAssignRule
+	HashKey string `json:"hash_key"`
+}
+
+// Team Assign Priority
+type TeamAssignPriority struct {
+	ddl.TeamAssignPriority
+	// ハッシュキー
+	HashKey string `json:"hash_key"`
+	// 氏名
+	Name string `json:"name"`
+}
+
+// Team Assign Possible
+type TeamAssignPossible struct {
+	ddl.TeamAssignPossible
+	// ハッシュキー
+	HashKey string `json:"hash_key"`
+	// 氏名
+	Name string `json:"name"`
+	// メールアドレス
+	Email string `json:"email"`
+}
+
+// ScheduleAssociation
+type ScheduleAssociation struct {
+	ddl.ScheduleAssociation
 }
 
 // チーム毎イベント
@@ -55,11 +87,31 @@ type StatusEventsByTeam struct {
 	// イベントハッシュキー
 	EventHashKey string `json:"event_hash_key"`
 	// 説明_日本語
-	DescJa string `json:"desc_ja" gorm:"text"`
+	DescJa string `json:"desc_ja"`
 	// 説明_英語
-	DescEn string `json:"desc_en" gorm:"text"`
+	DescEn string `json:"desc_en"`
 	// 選考状況ハッシュキー
 	SelectStatusHashKey string `json:"select_status_hash_key"`
 	// ステータス名
 	StatusName string `json:"status_name"`
+}
+
+// チーム面接毎イベント
+type InterviewEventsByTeam struct {
+	// 面接回数
+	NumOfInterview uint `json:"num_of_interview"`
+	// 選考状況ハッシュキー
+	SelectStatusHashKey string `json:"select_status_hash_key"`
+	// ステータス名
+	StatusName string `json:"status_name"`
+}
+
+// 面接毎参加可能者予定取得
+type AssignPossibleSchedule struct {
+	// ユーザーID
+	UserID uint64 `json:"user_id"`
+	// ユーザーハッシュキー
+	UserHashKey string `json:"user_hash_key"`
+	// スケジュール
+	Schedules []*Schedule `json:"schedules" gorm:"many2many:t_schedule_association;foreignKey:user_id;joinForeignKey:user_id;References:id;joinReferences:schedule_id"`
 }

@@ -175,6 +175,34 @@ type SelectStatusEvent struct {
 	DescEn string `json:"desc_en" gorm:"text"`
 }
 
+/*
+m_assign_rule
+面接アサインルールマスタ
+*/
+type AssignRule struct {
+	AbstractMasterModel
+	// 説明_日本語
+	DescJa string `json:"desc_ja" gorm:"text"`
+	// 説明_英語
+	DescEn string `json:"desc_en" gorm:"text"`
+	// 追加設定必要性
+	AdditionalConfiguration uint `json:"additional_configuration"`
+}
+
+/*
+m_auto_assign_rule
+面接自動割り当てルールマスタ
+*/
+type AutoAssignRule struct {
+	AbstractMasterModel
+	// 説明_日本語
+	DescJa string `json:"desc_ja" gorm:"text"`
+	// 説明_英語
+	DescEn string `json:"desc_en" gorm:"text"`
+	// 追加設定必要性
+	AdditionalConfiguration uint `json:"additional_configuration"`
+}
+
 func (m LoginType) TableName() string {
 	return "m_login_type"
 }
@@ -213,6 +241,12 @@ func (m S3NamePre) TableName() string {
 }
 func (m SelectStatusEvent) TableName() string {
 	return "m_select_status_event"
+}
+func (m AssignRule) TableName() string {
+	return "m_assign_rule"
+}
+func (m AutoAssignRule) TableName() string {
+	return "m_auto_assign_rule"
 }
 
 type Sites struct {

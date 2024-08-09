@@ -16,3 +16,13 @@ type ScheduleFreqStatus struct {
 type SelectStatusEvent struct {
 	ddl.SelectStatusEvent
 }
+
+// m_assign_rule
+type AssignRule struct {
+	ddl.AssignRule
+}
+
+// m_auto_assign_rule
+type AutoAssignRule struct {
+	ddl.AutoAssignRule
+}

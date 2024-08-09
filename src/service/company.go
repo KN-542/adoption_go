@@ -207,7 +207,10 @@ func (c *CompanyService) Create(req *request.CreateCompany) (*response.CreateCom
 			HashKey:   string(static.PRE_TEAM) + "_" + *teamHash,
 			CompanyID: company.ID,
 		},
-		Name: "Initial team " + company.Name,
+		Name:           "Initial team " + company.Name,
+		NumOfInterview: 3,
+		UserMin:        1,
+		RuleID:         static.ASSIGN_RULE_MANUAL,
 	})
 	if teamErr != nil {
 		if err := c.db.TxRollback(tx); err != nil {
@@ -225,6 +228,26 @@ func (c *CompanyService) Create(req *request.CreateCompany) (*response.CreateCom
 		TeamID: team.ID,
 		UserID: user.ID,
 	}); err != nil {
+		if err := c.db.TxRollback(tx); err != nil {
+			return nil, &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+		return nil, &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// 面接毎参加可能者登録(全員参加可能)
+	var possibleList []*ddl.TeamAssignPossible
+	for i := 1; i <= int(team.NumOfInterview); i++ {
+		possibleList = append(possibleList, &ddl.TeamAssignPossible{
+			TeamID:         team.ID,
+			UserID:         user.ID,
+			NumOfInterview: uint(i),
+		})
+	}
+	if err := c.user.InsertsAssignPossible(tx, possibleList); err != nil {
 		if err := c.db.TxRollback(tx); err != nil {
 			return nil, &response.Error{
 				Status: http.StatusInternalServerError,

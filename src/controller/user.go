@@ -26,8 +26,12 @@ type IUserController interface {
 	CreateTeam(e echo.Context) error
 	// チーム更新
 	UpdateTeam(e echo.Context) error
+	// チーム基本情報更新
+	UpdateBasicTeam(e echo.Context) error
 	// チーム取得
 	GetTeam(e echo.Context) error
+	// 自チーム取得
+	GetOwnTeam(e echo.Context) error
 	// チーム削除
 	DeleteTeam(e echo.Context) error
 	// チーム検索_同一企業
@@ -48,6 +52,10 @@ type IUserController interface {
 	ListStatusEvent(e echo.Context) error
 	// チーム毎ステータスイベント取得
 	StatusEventsByTeam(e echo.Context) error
+	// アサイン関連マスタ取得
+	AssignMaster(e echo.Context) error
+	// 面接官割り振り方法更新
+	UpdateAssignMethod(e echo.Context) error
 }
 
 type UserController struct {
@@ -384,6 +392,49 @@ func (c *UserController) UpdateTeam(e echo.Context) error {
 	return e.JSON(http.StatusOK, "OK")
 }
 
+// チーム基本情報更新
+func (c *UserController) UpdateBasicTeam(e echo.Context) error {
+	req := request.UpdateBasicTeam{}
+	if err := e.Bind(&req); err != nil {
+		log.Printf("%v", err)
+		return e.JSON(http.StatusBadRequest, fmt.Errorf(static.MESSAGE_BAD_REQUEST))
+	}
+
+	// JWT検証
+	if err := JWTDecodeCommon(
+		c,
+		e,
+		req.UserHashKey,
+		JWT_TOKEN,
+		JWT_SECRET,
+		true,
+	); err != nil {
+		return err
+	}
+
+	// ロールチェック
+	exist, roleErr := c.role.Check(&request.CheckRole{
+		Abstract: request.Abstract{
+			UserHashKey: req.UserHashKey,
+		},
+		ID: static.ROLE_MANAGEMENT_SETTING_TEAM,
+	})
+	if roleErr != nil {
+		return e.JSON(roleErr.Status, response.ErrorConvert(*roleErr))
+	}
+	if !exist {
+		err := &response.Error{
+			Status: http.StatusForbidden,
+		}
+		return e.JSON(err.Status, response.ErrorConvert(*err))
+	}
+
+	if err := c.s.UpdateBasicTeam(&req); err != nil {
+		return e.JSON(err.Status, response.ErrorConvert(*err))
+	}
+	return e.JSON(http.StatusOK, "OK")
+}
+
 // チーム削除
 func (c *UserController) DeleteTeam(e echo.Context) error {
 	req := request.DeleteTeam{}
@@ -465,6 +516,50 @@ func (c *UserController) GetTeam(e echo.Context) error {
 	}
 
 	res, err := c.s.GetTeam(&req)
+	if err != nil {
+		return e.JSON(err.Status, response.ErrorConvert(*err))
+	}
+	return e.JSON(http.StatusOK, res)
+}
+
+// 自チーム取得
+func (c *UserController) GetOwnTeam(e echo.Context) error {
+	req := request.GetOwnTeam{}
+	if err := e.Bind(&req); err != nil {
+		log.Printf("%v", err)
+		return e.JSON(http.StatusBadRequest, fmt.Errorf(static.MESSAGE_BAD_REQUEST))
+	}
+
+	// JWT検証
+	if err := JWTDecodeCommon(
+		c,
+		e,
+		req.UserHashKey,
+		JWT_TOKEN,
+		JWT_SECRET,
+		true,
+	); err != nil {
+		return err
+	}
+
+	// ロールチェック
+	exist, roleErr := c.role.Check(&request.CheckRole{
+		Abstract: request.Abstract{
+			UserHashKey: req.UserHashKey,
+		},
+		ID: static.ROLE_MANAGEMENT_SETTING_TEAM,
+	})
+	if roleErr != nil {
+		return e.JSON(roleErr.Status, response.ErrorConvert(*roleErr))
+	}
+	if !exist {
+		err := &response.Error{
+			Status: http.StatusForbidden,
+		}
+		return e.JSON(err.Status, response.ErrorConvert(*err))
+	}
+
+	res, err := c.s.GetOwnTeam(&req)
 	if err != nil {
 		return e.JSON(err.Status, response.ErrorConvert(*err))
 	}
@@ -561,8 +656,7 @@ func (c *UserController) InsertSchedules(e echo.Context) error {
 		return e.JSON(err.Status, response.ErrorConvert(*err))
 	}
 
-	_, err := c.s.CreateSchedule(&req)
-	if err != nil {
+	if err := c.s.CreateSchedule(&req); err != nil {
 		return e.JSON(err.Status, response.ErrorConvert(*err))
 	}
 	return e.JSON(http.StatusOK, "OK")
@@ -792,4 +886,56 @@ func (c *UserController) StatusEventsByTeam(e echo.Context) error {
 		return e.JSON(err.Status, response.ErrorConvert(*err))
 	}
 	return e.JSON(http.StatusOK, res)
+}
+
+// アサイン関連マスタ取得
+func (c *UserController) AssignMaster(e echo.Context) error {
+	res, err := c.s.AssignMaster()
+	if err != nil {
+		return e.JSON(err.Status, response.ErrorConvert(*err))
+	}
+	return e.JSON(http.StatusOK, res)
+}
+
+// 面接官割り振り方法更新
+func (c *UserController) UpdateAssignMethod(e echo.Context) error {
+	req := request.UpdateAssignMethod{}
+	if err := e.Bind(&req); err != nil {
+		log.Printf("%v", err)
+		return e.JSON(http.StatusBadRequest, fmt.Errorf(static.MESSAGE_BAD_REQUEST))
+	}
+
+	// JWT検証
+	if err := JWTDecodeCommon(
+		c,
+		e,
+		req.UserHashKey,
+		JWT_TOKEN,
+		JWT_SECRET,
+		true,
+	); err != nil {
+		return err
+	}
+
+	// ロールチェック
+	exist, roleErr := c.role.Check(&request.CheckRole{
+		Abstract: request.Abstract{
+			UserHashKey: req.UserHashKey,
+		},
+		ID: static.ROLE_MANAGEMENT_SETTING_TEAM,
+	})
+	if roleErr != nil {
+		return e.JSON(roleErr.Status, response.ErrorConvert(*roleErr))
+	}
+	if !exist {
+		err := &response.Error{
+			Status: http.StatusForbidden,
+		}
+		return e.JSON(err.Status, response.ErrorConvert(*err))
+	}
+
+	if err := c.s.UpdateAssignMethod(&req); err != nil {
+		return e.JSON(err.Status, response.ErrorConvert(*err))
+	}
+	return e.JSON(http.StatusOK, "OK")
 }

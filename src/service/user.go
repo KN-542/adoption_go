@@ -12,6 +12,7 @@ import (
 	"context"
 	"log"
 	"net/http"
+	"sort"
 	"strconv"
 	"time"
 )
@@ -29,18 +30,22 @@ type IUserService interface {
 	CreateTeam(req *request.CreateTeam) *response.Error
 	// チーム更新
 	UpdateTeam(req *request.UpdateTeam) *response.Error
+	// チーム基本情報更新
+	UpdateBasicTeam(req *request.UpdateBasicTeam) *response.Error
 	// チーム削除
 	DeleteTeam(req *request.DeleteTeam) *response.Error
 	// チーム検索
 	SearchTeam(req *request.SearchTeam) (*response.SearchTeam, *response.Error)
 	// チーム取得
 	GetTeam(req *request.GetTeam) (*response.GetTeam, *response.Error)
+	// 自チーム取得
+	GetOwnTeam(req *request.GetOwnTeam) (*response.GetOwnTeam, *response.Error)
 	// チーム検索_同一企業
 	SearchTeamByCompany(req *request.SearchTeamByCompany) (*response.SearchTeamByCompany, *response.Error)
 	// 予定登録種別一覧
 	SearchScheduleType() (*response.SearchScheduleType, *response.Error)
 	// 予定登録
-	CreateSchedule(req *request.CreateSchedule) (*response.CreateSchedule, *response.Error)
+	CreateSchedule(req *request.CreateSchedule) *response.Error
 	// 予定更新
 	UpdateSchedule(req *request.UpdateSchedule) *response.Error
 	// 予定検索
@@ -51,6 +56,10 @@ type IUserService interface {
 	ListStatusEvent() (*response.ListStatusEvent, *response.Error)
 	// チーム毎ステータスイベント取得
 	StatusEventsByTeam(req *request.StatusEventsByTeam) (*response.StatusEventsByTeam, *response.Error)
+	// アサイン関連マスタ取得
+	AssignMaster() (*response.AssignMaster, *response.Error)
+	// 面接官割り振り方法更新
+	UpdateAssignMethod(req *request.UpdateAssignMethod) *response.Error
 }
 
 type UserService struct {
@@ -460,6 +469,118 @@ func (u *UserService) GetTeam(req *request.GetTeam) (*response.GetTeam, *respons
 	}, nil
 }
 
+// 自チーム取得
+func (u *UserService) GetOwnTeam(req *request.GetOwnTeam) (*response.GetOwnTeam, *response.Error) {
+	// チームID取得
+	ctx := context.Background()
+	team, teamErr := u.redis.Get(ctx, req.UserHashKey, static.REDIS_USER_TEAM_ID)
+	if teamErr != nil {
+		return nil, &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+	teamID, teamIDErr := strconv.ParseUint(*team, 10, 64)
+	if teamIDErr != nil {
+		return nil, &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// 取得
+	res, resErr := u.user.GetTeamByPrimary(&ddl.Team{
+		AbstractTransactionModel: ddl.AbstractTransactionModel{
+			ID: teamID,
+		},
+	})
+	if resErr != nil {
+		return nil, &response.Error{
+			Status: http.StatusBadRequest,
+			Code:   static.CODE_BAD_REQUEST,
+		}
+	}
+
+	for _, row := range res.Users {
+		row.ID = 0
+	}
+
+	// チーム面接毎イベント取得
+	events, eventsErr := u.user.InterviewEventsByTeam(&ddl.Team{
+		AbstractTransactionModel: ddl.AbstractTransactionModel{
+			ID: teamID,
+		},
+	})
+	if eventsErr != nil {
+		return nil, &response.Error{
+			Status: http.StatusBadRequest,
+			Code:   static.CODE_BAD_REQUEST,
+		}
+	}
+
+	// 面接自動割り当てルール取得
+	var autoRule entity.TeamAutoAssignRule
+	if res.RuleID == static.ASSIGN_RULE_AUTO {
+		temp, tempErr := u.user.GetAutoAssignRule(&ddl.TeamAutoAssignRule{
+			TeamID: teamID,
+		})
+		if tempErr != nil {
+			return nil, &response.Error{
+				Status: http.StatusBadRequest,
+				Code:   static.CODE_BAD_REQUEST,
+			}
+		}
+		autoRule = *temp
+	}
+
+	// 面接割り振り優先順位取得
+	var priority []entity.TeamAssignPriority
+	if autoRule.RuleID == static.AUTO_ASSIGN_RULE_ASC {
+		tempList, tempErr := u.user.GetAssignPriority(&ddl.TeamAssignPriority{
+			TeamID: teamID,
+		})
+		if tempErr != nil {
+			return nil, &response.Error{
+				Status: http.StatusBadRequest,
+				Code:   static.CODE_BAD_REQUEST,
+			}
+		}
+		for _, row := range tempList {
+			priority = append(priority, *row)
+		}
+	}
+
+	// 面接毎参加可能者取得
+	possibleList, possibleErr := u.user.GetAssignPossible(&ddl.TeamAssignPossible{
+		TeamID: teamID,
+	})
+	if possibleErr != nil {
+		return nil, &response.Error{
+			Status: http.StatusBadRequest,
+			Code:   static.CODE_BAD_REQUEST,
+		}
+	}
+
+	return &response.GetOwnTeam{
+		Team: entity.Team{
+			Team: ddl.Team{
+				AbstractTransactionModel: ddl.AbstractTransactionModel{
+					HashKey: res.HashKey,
+				},
+				Name:           res.Name,
+				NumOfInterview: res.NumOfInterview,
+				UserMin:        res.UserMin,
+			},
+			RuleHash: res.RuleHash,
+			Users:    res.Users,
+		},
+		Events: events,
+		AutoRule: entity.TeamAutoAssignRule{
+			HashKey: autoRule.HashKey,
+		},
+		Priority:     priority,
+		PossibleList: possibleList,
+	}, nil
+}
+
 // チーム登録
 func (u *UserService) CreateTeam(req *request.CreateTeam) *response.Error {
 	// バリデーション
@@ -514,6 +635,9 @@ func (u *UserService) CreateTeam(req *request.CreateTeam) *response.Error {
 
 	// チーム登録
 	req.HashKey = string(static.PRE_TEAM) + "_" + *hashKey
+	req.NumOfInterview = 3
+	req.UserMin = 1
+	req.RuleID = static.ASSIGN_RULE_MANUAL
 	team, err := u.user.InsertTeam(tx, &req.Team)
 	if err != nil {
 		if err := u.d.TxRollback(tx); err != nil {
@@ -535,6 +659,28 @@ func (u *UserService) CreateTeam(req *request.CreateTeam) *response.Error {
 	}
 	// チーム紐づけ一括登録
 	if err := u.user.InsertsTeamAssociation(tx, teamAssociations); err != nil {
+		if err := u.d.TxRollback(tx); err != nil {
+			return &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// 面接毎参加可能者登録(全員参加可能)
+	var possibleList []*ddl.TeamAssignPossible
+	for i := 1; i <= int(team.NumOfInterview); i++ {
+		for _, id := range ids {
+			possibleList = append(possibleList, &ddl.TeamAssignPossible{
+				TeamID:         team.ID,
+				UserID:         id,
+				NumOfInterview: uint(i),
+			})
+		}
+	}
+	if err := u.user.InsertsAssignPossible(tx, possibleList); err != nil {
 		if err := u.d.TxRollback(tx); err != nil {
 			return &response.Error{
 				Status: http.StatusInternalServerError,
@@ -680,6 +826,75 @@ func (u *UserService) UpdateTeam(req *request.UpdateTeam) *response.Error {
 			return &response.Error{
 				Status: http.StatusInternalServerError,
 			}
+		}
+	}
+
+	if err := u.d.TxCommit(tx); err != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	return nil
+}
+
+// チーム基本情報更新
+func (u *UserService) UpdateBasicTeam(req *request.UpdateBasicTeam) *response.Error {
+	// バリデーション
+	if err := u.v.UpdateBasicTeam(req); err != nil {
+		log.Printf("%v", err)
+		return &response.Error{
+			Status: http.StatusBadRequest,
+			Code:   static.CODE_BAD_REQUEST,
+		}
+	}
+
+	// チームID取得
+	ctx := context.Background()
+	t, teamErr := u.redis.Get(ctx, req.UserHashKey, static.REDIS_USER_TEAM_ID)
+	if teamErr != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+	teamID, teamIDErr := strconv.ParseUint(*t, 10, 64)
+	if teamIDErr != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// チーム取得
+	team, err := u.user.GetTeamByPrimary(&ddl.Team{
+		AbstractTransactionModel: ddl.AbstractTransactionModel{
+			ID: teamID,
+		},
+	})
+	if err != nil {
+		return &response.Error{
+			Status: http.StatusBadRequest,
+			Code:   static.CODE_BAD_REQUEST,
+		}
+	}
+	req.HashKey = team.HashKey
+
+	tx, txErr := u.d.TxStart()
+	if txErr != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// チーム更新
+	_, updateErr := u.user.UpdateTeam(tx, &req.Team)
+	if updateErr != nil {
+		if err := u.d.TxRollback(tx); err != nil {
+			return &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+		return &response.Error{
+			Status: http.StatusInternalServerError,
 		}
 	}
 
@@ -841,20 +1056,48 @@ func (u *UserService) SearchScheduleType() (*response.SearchScheduleType, *respo
 }
 
 // 予定登録
-func (u *UserService) CreateSchedule(req *request.CreateSchedule) (*response.CreateSchedule, *response.Error) {
+func (u *UserService) CreateSchedule(req *request.CreateSchedule) *response.Error {
 	// バリデーション
 	if err := u.v.CreateSchedule(req); err != nil {
 		log.Printf("%v", err)
-		return nil, &response.Error{
+		return &response.Error{
 			Status: http.StatusBadRequest,
 			Code:   static.CODE_BAD_REQUEST,
+		}
+	}
+
+	// Redisから取得
+	ctx := context.Background()
+	teamRedis, teamRedisErr := u.redis.Get(ctx, req.UserHashKey, static.REDIS_USER_TEAM_ID)
+	if teamRedisErr != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+	teamID, teamIDErr := strconv.ParseUint(*teamRedis, 10, 64)
+	if teamIDErr != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+	company, companyErr := u.redis.Get(ctx, req.UserHashKey, static.REDIS_USER_COMPANY_ID)
+	if companyErr != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+	companyID, companyParseErr := strconv.ParseUint(*company, 10, 64)
+	if companyParseErr != nil {
+		log.Printf("%v", companyParseErr)
+		return &response.Error{
+			Status: http.StatusInternalServerError,
 		}
 	}
 
 	// ユーザー存在確認
 	ids, idsErr := u.user.GetIDs(req.Users)
 	if idsErr != nil {
-		return nil, &response.Error{
+		return &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
@@ -863,68 +1106,68 @@ func (u *UserService) CreateSchedule(req *request.CreateSchedule) (*response.Cre
 	_, hashKey, hashErr := GenerateHash(1, 25)
 	if hashErr != nil {
 		log.Printf("%v", hashErr)
-		return nil, &response.Error{
+		return &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
 
 	tx, txErr := u.d.TxStart()
 	if txErr != nil {
-		return nil, &response.Error{
+		return &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
 
 	// 予定登録
-	scheduleID, err := u.user.InsertSchedule(tx, &ddl.UserSchedule{
+	scheduleID, err := u.user.InsertSchedule(tx, &ddl.Schedule{
 		AbstractTransactionModel: ddl.AbstractTransactionModel{
-			HashKey: *hashKey,
+			HashKey:   *hashKey,
+			CompanyID: companyID,
 		},
 		InterviewFlg: req.InterviewFlg,
 		FreqID:       req.FreqID,
 		Start:        req.Start,
 		End:          req.End,
 		Title:        req.Title,
+		TeamID:       teamID,
 	})
 	if err != nil {
 		if err := u.d.TxRollback(tx); err != nil {
-			return nil, &response.Error{
+			return &response.Error{
 				Status: http.StatusInternalServerError,
 			}
 		}
-		return nil, &response.Error{
+		return &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
 
-	var userScheduleAssociations []*ddl.UserScheduleAssociation
+	// 予定紐づけ一括登録
+	var userScheduleAssociations []*ddl.ScheduleAssociation
 	for _, id := range ids {
-		userScheduleAssociations = append(userScheduleAssociations, &ddl.UserScheduleAssociation{
-			UserScheduleID: *scheduleID,
-			UserID:         id,
+		userScheduleAssociations = append(userScheduleAssociations, &ddl.ScheduleAssociation{
+			ScheduleID: *scheduleID,
+			UserID:     id,
 		})
 	}
-	// 予定紐づけ一括登録
 	if err := u.user.InsertsScheduleAssociation(tx, userScheduleAssociations); err != nil {
 		if err := u.d.TxRollback(tx); err != nil {
-			return nil, &response.Error{
+			return &response.Error{
 				Status: http.StatusInternalServerError,
 			}
 		}
-		return nil, &response.Error{
+		return &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
 
 	if err := u.d.TxCommit(tx); err != nil {
-		return nil, &response.Error{
+		return &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
 
-	return &response.CreateSchedule{
-		HashKey: *hashKey,
-	}, nil
+	return nil
 }
 
 // 予定更新
@@ -935,6 +1178,18 @@ func (u *UserService) UpdateSchedule(req *request.UpdateSchedule) *response.Erro
 		return &response.Error{
 			Status: http.StatusBadRequest,
 			Code:   static.CODE_BAD_REQUEST,
+		}
+	}
+
+	// 予定取得
+	schedule, scheduleErr := u.user.GetSchedule(&ddl.Schedule{
+		AbstractTransactionModel: ddl.AbstractTransactionModel{
+			HashKey: req.HashKey,
+		},
+	})
+	if scheduleErr != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
 		}
 	}
 
@@ -954,13 +1209,16 @@ func (u *UserService) UpdateSchedule(req *request.UpdateSchedule) *response.Erro
 	}
 
 	// 予定更新
-	scheduleID, err := u.user.UpdateSchedule(tx, &ddl.UserSchedule{
+	if err := u.user.UpdateSchedule(tx, &ddl.Schedule{
 		AbstractTransactionModel: ddl.AbstractTransactionModel{
-			HashKey:   req.HashKey,
+			HashKey:   schedule.HashKey,
 			UpdatedAt: time.Now(),
 		},
-	})
-	if err != nil {
+		FreqID: req.FreqID,
+		Start:  req.Start,
+		End:    req.End,
+		Title:  req.Title,
+	}); err != nil {
 		if err := u.d.TxRollback(tx); err != nil {
 			return &response.Error{
 				Status: http.StatusInternalServerError,
@@ -971,8 +1229,8 @@ func (u *UserService) UpdateSchedule(req *request.UpdateSchedule) *response.Erro
 		}
 	}
 	// 問答無用で紐づけテーブルの該当予定IDのレコード削除
-	if err := u.user.DeleteScheduleAssociation(tx, &ddl.UserScheduleAssociation{
-		UserScheduleID: *scheduleID,
+	if err := u.user.DeleteScheduleAssociation(tx, &ddl.ScheduleAssociation{
+		ScheduleID: schedule.ID,
 	}); err != nil {
 		if err := u.d.TxRollback(tx); err != nil {
 			return &response.Error{
@@ -984,14 +1242,14 @@ func (u *UserService) UpdateSchedule(req *request.UpdateSchedule) *response.Erro
 		}
 	}
 
-	var userScheduleAssociations []*ddl.UserScheduleAssociation
+	// 予定紐づけ一括登録
+	var userScheduleAssociations []*ddl.ScheduleAssociation
 	for _, id := range ids {
-		userScheduleAssociations = append(userScheduleAssociations, &ddl.UserScheduleAssociation{
-			UserScheduleID: *scheduleID,
-			UserID:         id,
+		userScheduleAssociations = append(userScheduleAssociations, &ddl.ScheduleAssociation{
+			ScheduleID: schedule.ID,
+			UserID:     id,
 		})
 	}
-	// 予定紐づけ一括登録
 	if err := u.user.InsertsScheduleAssociation(tx, userScheduleAssociations); err != nil {
 		if err := u.d.TxRollback(tx); err != nil {
 			return &response.Error{
@@ -1014,41 +1272,32 @@ func (u *UserService) UpdateSchedule(req *request.UpdateSchedule) *response.Erro
 
 // 予定検索 (バッチでも実行したい)
 func (u *UserService) SearchSchedule(req *request.SearchSchedule) (*response.SearchSchedule, *response.Error) {
-	// バリデーション
-	if err := u.v.SearchSchedule(req); err != nil {
-		log.Printf("%v", err)
-		return nil, &response.Error{
-			Status: http.StatusBadRequest,
-			Code:   static.CODE_BAD_REQUEST,
-		}
-	}
-
-	// 企業ID取得
+	// チームID取得
 	ctx := context.Background()
-	company, companyErr := u.redis.Get(ctx, req.HashKey, static.REDIS_USER_COMPANY_ID)
-	if companyErr != nil {
+	teamRedis, teamRedisErr := u.redis.Get(ctx, req.UserHashKey, static.REDIS_USER_TEAM_ID)
+	if teamRedisErr != nil {
 		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
-	companyID, companyParseErr := strconv.ParseUint(*company, 10, 64)
-	if companyParseErr != nil {
-		log.Printf("%v", companyParseErr)
+	teamID, teamIDErr := strconv.ParseUint(*teamRedis, 10, 64)
+	if teamIDErr != nil {
 		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
 
-	schedulesBefore, sErr := u.user.SearchSchedule(&ddl.UserSchedule{
-		AbstractTransactionModel: ddl.AbstractTransactionModel{
-			CompanyID: companyID,
-		},
+	schedulesBefore, sErr := u.user.SearchSchedule(&ddl.Schedule{
+		TeamID: teamID,
 	})
 	if sErr != nil {
 		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
+
+	var deleteList []uint64
+	var editList []*ddl.Schedule
 
 	tx, txErr := u.d.TxStart()
 	if txErr != nil {
@@ -1058,62 +1307,71 @@ func (u *UserService) SearchSchedule(req *request.SearchSchedule) (*response.Sea
 	}
 
 	// 日付が過去の場合、更新or削除
-	for _, schedule := range schedulesBefore {
-		if schedule.Start.Before(time.Now()) {
-			// なしの場合
-			if schedule.FreqID == uint(static.FREQ_NONE) {
-				if err := u.user.DeleteSchedule(tx, &ddl.UserSchedule{
-					AbstractTransactionModel: ddl.AbstractTransactionModel{
-						HashKey: schedule.HashKey,
-					},
-				}); err != nil {
-					if err := u.d.TxRollback(tx); err != nil {
-						return nil, &response.Error{
-							Status: http.StatusInternalServerError,
-						}
-					}
-					return nil, &response.Error{
-						Status: http.StatusInternalServerError,
-					}
-				}
-			} else {
-				s := schedule.Start
-				e := schedule.End
-				if schedule.FreqID == uint(static.FREQ_DAILY) {
-					s = s.AddDate(0, 0, 1)
-					e = e.AddDate(0, 0, 1)
-				}
-				if schedule.FreqID == uint(static.FREQ_WEEKLY) {
-					s = s.AddDate(0, 0, 7)
-					e = e.AddDate(0, 0, 7)
-				}
-				if schedule.FreqID == uint(static.FREQ_MONTHLY) {
-					s = s.AddDate(0, 1, 0)
-					e = e.AddDate(0, 1, 0)
-				}
-				if schedule.FreqID == uint(static.FREQ_YEARLY) {
-					s = s.AddDate(1, 0, 0)
-					e = e.AddDate(1, 0, 0)
-				}
+	if len(schedulesBefore) > 0 {
+		for _, schedule := range schedulesBefore {
+			if schedule.Start.Before(time.Now()) {
+				deleteList = append(deleteList, schedule.ID)
 
-				_, updateErr := u.user.UpdateSchedule(tx, &ddl.UserSchedule{
-					AbstractTransactionModel: ddl.AbstractTransactionModel{
-						HashKey:   schedule.HashKey,
-						UpdatedAt: time.Now(),
-					},
-					Start: s,
-					End:   e,
-				})
-				if updateErr != nil {
-					if err := u.d.TxRollback(tx); err != nil {
-						return nil, &response.Error{
-							Status: http.StatusInternalServerError,
-						}
+				// なし以外の場合
+				if schedule.FreqID != uint(static.FREQ_NONE) {
+					s := schedule.Start
+					e := schedule.End
+					if schedule.FreqID == uint(static.FREQ_DAILY) {
+						s = s.AddDate(0, 0, 1)
+						e = e.AddDate(0, 0, 1)
 					}
-					return nil, &response.Error{
-						Status: http.StatusInternalServerError,
+					if schedule.FreqID == uint(static.FREQ_WEEKLY) {
+						s = s.AddDate(0, 0, 7)
+						e = e.AddDate(0, 0, 7)
 					}
+					if schedule.FreqID == uint(static.FREQ_MONTHLY) {
+						s = s.AddDate(0, 1, 0)
+						e = e.AddDate(0, 1, 0)
+					}
+					if schedule.FreqID == uint(static.FREQ_YEARLY) {
+						s = s.AddDate(1, 0, 0)
+						e = e.AddDate(1, 0, 0)
+					}
+
+					editList = append(editList, &ddl.Schedule{
+						AbstractTransactionModel: ddl.AbstractTransactionModel{
+							HashKey:   schedule.HashKey,
+							CompanyID: schedule.CompanyID,
+							CreatedAt: schedule.CreatedAt,
+							UpdatedAt: time.Now(),
+						},
+						Start:        s,
+						End:          e,
+						Title:        schedule.Title,
+						FreqID:       schedule.FreqID,
+						InterviewFlg: schedule.InterviewFlg,
+						TeamID:       schedule.TeamID,
+					})
 				}
+			}
+		}
+	}
+
+	if err := u.user.DeletesSchedule(tx, deleteList); err != nil {
+		if err := u.d.TxRollback(tx); err != nil {
+			return nil, &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+		return nil, &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	if len(editList) > 0 {
+		if err := u.user.InsertsSchedule(tx, editList); err != nil {
+			if err := u.d.TxRollback(tx); err != nil {
+				return nil, &response.Error{
+					Status: http.StatusInternalServerError,
+				}
+			}
+			return nil, &response.Error{
+				Status: http.StatusInternalServerError,
 			}
 		}
 	}
@@ -1124,10 +1382,8 @@ func (u *UserService) SearchSchedule(req *request.SearchSchedule) (*response.Sea
 		}
 	}
 
-	schedulesAfter, err := u.user.SearchSchedule(&ddl.UserSchedule{
-		AbstractTransactionModel: ddl.AbstractTransactionModel{
-			CompanyID: companyID,
-		},
+	schedulesAfter, err := u.user.SearchSchedule(&ddl.Schedule{
+		TeamID: teamID,
 	})
 	if err != nil {
 		return nil, &response.Error{
@@ -1135,8 +1391,13 @@ func (u *UserService) SearchSchedule(req *request.SearchSchedule) (*response.Sea
 		}
 	}
 
-	var res []entity.UserSchedule
+	var res []entity.Schedule
 	for _, row := range schedulesAfter {
+		row.ID = 0
+		for _, row2 := range row.Users {
+			row2.ID = 0
+		}
+
 		res = append(res, *row)
 	}
 
@@ -1156,6 +1417,18 @@ func (u *UserService) DeleteSchedule(req *request.DeleteSchedule) *response.Erro
 		}
 	}
 
+	// 予定取得
+	schedule, scheduleErr := u.user.GetSchedule(&ddl.Schedule{
+		AbstractTransactionModel: ddl.AbstractTransactionModel{
+			HashKey: req.HashKey,
+		},
+	})
+	if scheduleErr != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
 	tx, err := u.d.TxStart()
 	if err != nil {
 		return &response.Error{
@@ -1163,8 +1436,26 @@ func (u *UserService) DeleteSchedule(req *request.DeleteSchedule) *response.Erro
 		}
 	}
 
+	// 紐づけ削除
+	if err := u.user.DeleteScheduleAssociation(tx, &ddl.ScheduleAssociation{
+		ScheduleID: schedule.ID,
+	}); err != nil {
+		if err := u.d.TxRollback(tx); err != nil {
+			return &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
 	// 削除
-	if err := u.user.DeleteSchedule(tx, &req.UserSchedule); err != nil {
+	if err := u.user.DeleteSchedule(tx, &ddl.Schedule{
+		AbstractTransactionModel: ddl.AbstractTransactionModel{
+			HashKey: schedule.HashKey,
+		},
+	}); err != nil {
 		if err := u.d.TxRollback(tx); err != nil {
 			return &response.Error{
 				Status: http.StatusInternalServerError,
@@ -1200,15 +1491,15 @@ func (u *UserService) ListStatusEvent() (*response.ListStatusEvent, *response.Er
 
 // チーム毎ステータスイベント取得
 func (u *UserService) StatusEventsByTeam(req *request.StatusEventsByTeam) (*response.StatusEventsByTeam, *response.Error) {
-	// チームID取得
+	// チーム取得
 	ctx := context.Background()
-	team, teamErr := u.redis.Get(ctx, req.UserHashKey, static.REDIS_USER_TEAM_ID)
-	if teamErr != nil {
+	teamRedis, teamRedisErr := u.redis.Get(ctx, req.UserHashKey, static.REDIS_USER_TEAM_ID)
+	if teamRedisErr != nil {
 		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
-	teamID, teamIDErr := strconv.ParseUint(*team, 10, 64)
+	teamID, teamIDErr := strconv.ParseUint(*teamRedis, 10, 64)
 	if teamIDErr != nil {
 		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
@@ -1230,4 +1521,284 @@ func (u *UserService) StatusEventsByTeam(req *request.StatusEventsByTeam) (*resp
 	return &response.StatusEventsByTeam{
 		List: res,
 	}, nil
+}
+
+// アサイン関連マスタ取得
+func (u *UserService) AssignMaster() (*response.AssignMaster, *response.Error) {
+	// アサインルール取得
+	rules, rulesErr := u.master.ListAssignRule()
+	if rulesErr != nil {
+		return nil, &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// 自動アサインルール取得
+	autoRule, autoRulesErr := u.master.ListAutoAssignRule()
+	if autoRulesErr != nil {
+		return nil, &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	return &response.AssignMaster{
+		Rule:     rules,
+		AutoRule: autoRule,
+	}, nil
+}
+
+// 面接官割り振り方法更新
+func (u *UserService) UpdateAssignMethod(req *request.UpdateAssignMethod) *response.Error {
+	// バリデーション
+	if err := u.v.UpdateAssignMethod(req); err != nil {
+		log.Printf("%v", err)
+		return &response.Error{
+			Status: http.StatusBadRequest,
+			Code:   static.CODE_BAD_REQUEST,
+		}
+	}
+	for _, row := range req.PossibleList {
+		if err := u.v.UpdateAssignMethod4(&row); err != nil {
+			log.Printf("%v", err)
+			return &response.Error{
+				Status: http.StatusBadRequest,
+				Code:   static.CODE_BAD_REQUEST,
+			}
+		}
+	}
+
+	// チームID取得
+	ctx := context.Background()
+	teamRedis, teamRedisErr := u.redis.Get(ctx, req.UserHashKey, static.REDIS_USER_TEAM_ID)
+	if teamRedisErr != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+	teamID, teamIDErr := strconv.ParseUint(*teamRedis, 10, 64)
+	if teamIDErr != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+	team, teamErr := u.user.GetTeamByPrimary(&ddl.Team{
+		AbstractTransactionModel: ddl.AbstractTransactionModel{
+			ID: teamID,
+		},
+	})
+	if teamErr != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// ルールハッシュからルール取得
+	rule, ruleErr := u.master.SelectAssignRule(&ddl.AssignRule{
+		AbstractMasterModel: ddl.AbstractMasterModel{
+			HashKey: req.RuleHash,
+		},
+	})
+	if ruleErr != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	var autoRule entity.AutoAssignRule
+	if rule.ID == static.ASSIGN_RULE_AUTO {
+		// 相関バリデーション1
+		if err := u.v.UpdateAssignMethod2(req); err != nil {
+			log.Printf("%v", err)
+			return &response.Error{
+				Status: http.StatusBadRequest,
+				Code:   static.CODE_BAD_REQUEST,
+			}
+		}
+
+		// 自動ルールハッシュから自動ルール取得
+		temp, tempErr := u.master.SelectAutoAssignRule(&ddl.AutoAssignRule{
+			AbstractMasterModel: ddl.AbstractMasterModel{
+				HashKey: req.AutoRuleHash,
+			},
+		})
+		if tempErr != nil {
+			return &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+		autoRule.ID = temp.ID
+	}
+
+	var priority []uint64
+	if autoRule.ID == static.AUTO_ASSIGN_RULE_ASC {
+		// 相関バリデーション2
+		if err := u.v.UpdateAssignMethod3(req); err != nil {
+			log.Printf("%v", err)
+			return &response.Error{
+				Status: http.StatusBadRequest,
+				Code:   static.CODE_BAD_REQUEST,
+			}
+		}
+
+		indexMap := make(map[string]int)
+		for i, v := range req.Priority {
+			indexMap[v] = i
+		}
+
+		sort.Slice(team.Users, func(i, j int) bool {
+			return indexMap[team.Users[i].HashKey] < indexMap[team.Users[j].HashKey]
+		})
+
+		for _, row := range team.Users {
+			priority = append(priority, row.ID)
+		}
+	}
+
+	// 参加可能者ID取得
+	var possibleList []*ddl.TeamAssignPossible
+	for _, possible := range req.PossibleList {
+		newPossible := &ddl.TeamAssignPossible{
+			TeamID:         teamID,
+			NumOfInterview: possible.NumOfInterview,
+		}
+
+		for _, user := range team.Users {
+			if possible.HashKey == user.HashKey {
+				newPossible.UserID = user.ID
+				break
+			}
+		}
+
+		possibleList = append(possibleList, newPossible)
+	}
+
+	tx, txErr := u.d.TxStart()
+	if txErr != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// ルール更新
+	_, updateTeamErr := u.user.UpdateTeam(tx, &ddl.Team{
+		AbstractTransactionModel: ddl.AbstractTransactionModel{
+			HashKey: team.HashKey,
+		},
+		RuleID:  rule.ID,
+		UserMin: req.UserMin,
+	})
+	if updateTeamErr != nil {
+		if err := u.d.TxRollback(tx); err != nil {
+			return &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// 自動ルール削除
+	if err := u.user.DeleteAutoAssignRule(tx, &ddl.TeamAutoAssignRule{
+		TeamID: team.ID,
+	}); err != nil {
+		if err := u.d.TxRollback(tx); err != nil {
+			return &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// 優先順位削除
+	if err := u.user.DeleteAssignPriority(tx, &ddl.TeamAssignPriority{
+		TeamID: team.ID,
+	}); err != nil {
+		if err := u.d.TxRollback(tx); err != nil {
+			return &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// 面接参加可能者削除
+	if err := u.user.DeleteAssignPossible(tx, &ddl.TeamAssignPossible{
+		TeamID: team.ID,
+	}); err != nil {
+		if err := u.d.TxRollback(tx); err != nil {
+			return &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// 面接参加可能者一括登録
+	if err := u.user.InsertsAssignPossible(tx, possibleList); err != nil {
+		if err := u.d.TxRollback(tx); err != nil {
+			return &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// 自動ルール更新
+	if rule.ID == static.ASSIGN_RULE_AUTO && autoRule.ID > 0 {
+		// 登録
+		if err := u.user.InsertAutoAssignRule(tx, &ddl.TeamAutoAssignRule{
+			TeamID: team.ID,
+			RuleID: autoRule.ID,
+		}); err != nil {
+			if err := u.d.TxRollback(tx); err != nil {
+				return &response.Error{
+					Status: http.StatusInternalServerError,
+				}
+			}
+			return &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+
+		// 優先順位更新
+		if autoRule.ID == static.AUTO_ASSIGN_RULE_ASC && len(priority) == len(team.Users) {
+			var list []*ddl.TeamAssignPriority
+			for index, row := range priority {
+				list = append(list, &ddl.TeamAssignPriority{
+					TeamID:   team.ID,
+					UserID:   row,
+					Priority: uint(index + 1),
+				})
+			}
+
+			// 一括登録
+			if err := u.user.InsertsAssignPriority(tx, list); err != nil {
+				if err := u.d.TxRollback(tx); err != nil {
+					return &response.Error{
+						Status: http.StatusInternalServerError,
+					}
+				}
+				return &response.Error{
+					Status: http.StatusInternalServerError,
+				}
+			}
+		}
+	}
+
+	if err := u.d.TxCommit(tx); err != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	return nil
 }

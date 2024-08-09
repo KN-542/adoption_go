@@ -23,6 +23,8 @@ type IUserValidator interface {
 	CreateTeam(u *request.CreateTeam) error
 	// チーム更新
 	UpdateTeam(u *request.UpdateTeam) error
+	// チーム基本情報更新
+	UpdateBasicTeam(u *request.UpdateBasicTeam) error
 	// チーム削除
 	DeleteTeam(u *request.DeleteTeam) error
 	// チーム取得
@@ -31,10 +33,16 @@ type IUserValidator interface {
 	CreateSchedule(u *request.CreateSchedule) error
 	// 予定更新
 	UpdateSchedule(u *request.UpdateSchedule) error
-	// 予定検索
-	SearchSchedule(u *request.SearchSchedule) error
 	// 予定削除
 	DeleteSchedule(u *request.DeleteSchedule) error
+	// 面接官割り振り方法更新
+	UpdateAssignMethod(u *request.UpdateAssignMethod) error
+	// 面接官割り振り方法更新2
+	UpdateAssignMethod2(u *request.UpdateAssignMethod) error
+	// 面接官割り振り方法更新3
+	UpdateAssignMethod3(u *request.UpdateAssignMethod) error
+	// 面接官割り振り方法更新4
+	UpdateAssignMethod4(u *request.UpdateAssignMethodSub) error
 }
 
 type UserValidator struct{}
@@ -129,6 +137,18 @@ func (v *UserValidator) UpdateTeam(u *request.UpdateTeam) error {
 	)
 }
 
+// チーム基本情報更新
+func (v *UserValidator) UpdateBasicTeam(u *request.UpdateBasicTeam) error {
+	return validation.ValidateStruct(
+		u,
+		validation.Field(
+			&u.NumOfInterview,
+			validation.Min(uint(1)),
+			validation.Max(uint(30)),
+		),
+	)
+}
+
 // チーム削除
 func (v *UserValidator) DeleteTeam(u *request.DeleteTeam) error {
 	return validation.ValidateStruct(
@@ -151,12 +171,13 @@ func (v *UserValidator) GetTeam(u *request.GetTeam) error {
 	)
 }
 
+// 予定登録
 func (v *UserValidator) CreateSchedule(u *request.CreateSchedule) error {
 	return validation.ValidateStruct(
 		u,
 		validation.Field(
 			&u.FreqID,
-			validation.Min(0),
+			validation.Min(uint(0)),
 			validation.Max(uint(static.FREQ_NONE)),
 			IsUintValidator{},
 		),
@@ -181,12 +202,6 @@ func (v *UserValidator) UpdateSchedule(u *request.UpdateSchedule) error {
 	return validation.ValidateStruct(
 		u,
 		validation.Field(
-			&u.FreqID,
-			validation.Min(0),
-			validation.Max(uint(static.FREQ_NONE)),
-			IsUintValidator{},
-		),
-		validation.Field(
 			&u.Start,
 			validation.Required,
 		),
@@ -202,13 +217,6 @@ func (v *UserValidator) UpdateSchedule(u *request.UpdateSchedule) error {
 	)
 }
 
-// 予定検索
-func (v *UserValidator) SearchSchedule(u *request.SearchSchedule) error {
-	return validation.ValidateStruct(
-		u,
-	)
-}
-
 // 予定削除
 func (v *UserValidator) DeleteSchedule(u *request.DeleteSchedule) error {
 	return validation.ValidateStruct(
@@ -216,6 +224,67 @@ func (v *UserValidator) DeleteSchedule(u *request.DeleteSchedule) error {
 		validation.Field(
 			&u.HashKey,
 			validation.Required,
+		),
+	)
+}
+
+// 面接官割り振り方法更新
+func (v *UserValidator) UpdateAssignMethod(u *request.UpdateAssignMethod) error {
+	return validation.ValidateStruct(
+		u,
+		validation.Field(
+			&u.RuleHash,
+			validation.Required,
+		),
+		validation.Field(
+			&u.PossibleList,
+			validation.Required,
+			validation.Length(1, 0),
+		),
+	)
+}
+
+// 面接官割り振り方法更新2
+func (v *UserValidator) UpdateAssignMethod2(u *request.UpdateAssignMethod) error {
+	return validation.ValidateStruct(
+		u,
+		validation.Field(
+			&u.AutoRuleHash,
+			validation.Required,
+		),
+	)
+}
+
+// 面接官割り振り方法更新3
+func (v *UserValidator) UpdateAssignMethod3(u *request.UpdateAssignMethod) error {
+	return validation.ValidateStruct(
+		u,
+		validation.Field(
+			&u.Priority,
+			validation.Required,
+			validation.Length(1, 0),
+			validation.Each(validation.Required),
+			UniqueValidator{},
+		),
+		validation.Field(
+			&u.PossibleList,
+			validation.Required,
+			validation.Length(1, 0),
+		),
+	)
+}
+
+// 面接官割り振り方法更新4
+func (v *UserValidator) UpdateAssignMethod4(u *request.UpdateAssignMethodSub) error {
+	return validation.ValidateStruct(
+		u,
+		validation.Field(
+			&u.HashKey,
+			validation.Required,
+		),
+		validation.Field(
+			&u.NumOfInterview,
+			validation.Min(uint(1)),
 		),
 	)
 }

@@ -112,6 +112,27 @@ const (
 	STATUS_EVENT_SUBMIT_DOCUMENTS uint = 2
 )
 
+// m_assign_rule
+const (
+	ASSIGN_RULE_MANUAL uint = 1
+	ASSIGN_RULE_AUTO   uint = 2
+)
+const (
+	ASSIGN_RULE_CONFIG_UNREQUIRED uint = 0
+	ASSIGN_RULE_CONFIG_REQUIRED   uint = 1
+)
+
+// m_auto_assign_rule
+const (
+	AUTO_ASSIGN_RULE_RANDOM        uint = 1
+	AUTO_ASSIGN_RULE_ASC           uint = 2
+	AUTO_ASSIGN_RULE_DESC_SCHEDULE uint = 3
+)
+const (
+	AUTO_ASSIGN_RULE_CONFIG_UNREQUIRED uint = 0
+	AUTO_ASSIGN_RULE_CONFIG_REQUIRED   uint = 1
+)
+
 // m_hash_key_pre
 const (
 	PRE_COMPANY       string = "company"

@@ -304,6 +304,16 @@ func (s *ApplicantService) Download(req *request.ApplicantDownload) (*response.A
 		}
 	}
 
+	// ステータス取得
+	list, listErr := s.r.ListStatus(&ddl.SelectStatus{
+		TeamID: teamID,
+	})
+	if listErr != nil {
+		return nil, &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
 	// 重複チェック
 	var request request.ApplicantDownload
 	var outerIDs []string
@@ -380,14 +390,15 @@ func (s *ApplicantService) Download(req *request.ApplicantDownload) (*response.A
 					HashKey:   *hash,
 					CompanyID: companyID,
 				},
-				OuterID: row.OuterID,
-				SiteID:  site.ID,
-				Status:  1,
-				Name:    row.Name,
-				Email:   row.Email,
-				Tel:     row.Tel,
-				Age:     uint(row.Age),
-				TeamID:  teamID,
+				OuterID:        row.OuterID,
+				SiteID:         site.ID,
+				Status:         list[0].ID,
+				Name:           row.Name,
+				Email:          row.Email,
+				Tel:            row.Tel,
+				Age:            uint(row.Age),
+				TeamID:         teamID,
+				NumOfInterview: 1,
 			}
 			applicants = append(applicants, applicant)
 		}
@@ -419,7 +430,7 @@ func (s *ApplicantService) Download(req *request.ApplicantDownload) (*response.A
 func (s *ApplicantService) ReserveTable(req *request.ReserveTable) (*response.ReserveTable, *response.Error) {
 	const WEEKS = 7
 	const RESERVE_DURATION = 2 * WEEKS
-	var schedules []entity.UserSchedule
+	var schedules []entity.Schedule
 
 	// バリデーション
 	if err := s.v.ReserveTable(req); err != nil {
@@ -447,51 +458,39 @@ func (s *ApplicantService) ReserveTable(req *request.ReserveTable) (*response.Re
 		}
 	}
 
-	// チーム取得
-	ctx := context.Background()
-	team, teamErr := s.redis.Get(ctx, req.HashKey, static.REDIS_USER_TEAM_ID)
-	if teamErr != nil {
-		return nil, &response.Error{
-			Status: http.StatusInternalServerError,
-		}
-	}
-	teamID, teamIDErr := strconv.ParseUint(*team, 10, 64)
-	if teamIDErr != nil {
-		return nil, &response.Error{
-			Status: http.StatusInternalServerError,
-		}
-	}
-
-	// チーム所属ユーザー一覧取得
-	users, usersErr := s.u.ListUserAssociation(&ddl.TeamAssociation{
-		TeamID: teamID,
+	// 応募者取得
+	applicant, applicantErr := s.r.Get(&ddl.Applicant{
+		AbstractTransactionModel: ddl.AbstractTransactionModel{
+			HashKey: req.HashKey,
+		},
 	})
-	if usersErr != nil {
+	if applicantErr != nil {
 		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
 
-	// ユーザー毎チェック
-	for _, user := range users {
-		// ユーザー予定取得
-		schedulesUTC, schedulesErr := s.u.ListUserScheduleAssociation(&ddl.UserScheduleAssociation{
-			UserID: user.UserID,
-		})
-		if schedulesErr != nil {
-			return nil, &response.Error{
-				Status: http.StatusInternalServerError,
-			}
+	// 面接参加可能者取得
+	models, modelsErr := s.u.GetAssignPossibleSchedule(&ddl.TeamAssignPossible{
+		TeamID:         applicant.TeamID,
+		NumOfInterview: applicant.NumOfInterview,
+	})
+	if modelsErr != nil {
+		return nil, &response.Error{
+			Status: http.StatusInternalServerError,
 		}
+	}
+
+	// 整形
+	for _, model := range models {
 		// TZを日本に
-		var schedulesJST []entity.UserSchedule
-		for _, row := range schedulesUTC {
-			start := row.Start.In(jst)
-			end := row.End.In(jst)
-			row.Start = start
-			row.End = end
-			schedulesJST = append(schedulesJST, row)
+		var schedulesJST []entity.Schedule
+		for _, row := range model.Schedules {
+			row.Start = row.Start.In(jst)
+			row.End = row.End.In(jst)
+			schedulesJST = append(schedulesJST, *row)
 		}
+
 		// スケジュールの頻度が「毎日」と「毎週」の場合、コピー
 		start := time.Now().AddDate(0, 0, WEEKS).In(jst)
 		s := time.Date(
@@ -573,73 +572,81 @@ func (s *ApplicantService) ReserveTable(req *request.ReserveTable) (*response.Re
 			if !isReserve {
 				reserveTime = append(reserveTime, dto.ReserveTableSub{
 					Time:      d,
+					Users:     []string{},
 					IsReserve: false,
 				})
 			} else {
-				var count int = 0
+				var tempUsers []string
 				for _, schedule := range schedules {
-					// 予定毎ユーザー数
-					users2, users2Err := s.u.SearchScheduleUserAssociation(&ddl.UserScheduleAssociation{
-						UserScheduleID: schedule.ID,
-					})
-					if users2Err != nil {
-						return nil, &response.Error{
-							Status: http.StatusInternalServerError,
-						}
-					}
-					for _, u_1 := range users {
-						isDupl := false
-						for _, u_2 := range users2 {
-							if u_1.UserID == u_2.UserID {
-								isDupl = true
-								break
-							}
-						}
-						if isDupl {
-							count++
+					// 時刻が対象範囲の場合
+					if d.After(schedule.Start.Add(-1*time.Minute)) && d.Before(schedule.End.Add(1*time.Minute)) {
+						for _, user := range schedule.Users {
+							tempUsers = append(tempUsers, user.HashKey)
 						}
 					}
 				}
+
+				var users []string
+				for _, model := range models {
+					users = append(users, model.UserHashKey)
+				}
+
+				seen := make(map[string]bool)
+				unableUsers := []string{}
+
+				for _, str := range tempUsers {
+					if !seen[str] {
+						seen[str] = true
+						unableUsers = append(unableUsers, str)
+					}
+				}
+
+				var ableUsers []string
+				for _, a := range users {
+					found := false
+					for _, b := range unableUsers {
+						if a == b {
+							found = true
+							break
+						}
+					}
+
+					if !found {
+						ableUsers = append(ableUsers, a)
+					}
+				}
+
 				reserveTime = append(reserveTime, dto.ReserveTableSub{
 					Time:      d,
-					IsReserve: len(users)-count > 0,
+					Users:     ableUsers,
+					IsReserve: len(ableUsers) > int(applicant.NumOfInterview),
 				})
 			}
 		}
 	}
 
 	// 面接予定取得
-	var resSchedule entity.UserSchedule
-	applicant, applicantErr := s.r.Get(&ddl.Applicant{
-		AbstractTransactionModel: ddl.AbstractTransactionModel{
-			HashKey: req.HashKey,
-		},
-	})
-	if applicantErr != nil {
-		return nil, &response.Error{
-			Status: http.StatusInternalServerError,
-		}
-	}
+	var res entity.Schedule
 	if applicant.ScheduleID > 0 {
-		schedule, err := s.u.GetScheduleByPrimary(&ddl.UserSchedule{
+		applicantSchedule, applicantScheduleErr := s.u.GetScheduleByPrimary(&ddl.Schedule{
 			AbstractTransactionModel: ddl.AbstractTransactionModel{
 				ID: applicant.ScheduleID,
 			},
 		})
-		if err != nil {
+		if applicantScheduleErr != nil {
 			return nil, &response.Error{
 				Status: http.StatusInternalServerError,
 			}
 		}
-		resSchedule.Start = schedule.Start
-		resSchedule.HashKey = schedule.HashKey
+		res.Start = applicantSchedule.Start
+		res.End = applicantSchedule.End
 	}
 
 	return &response.ReserveTable{
 		Dates:           times,
 		Options:         reserveTime,
-		Schedule:        resSchedule.Start,
-		ScheduleHashKey: resSchedule.HashKey,
+		Schedule:        res.Start,
+		ScheduleHashKey: res.HashKey,
 	}, nil
 }
 
@@ -842,7 +849,7 @@ func (s *ApplicantService) InsertDesiredAt(req *request.InsertDesiredAt) *respon
 		}
 
 		// 予定登録
-		id, sheduleErr := s.u.InsertSchedule(tx, &ddl.UserSchedule{
+		id, sheduleErr := s.u.InsertSchedule(tx, &ddl.Schedule{
 			AbstractTransactionModel: ddl.AbstractTransactionModel{
 				HashKey:   *hash,
 				CompanyID: applicant.CompanyID,
@@ -865,11 +872,9 @@ func (s *ApplicantService) InsertDesiredAt(req *request.InsertDesiredAt) *respon
 		}
 
 		// 応募者側更新
-		if err := s.r.Update(tx, &ddl.Applicant{
-			AbstractTransactionModel: ddl.AbstractTransactionModel{
-				HashKey: req.HashKey,
-			},
-			ScheduleID: *id,
+		if err := s.r.UpdateApplicantScheduleAssociation(tx, &ddl.ApplicantScheduleAssociation{
+			ApplicantID: applicant.ID,
+			ScheduleID:  *id,
 		}); err != nil {
 			if err := s.d.TxRollback(tx); err != nil {
 				return &response.Error{
@@ -888,7 +893,7 @@ func (s *ApplicantService) InsertDesiredAt(req *request.InsertDesiredAt) *respon
 		}
 	} else {
 		// 予定取得
-		schedule, scheduleErr := s.u.GetScheduleByPrimary(&ddl.UserSchedule{
+		schedule, scheduleErr := s.u.GetScheduleByPrimary(&ddl.Schedule{
 			AbstractTransactionModel: ddl.AbstractTransactionModel{
 				ID: applicant.ScheduleID,
 			},
@@ -907,15 +912,14 @@ func (s *ApplicantService) InsertDesiredAt(req *request.InsertDesiredAt) *respon
 		}
 
 		// 予定更新
-		_, updateErr := s.u.UpdateSchedule(tx, &ddl.UserSchedule{
+		if err := s.u.UpdateSchedule(tx, &ddl.Schedule{
 			AbstractTransactionModel: ddl.AbstractTransactionModel{
 				HashKey: schedule.HashKey,
 			},
 			Start: req.DesiredAt,
 			End:   req.DesiredAt.Add(time.Hour),
 			Title: req.Title,
-		})
-		if updateErr != nil {
+		}); err != nil {
 			if err := s.d.TxRollback(tx); err != nil {
 				return &response.Error{
 					Status: http.StatusInternalServerError,
@@ -968,7 +972,7 @@ func (s *ApplicantService) GetGoogleMeetUrl(req *request.GetGoogleMeetUrl) (*res
 	}
 
 	// 予定取得
-	schedule, scheduleErr := s.u.GetScheduleByPrimary(&ddl.UserSchedule{
+	schedule, scheduleErr := s.u.GetScheduleByPrimary(&ddl.Schedule{
 		AbstractTransactionModel: ddl.AbstractTransactionModel{
 			ID: applicant.ScheduleID,
 		},
@@ -1135,7 +1139,7 @@ func (s *ApplicantService) UpdateStatus(req *request.UpdateStatus) *response.Err
 		}
 	}
 	for index := range req.Events {
-		req.Events[index].EventID = uint64(events[index].ID)
+		req.Events[index].EventID = events[index].ID
 	}
 
 	tx, txErr := s.d.TxStart()
@@ -1221,6 +1225,42 @@ func (s *ApplicantService) UpdateStatus(req *request.UpdateStatus) *response.Err
 			})
 		}
 		if err := s.u.InsertsEventAssociation(tx, eventsDDL); err != nil {
+			if err := s.d.TxRollback(tx); err != nil {
+				return &response.Error{
+					Status: http.StatusInternalServerError,
+				}
+			}
+			return &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+	}
+
+	// 面接毎イベントを一度全削除
+	if err := s.u.DeleteEventEachInterviewAssociation(tx, &ddl.TeamEventEachInterview{
+		TeamID: teamID,
+	}); err != nil {
+		if err := s.d.TxRollback(tx); err != nil {
+			return &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// 面接毎イベントに登録
+	if len(req.EventsOfInterview) > 0 {
+		var eventsDDL []*ddl.TeamEventEachInterview
+		for _, row := range req.EventsOfInterview {
+			eventsDDL = append(eventsDDL, &ddl.TeamEventEachInterview{
+				TeamID:         teamID,
+				NumOfInterview: row.Num,
+				StatusID:       ids.List[row.Status].ID,
+			})
+		}
+		if err := s.u.InsertsEventEachInterviewAssociation(tx, eventsDDL); err != nil {
 			if err := s.d.TxRollback(tx); err != nil {
 				return &response.Error{
 					Status: http.StatusInternalServerError,

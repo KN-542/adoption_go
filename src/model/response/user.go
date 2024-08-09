@@ -32,6 +32,15 @@ type GetTeam struct {
 	entity.Team
 }
 
+// チーム取得
+type GetOwnTeam struct {
+	Team         entity.Team                    `json:"team"`
+	Events       []entity.InterviewEventsByTeam `json:"events"`
+	AutoRule     entity.TeamAutoAssignRule      `json:"auto_rule"`
+	Priority     []entity.TeamAssignPriority    `json:"priority"`
+	PossibleList []entity.TeamAssignPossible    `json:"possible_list"`
+}
+
 // チーム検索_同一企業
 type SearchTeamByCompany struct {
 	List []entity.SearchTeam `json:"list"`
@@ -49,7 +58,7 @@ type CreateSchedule struct {
 
 // 予定検索
 type SearchSchedule struct {
-	List []entity.UserSchedule `json:"list"`
+	List []entity.Schedule `json:"list"`
 }
 
 // ステータスイベントマスタ一覧
@@ -60,4 +69,10 @@ type ListStatusEvent struct {
 // チーム毎ステータスイベント取得
 type StatusEventsByTeam struct {
 	List []entity.StatusEventsByTeam `json:"list"`
+}
+
+// アサイン関連マスタ取得
+type AssignMaster struct {
+	Rule     []entity.AssignRule     `json:"rule"`
+	AutoRule []entity.AutoAssignRule `json:"auto_rule"`
 }

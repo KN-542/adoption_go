@@ -8,6 +8,8 @@ import (
 // 応募者
 type Applicant struct {
 	ddl.Applicant
+	// 予定ID
+	ScheduleID uint64 `json:"schedule_id"`
 }
 
 // 応募者ユーザー紐づけ

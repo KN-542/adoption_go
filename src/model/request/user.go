@@ -42,6 +42,12 @@ type UpdateTeam struct {
 	Users []string `json:"users"`
 }
 
+// チーム基本情報更新
+type UpdateBasicTeam struct {
+	Abstract
+	ddl.Team
+}
+
 // チーム削除
 type DeleteTeam struct {
 	Abstract
@@ -52,6 +58,11 @@ type DeleteTeam struct {
 type GetTeam struct {
 	Abstract
 	ddl.Team
+}
+
+// 自チーム取得
+type GetOwnTeam struct {
+	Abstract
 }
 
 // チーム検索
@@ -68,7 +79,7 @@ type SearchTeamByCompany struct {
 // 予定登録
 type CreateSchedule struct {
 	Abstract
-	ddl.UserSchedule
+	ddl.Schedule
 	// ユーザーリスト
 	Users []string `json:"users"`
 }
@@ -76,7 +87,7 @@ type CreateSchedule struct {
 // 予定更新
 type UpdateSchedule struct {
 	Abstract
-	ddl.UserSchedule
+	ddl.Schedule
 	// ユーザーリスト
 	Users []string `json:"users"`
 }
@@ -84,16 +95,35 @@ type UpdateSchedule struct {
 // 予定検索
 type SearchSchedule struct {
 	Abstract
-	ddl.UserSchedule
 }
 
 // 予定削除
 type DeleteSchedule struct {
 	Abstract
-	ddl.UserSchedule
+	ddl.Schedule
 }
 
 // チーム毎ステータスイベント取得
 type StatusEventsByTeam struct {
 	Abstract
+}
+
+// 面接官割り振り方法更新
+type UpdateAssignMethod struct {
+	Abstract
+	// 最低面接人数
+	UserMin uint `json:"user_min"`
+	// ルールハッシュ
+	RuleHash string `json:"rule_hash"`
+	// 自動ルールハッシュ
+	AutoRuleHash string `json:"auto_rule_hash"`
+	// 優先順位
+	Priority []string `json:"priority"`
+	// 各面接参加可能者
+	PossibleList []UpdateAssignMethodSub `json:"possible_list"`
+}
+type UpdateAssignMethodSub struct {
+	ddl.TeamAssignPossible
+	// ハッシュキー
+	HashKey string `json:"hash_key"`
 }

@@ -37,6 +37,8 @@ func main() {
 			&ddl.HashKeyPre{},
 			&ddl.S3NamePre{},
 			&ddl.SelectStatusEvent{},
+			&ddl.AssignRule{},
+			&ddl.AutoAssignRule{},
 			// t
 			&ddl.Company{},
 			&ddl.CustomRole{},
@@ -46,10 +48,18 @@ func main() {
 			&ddl.TeamAssociation{},
 			&ddl.SelectStatus{},
 			&ddl.TeamEvent{},
-			&ddl.UserSchedule{},
-			&ddl.UserScheduleAssociation{},
+			&ddl.TeamEventEachInterview{},
+			&ddl.TeamAutoAssignRule{},
+			&ddl.TeamAssignPriority{},
+			&ddl.TeamAssignPossible{},
+			&ddl.Schedule{},
+			&ddl.ScheduleAssociation{},
 			&ddl.Applicant{},
 			&ddl.ApplicantUserAssociation{},
+			&ddl.ApplicantScheduleAssociation{},
+			&ddl.Manuscript{},
+			&ddl.ManuscriptTeamAssociation{},
+			&ddl.ManuscriptSiteAssociation{},
 			&ddl.MailTemplate{},
 			&ddl.Variable{},
 			&ddl.MailPreview{},
@@ -247,6 +257,36 @@ func main() {
 			log.Println(err)
 		}
 
+		// m_assign_rule
+		if err := AddTableComment(dbConn, "m_assign_rule", "面接アサインルールマスタ"); err != nil {
+			log.Println(err)
+		}
+		mAssignRule := map[string]string{
+			"id":                       "ID",
+			"hash_key":                 "ハッシュキー",
+			"desc_ja":                  "説明_日本語",
+			"desc_en":                  "説明_英語",
+			"additional_configuration": "追加設定必要性",
+		}
+		if err := AddColumnComments(dbConn, "m_assign_rule", mAssignRule); err != nil {
+			log.Println(err)
+		}
+
+		// m_auto_assign_rule
+		if err := AddTableComment(dbConn, "m_auto_assign_rule", "面接自動割り当てルールマスタ"); err != nil {
+			log.Println(err)
+		}
+		mAutoAssignRule := map[string]string{
+			"id":                       "ID",
+			"hash_key":                 "ハッシュキー",
+			"desc_ja":                  "説明_日本語",
+			"desc_en":                  "説明_英語",
+			"additional_configuration": "追加設定必要性",
+		}
+		if err := AddColumnComments(dbConn, "m_auto_assign_rule", mAutoAssignRule); err != nil {
+			log.Println(err)
+		}
+
 		// t_company
 		if err := AddTableComment(dbConn, "t_company", "企業"); err != nil {
 			log.Println(err)
@@ -321,12 +361,15 @@ func main() {
 			log.Println(err)
 		}
 		team := map[string]string{
-			"id":         "ID",
-			"hash_key":   "ハッシュキー",
-			"name":       "チーム名",
-			"company_id": "企業ID",
-			"created_at": "登録日時",
-			"updated_at": "更新日時",
+			"id":               "ID",
+			"hash_key":         "ハッシュキー",
+			"name":             "チーム名",
+			"num_of_interview": "最大面接回数",
+			"user_min":         "最低面接人数",
+			"rule_id":          "ルールID",
+			"company_id":       "企業ID",
+			"created_at":       "登録日時",
+			"updated_at":       "更新日時",
 		}
 		if err := AddColumnComments(dbConn, "t_team", team); err != nil {
 			log.Println(err)
@@ -337,7 +380,7 @@ func main() {
 			log.Println(err)
 		}
 		teamAssociation := map[string]string{
-			"team_id": "チーム",
+			"team_id": "チームID",
 			"user_id": "ユーザーID",
 		}
 		if err := AddColumnComments(dbConn, "t_team_association", teamAssociation); err != nil {
@@ -374,8 +417,59 @@ func main() {
 			log.Println(err)
 		}
 
-		// t_user_schedule
-		if err := AddTableComment(dbConn, "t_user_schedule", "ユーザー予定"); err != nil {
+		// t_team_event_each_interview
+		if err := AddTableComment(dbConn, "t_team_event_each_interview", "チーム面接毎イベント"); err != nil {
+			log.Println(err)
+		}
+		teamEventEachInterview := map[string]string{
+			"team_id":          "チームID",
+			"num_of_interview": "面接回数",
+			"status_id":        "ステータスID",
+		}
+		if err := AddColumnComments(dbConn, "t_team_event_each_interview", teamEventEachInterview); err != nil {
+			log.Println(err)
+		}
+
+		// t_team_auto_assign_rule_association
+		if err := AddTableComment(dbConn, "t_team_auto_assign_rule_association", "チーム面接自動割り当てルール紐づけ"); err != nil {
+			log.Println(err)
+		}
+		teamAutoAssignRule := map[string]string{
+			"team_id": "チームID",
+			"rule_id": "ルールID",
+		}
+		if err := AddColumnComments(dbConn, "t_team_auto_assign_rule_association", teamAutoAssignRule); err != nil {
+			log.Println(err)
+		}
+
+		// t_team_assign_priority
+		if err := AddTableComment(dbConn, "t_team_assign_priority", "面接割り振り優先順位"); err != nil {
+			log.Println(err)
+		}
+		teamAssignPriority := map[string]string{
+			"team_id":  "チームID",
+			"user_id":  "ユーザーID",
+			"priority": "優先順位",
+		}
+		if err := AddColumnComments(dbConn, "t_team_assign_priority", teamAssignPriority); err != nil {
+			log.Println(err)
+		}
+
+		// t_team_assign_possible
+		if err := AddTableComment(dbConn, "t_team_assign_possible", "面接毎参加可能者"); err != nil {
+			log.Println(err)
+		}
+		teamAssignPossible := map[string]string{
+			"team_id":          "チームID",
+			"num_of_interview": "面接回数",
+			"user_id":          "ユーザーID",
+		}
+		if err := AddColumnComments(dbConn, "t_team_assign_possible", teamAssignPossible); err != nil {
+			log.Println(err)
+		}
+
+		// t_schedule
+		if err := AddTableComment(dbConn, "t_schedule", "予定"); err != nil {
 			log.Println(err)
 		}
 		userSchedule := map[string]string{
@@ -387,22 +481,23 @@ func main() {
 			"company_id":    "企業ID",
 			"start":         "開始時刻",
 			"end":           "終了時刻",
+			"team_id":       "チームID",
 			"created_at":    "登録日時",
 			"updated_at":    "更新日時",
 		}
-		if err := AddColumnComments(dbConn, "t_user_schedule", userSchedule); err != nil {
+		if err := AddColumnComments(dbConn, "t_schedule", userSchedule); err != nil {
 			log.Println(err)
 		}
 
-		// t_user_schedule_association
-		if err := AddTableComment(dbConn, "t_user_schedule_association", "ユーザー予定紐づけ"); err != nil {
+		// t_schedule_association
+		if err := AddTableComment(dbConn, "t_schedule_association", "予定紐づけ"); err != nil {
 			log.Println(err)
 		}
 		userScheduleAssociation := map[string]string{
-			"user_schedule_id": "ユーザー予定ID",
-			"user_id":          "ユーザーID",
+			"schedule_id": "予定ID",
+			"user_id":     "ユーザーID",
 		}
-		if err := AddColumnComments(dbConn, "t_user_schedule_association", userScheduleAssociation); err != nil {
+		if err := AddColumnComments(dbConn, "t_schedule_association", userScheduleAssociation); err != nil {
 			log.Println(err)
 		}
 
@@ -423,7 +518,6 @@ func main() {
 			"resume":           "履歴書",
 			"curriculum_vitae": "職務経歴書",
 			"google_meet_url":  "Google Meet URL",
-			"schedule_id":      "予定ID",
 			"company_id":       "企業ID",
 			"created_at":       "登録日時",
 			"updated_at":       "更新日時",
@@ -441,6 +535,58 @@ func main() {
 			"user_id":      "ユーザーID",
 		}
 		if err := AddColumnComments(dbConn, "t_applicant_user_association", applicantUserAssociation); err != nil {
+			log.Println(err)
+		}
+
+		// t_applicant_schedule_association
+		if err := AddTableComment(dbConn, "t_applicant_schedule_association", "応募者面接予定紐づけ"); err != nil {
+			log.Println(err)
+		}
+		applicantScheduleAssociation := map[string]string{
+			"applicant_id": "応募者ID",
+			"schedule_id":  "予定ID",
+		}
+		if err := AddColumnComments(dbConn, "t_applicant_schedule_association", applicantScheduleAssociation); err != nil {
+			log.Println(err)
+		}
+
+		// t_manuscript
+		if err := AddTableComment(dbConn, "t_manuscript", "原稿"); err != nil {
+			log.Println(err)
+		}
+		manuscript := map[string]string{
+			"id":         "ID",
+			"hash_key":   "ハッシュキー",
+			"company_id": "企業ID",
+			"content":    "原稿内容",
+			"created_at": "登録日時",
+			"updated_at": "更新日時",
+		}
+		if err := AddColumnComments(dbConn, "t_manuscript", manuscript); err != nil {
+			log.Println(err)
+		}
+
+		// t_manuscript_team_association
+		if err := AddTableComment(dbConn, "t_manuscript_team_association", "原稿チーム紐づけ"); err != nil {
+			log.Println(err)
+		}
+		manuscriptTeamAssociation := map[string]string{
+			"manuscript_id": "原稿ID",
+			"team_id":       "チームID",
+		}
+		if err := AddColumnComments(dbConn, "t_manuscript_team_association", manuscriptTeamAssociation); err != nil {
+			log.Println(err)
+		}
+
+		// t_manuscript_site_association
+		if err := AddTableComment(dbConn, "t_manuscript_site_association", "原稿サイト紐づけ"); err != nil {
+			log.Println(err)
+		}
+		manuscriptSiteAssociation := map[string]string{
+			"manuscript_id": "原稿ID",
+			"site_id":       "サイトID",
+		}
+		if err := AddColumnComments(dbConn, "t_manuscript_site_association", manuscriptSiteAssociation); err != nil {
 			log.Println(err)
 		}
 
@@ -573,6 +719,8 @@ func main() {
 			&ddl.HashKeyPre{},
 			&ddl.S3NamePre{},
 			&ddl.SelectStatusEvent{},
+			&ddl.AssignRule{},
+			&ddl.AutoAssignRule{},
 			// t
 			&ddl.Company{},
 			&ddl.CustomRole{},
@@ -582,10 +730,18 @@ func main() {
 			&ddl.TeamAssociation{},
 			&ddl.SelectStatus{},
 			&ddl.TeamEvent{},
-			&ddl.UserSchedule{},
-			&ddl.UserScheduleAssociation{},
+			&ddl.TeamEventEachInterview{},
+			&ddl.TeamAutoAssignRule{},
+			&ddl.TeamAssignPriority{},
+			&ddl.TeamAssignPossible{},
+			&ddl.Schedule{},
+			&ddl.ScheduleAssociation{},
 			&ddl.Applicant{},
 			&ddl.ApplicantUserAssociation{},
+			&ddl.ApplicantScheduleAssociation{},
+			&ddl.Manuscript{},
+			&ddl.ManuscriptTeamAssociation{},
+			&ddl.ManuscriptSiteAssociation{},
 			&ddl.MailTemplate{},
 			&ddl.Variable{},
 			&ddl.MailPreview{},
@@ -714,21 +870,91 @@ func CreateData(db *gorm.DB) {
 			AbstractMasterModel: ddl.AbstractMasterModel{
 				ID: uint(static.STATUS_EVENT_DECIDE_SCHEDULE),
 			},
-			DescJa: "応募者が日程調整のフォームを入力した時",
-			DescEn: "When an applicant fills out the scheduling form",
+			DescJa: "応募者が日程調整のフォームを入力した時(初回面接)",
+			DescEn: "When an applicant fills out the scheduling form (initial interview)",
 		},
 		{
 			AbstractMasterModel: ddl.AbstractMasterModel{
 				ID: uint(static.STATUS_EVENT_SUBMIT_DOCUMENTS),
 			},
-			DescJa: "応募者がフォームから必要書類を提出した時",
-			DescEn: "When the applicant submits the required documents via the form",
+			DescJa: "応募者がフォームから必要書類を提出した時(初回面接)",
+			DescEn: "When the applicant submits the required documents via the form (initial interview)",
 		},
 	}
 	for _, row := range events {
 		_, hash, _ := service.GenerateHash(1, 25)
 		row.HashKey = "m_select_status_event" + "_" + *hash
 		if err := master.InsertSelectStatusEvent(tx, row); err != nil {
+			if err := tx.Rollback().Error; err != nil {
+				log.Printf("%v", err)
+				return
+			}
+			return
+		}
+	}
+
+	// m_assign_rule
+	rules := []*ddl.AssignRule{
+		{
+			AbstractMasterModel: ddl.AbstractMasterModel{
+				ID: uint(static.ASSIGN_RULE_MANUAL),
+			},
+			DescJa:                  "手動で割り当て",
+			DescEn:                  "Manual assignment",
+			AdditionalConfiguration: static.ASSIGN_RULE_CONFIG_UNREQUIRED,
+		},
+		{
+			AbstractMasterModel: ddl.AbstractMasterModel{
+				ID: uint(static.ASSIGN_RULE_AUTO),
+			},
+			DescJa:                  "自動で割り当て",
+			DescEn:                  "Auto assignment",
+			AdditionalConfiguration: static.ASSIGN_RULE_CONFIG_REQUIRED,
+		},
+	}
+	for _, row := range rules {
+		_, hash, _ := service.GenerateHash(1, 25)
+		row.HashKey = "m_assign_rule" + "_" + *hash
+		if err := master.InsertAssignRule(tx, row); err != nil {
+			if err := tx.Rollback().Error; err != nil {
+				log.Printf("%v", err)
+				return
+			}
+			return
+		}
+	}
+
+	// m_auto_assign_rule
+	autoAssignRules := []*ddl.AutoAssignRule{
+		{
+			AbstractMasterModel: ddl.AbstractMasterModel{
+				ID: uint(static.AUTO_ASSIGN_RULE_RANDOM),
+			},
+			DescJa:                  "ランダム",
+			DescEn:                  "Random",
+			AdditionalConfiguration: static.AUTO_ASSIGN_RULE_CONFIG_UNREQUIRED,
+		},
+		{
+			AbstractMasterModel: ddl.AbstractMasterModel{
+				ID: uint(static.AUTO_ASSIGN_RULE_ASC),
+			},
+			DescJa:                  "優先順位を事前決定",
+			DescEn:                  "Pre-determine priorities",
+			AdditionalConfiguration: static.AUTO_ASSIGN_RULE_CONFIG_REQUIRED,
+		},
+		{
+			AbstractMasterModel: ddl.AbstractMasterModel{
+				ID: uint(static.AUTO_ASSIGN_RULE_DESC_SCHEDULE),
+			},
+			DescJa:                  "予定が少ない順",
+			DescEn:                  "In order of least scheduled",
+			AdditionalConfiguration: static.AUTO_ASSIGN_RULE_CONFIG_UNREQUIRED,
+		},
+	}
+	for _, row := range autoAssignRules {
+		_, hash, _ := service.GenerateHash(1, 25)
+		row.HashKey = "m_auto_assign_rule" + "_" + *hash
+		if err := master.InsertAutoAssignRule(tx, row); err != nil {
 			if err := tx.Rollback().Error; err != nil {
 				log.Printf("%v", err)
 				return

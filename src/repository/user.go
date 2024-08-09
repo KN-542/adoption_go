@@ -35,6 +35,8 @@ type IUserRepository interface {
 	SearchTeam(m *ddl.Team) ([]*entity.SearchTeam, error)
 	// チーム取得
 	GetTeam(m *ddl.Team) (*entity.Team, error)
+	// チーム取得_PK
+	GetTeamByPrimary(m *ddl.Team) (*entity.Team, error)
 	// チーム更新
 	UpdateTeam(tx *gorm.DB, m *ddl.Team) (*entity.Team, error)
 	// チーム削除
@@ -42,17 +44,21 @@ type IUserRepository interface {
 	// チーム検索_同一企業
 	SearchTeamByCompany(m *ddl.Team) ([]entity.SearchTeam, error)
 	// 予定登録
-	InsertSchedule(tx *gorm.DB, m *ddl.UserSchedule) (*uint64, error)
+	InsertSchedule(tx *gorm.DB, m *ddl.Schedule) (*uint64, error)
+	// 予定一括登録
+	InsertsSchedule(tx *gorm.DB, m []*ddl.Schedule) error
 	// 予定検索
-	SearchSchedule(m *ddl.UserSchedule) ([]*entity.UserSchedule, error)
+	SearchSchedule(m *ddl.Schedule) ([]*entity.Schedule, error)
 	// 予定取得
-	GetSchedule(m *ddl.UserSchedule) (*entity.UserSchedule, error)
+	GetSchedule(m *ddl.Schedule) (*entity.Schedule, error)
 	// 予定取得_PK
-	GetScheduleByPrimary(m *ddl.UserSchedule) (*entity.UserSchedule, error)
+	GetScheduleByPrimary(m *ddl.Schedule) (*entity.Schedule, error)
 	// 予定更新
-	UpdateSchedule(tx *gorm.DB, m *ddl.UserSchedule) (*uint64, error)
+	UpdateSchedule(tx *gorm.DB, m *ddl.Schedule) error
 	// 予定削除
-	DeleteSchedule(tx *gorm.DB, m *ddl.UserSchedule) error
+	DeleteSchedule(tx *gorm.DB, m *ddl.Schedule) error
+	// 予定一括削除
+	DeletesSchedule(tx *gorm.DB, m []uint64) error
 	// チーム紐づけ登録
 	InsertTeamAssociation(tx *gorm.DB, m *ddl.TeamAssociation) error
 	// チーム紐づけ一括登録
@@ -65,16 +71,20 @@ type IUserRepository interface {
 	ListBelongTeam(m *ddl.TeamAssociation) ([]entity.Team, error)
 	// チーム紐づけ削除
 	DeleteTeamAssociation(tx *gorm.DB, m *ddl.TeamAssociation) error
+	// チーム毎ステータスイベント取得
+	StatusEventsByTeam(m *ddl.Team) ([]entity.StatusEventsByTeam, error)
+	// チーム面接毎イベント取得
+	InterviewEventsByTeam(m *ddl.Team) ([]entity.InterviewEventsByTeam, error)
 	// 予定紐づけ登録
-	InsertScheduleAssociation(tx *gorm.DB, m *ddl.UserScheduleAssociation) error
+	InsertScheduleAssociation(tx *gorm.DB, m *ddl.ScheduleAssociation) error
 	// 予定紐づけ一括登録
-	InsertsScheduleAssociation(tx *gorm.DB, m []*ddl.UserScheduleAssociation) error
+	InsertsScheduleAssociation(tx *gorm.DB, m []*ddl.ScheduleAssociation) error
 	// 予定紐づけ取得
-	ListUserScheduleAssociation(m *ddl.UserScheduleAssociation) ([]entity.UserSchedule, error)
+	ListUserScheduleAssociation(m *ddl.ScheduleAssociation) ([]entity.Schedule, error)
 	// 予定毎ユーザー紐づけ取得
-	SearchScheduleUserAssociation(m *ddl.UserScheduleAssociation) ([]entity.UserScheduleAssociation, error)
+	SearchScheduleUserAssociation(m *ddl.ScheduleAssociation) ([]entity.ScheduleAssociation, error)
 	// 予定紐づけ削除
-	DeleteScheduleAssociation(tx *gorm.DB, m *ddl.UserScheduleAssociation) error
+	DeleteScheduleAssociation(tx *gorm.DB, m *ddl.ScheduleAssociation) error
 	// 選考状況登録
 	InsertSelectStatus(tx *gorm.DB, m *ddl.SelectStatus) error
 	// 選考状況一括登録
@@ -91,6 +101,30 @@ type IUserRepository interface {
 	InsertsEventAssociation(tx *gorm.DB, m []*ddl.TeamEvent) error
 	// イベント削除
 	DeleteEventAssociation(tx *gorm.DB, m *ddl.TeamEvent) error
+	// 面接毎イベント一括登録
+	InsertsEventEachInterviewAssociation(tx *gorm.DB, m []*ddl.TeamEventEachInterview) error
+	// 面接毎イベント削除
+	DeleteEventEachInterviewAssociation(tx *gorm.DB, m *ddl.TeamEventEachInterview) error
+	// 面接自動割り当てルールイベント登録
+	InsertAutoAssignRule(tx *gorm.DB, m *ddl.TeamAutoAssignRule) error
+	// 面接自動割り当てルールイベント取得
+	GetAutoAssignRule(m *ddl.TeamAutoAssignRule) (*entity.TeamAutoAssignRule, error)
+	// 面接自動割り当てルールイベント削除
+	DeleteAutoAssignRule(tx *gorm.DB, m *ddl.TeamAutoAssignRule) error
+	// 面接割り振り優先順位一括登録
+	InsertsAssignPriority(tx *gorm.DB, m []*ddl.TeamAssignPriority) error
+	// 面接割り振り優先順位取得
+	GetAssignPriority(m *ddl.TeamAssignPriority) ([]*entity.TeamAssignPriority, error)
+	// 面接割り振り優先順位削除
+	DeleteAssignPriority(tx *gorm.DB, m *ddl.TeamAssignPriority) error
+	// 面接毎参加可能者一括登録
+	InsertsAssignPossible(tx *gorm.DB, m []*ddl.TeamAssignPossible) error
+	// 面接毎参加可能者取得
+	GetAssignPossible(m *ddl.TeamAssignPossible) ([]entity.TeamAssignPossible, error)
+	// 面接毎参加可能者予定取得
+	GetAssignPossibleSchedule(m *ddl.TeamAssignPossible) ([]entity.AssignPossibleSchedule, error)
+	// 面接毎参加可能者削除
+	DeleteAssignPossible(tx *gorm.DB, m *ddl.TeamAssignPossible) error
 	// メールアドレス重複チェック
 	EmailDuplCheck(m *ddl.User) error
 	// メールアドレス重複チェック_管理者
@@ -99,8 +133,6 @@ type IUserRepository interface {
 	GetIDs(m []string) ([]uint64, error)
 	// チームID取得
 	GetTeamIDs(m []string) ([]uint64, error)
-	// チーム毎ステータスイベント取得
-	StatusEventsByTeam(m *ddl.Team) ([]entity.StatusEventsByTeam, error)
 }
 
 type UserRepository struct {
@@ -310,10 +342,38 @@ func (u *UserRepository) GetTeam(m *ddl.Team) (*entity.Team, error) {
 	return &res, nil
 }
 
+// チーム取得_PK
+func (u *UserRepository) GetTeamByPrimary(m *ddl.Team) (*entity.Team, error) {
+	var res entity.Team
+	if err := u.db.Table("t_team").
+		Select(`
+			t_team.*,
+			m_assign_rule.hash_key as rule_hash
+		`).
+		Joins("left join m_assign_rule on t_team.rule_id = m_assign_rule.id").
+		Where(
+			&ddl.Team{
+				AbstractTransactionModel: ddl.AbstractTransactionModel{
+					ID: m.ID,
+				},
+			},
+		).Preload("Users", func(db *gorm.DB) *gorm.DB {
+		return db.Table("t_user").Select("id, hash_key, name, email")
+	}).First(&res).Error; err != nil {
+		log.Printf("%v", err)
+		return nil, err
+	}
+
+	return &res, nil
+}
+
 // チーム更新
 func (u *UserRepository) UpdateTeam(tx *gorm.DB, m *ddl.Team) (*entity.Team, error) {
 	team := ddl.Team{
-		Name: m.Name,
+		Name:           m.Name,
+		NumOfInterview: m.NumOfInterview,
+		RuleID:         m.RuleID,
+		UserMin:        m.UserMin,
 		AbstractTransactionModel: ddl.AbstractTransactionModel{
 			UpdatedAt: time.Now(),
 		},
@@ -373,8 +433,53 @@ func (u *UserRepository) SearchTeamByCompany(m *ddl.Team) ([]entity.SearchTeam, 
 	return l, nil
 }
 
+// チーム毎ステータスイベント取得
+func (u *UserRepository) StatusEventsByTeam(m *ddl.Team) ([]entity.StatusEventsByTeam, error) {
+	var res []entity.StatusEventsByTeam
+
+	query := u.db.Table("t_team_event").
+		Select(`
+			m_select_status_event.hash_key as event_hash_key,
+			m_select_status_event.desc_ja as desc_ja,
+			m_select_status_event.desc_en as desc_en,
+			t_select_status.hash_key as select_status_hash_key,
+			t_select_status.status_name as status_name
+		`).
+		Joins("left join t_select_status on t_team_event.status_id = t_select_status.id").
+		Joins("left join m_select_status_event on t_team_event.event_id = m_select_status_event.id").
+		Where("t_team_event.team_id = ?", m.ID)
+
+	if err := query.Find(&res).Error; err != nil {
+		log.Printf("%v", err)
+		return nil, err
+	}
+
+	return res, nil
+}
+
+// チーム面接毎イベント取得
+func (u *UserRepository) InterviewEventsByTeam(m *ddl.Team) ([]entity.InterviewEventsByTeam, error) {
+	var res []entity.InterviewEventsByTeam
+
+	query := u.db.Table("t_team_event_each_interview").
+		Select(`
+			t_team_event_each_interview.num_of_interview as num_of_interview,
+			t_select_status.hash_key as select_status_hash_key,
+			t_select_status.status_name as status_name
+		`).
+		Joins("left join t_select_status on t_team_event_each_interview.status_id = t_select_status.id").
+		Where("t_team_event_each_interview.team_id = ?", m.ID)
+
+	if err := query.Find(&res).Error; err != nil {
+		log.Printf("%v", err)
+		return nil, err
+	}
+
+	return res, nil
+}
+
 // 予定登録
-func (u *UserRepository) InsertSchedule(tx *gorm.DB, m *ddl.UserSchedule) (*uint64, error) {
+func (u *UserRepository) InsertSchedule(tx *gorm.DB, m *ddl.Schedule) (*uint64, error) {
 	if err := tx.Create(m).Error; err != nil {
 		log.Printf("%v", err)
 		return nil, err
@@ -383,16 +488,37 @@ func (u *UserRepository) InsertSchedule(tx *gorm.DB, m *ddl.UserSchedule) (*uint
 	return &m.ID, nil
 }
 
+// 予定一括登録
+func (u *UserRepository) InsertsSchedule(tx *gorm.DB, m []*ddl.Schedule) error {
+	if err := tx.Create(m).Error; err != nil {
+		log.Printf("%v", err)
+		return err
+	}
+
+	return nil
+}
+
 // 予定検索
-func (u *UserRepository) SearchSchedule(m *ddl.UserSchedule) ([]*entity.UserSchedule, error) {
-	var res []*entity.UserSchedule
+func (u *UserRepository) SearchSchedule(m *ddl.Schedule) ([]*entity.Schedule, error) {
+	var res []*entity.Schedule
 
-	query := u.db.Table("t_user_schedule").
-		Select("t_user_schedule.*, m_schedule_freq_status.freq").
-		Joins("left join m_schedule_freq_status on t_user_schedule.freq_id = m_schedule_freq_status.id").
-		Where("t_user_schedule.company_id = ?", m.CompanyID)
+	query := u.db.Table("t_schedule").
+		Select(`
+		t_schedule.id,
+		t_schedule.hash_key,
+		t_schedule.title,
+		t_schedule.freq_id,
+		t_schedule.interview_flg,
+		t_schedule.start,
+		t_schedule.end,
+		m_schedule_freq_status.freq_name
+	`).
+		Joins("left join m_schedule_freq_status on t_schedule.freq_id = m_schedule_freq_status.id").
+		Where("t_schedule.team_id = ?", m.TeamID)
 
-	if err := query.Find(&res).Error; err != nil {
+	if err := query.Preload("Users", func(db *gorm.DB) *gorm.DB {
+		return db.Table("t_user").Select("id, hash_key, name, email")
+	}).Find(&res).Error; err != nil {
 		log.Printf("%v", err)
 		return nil, err
 	}
@@ -400,10 +526,10 @@ func (u *UserRepository) SearchSchedule(m *ddl.UserSchedule) ([]*entity.UserSche
 }
 
 // 予定取得_PK
-func (u *UserRepository) GetScheduleByPrimary(m *ddl.UserSchedule) (*entity.UserSchedule, error) {
-	var res entity.UserSchedule
+func (u *UserRepository) GetScheduleByPrimary(m *ddl.Schedule) (*entity.Schedule, error) {
+	var res entity.Schedule
 	if err := u.db.Where(
-		&ddl.UserSchedule{
+		&ddl.Schedule{
 			AbstractTransactionModel: ddl.AbstractTransactionModel{
 				ID: m.ID,
 			},
@@ -417,10 +543,10 @@ func (u *UserRepository) GetScheduleByPrimary(m *ddl.UserSchedule) (*entity.User
 }
 
 // 予定取得
-func (u *UserRepository) GetSchedule(m *ddl.UserSchedule) (*entity.UserSchedule, error) {
-	var res entity.UserSchedule
+func (u *UserRepository) GetSchedule(m *ddl.Schedule) (*entity.Schedule, error) {
+	var res entity.Schedule
 	if err := u.db.Where(
-		&ddl.UserSchedule{
+		&ddl.Schedule{
 			AbstractTransactionModel: ddl.AbstractTransactionModel{
 				HashKey: m.HashKey,
 			},
@@ -434,32 +560,42 @@ func (u *UserRepository) GetSchedule(m *ddl.UserSchedule) (*entity.UserSchedule,
 }
 
 // 予定更新
-func (u *UserRepository) UpdateSchedule(tx *gorm.DB, m *ddl.UserSchedule) (*uint64, error) {
-	if err := tx.Model(&ddl.UserSchedule{}).Where(
-		&ddl.UserSchedule{
+func (u *UserRepository) UpdateSchedule(tx *gorm.DB, m *ddl.Schedule) error {
+	if err := tx.Model(&ddl.Schedule{}).Where(
+		&ddl.Schedule{
 			AbstractTransactionModel: ddl.AbstractTransactionModel{
 				HashKey: m.HashKey,
 			},
 		},
-	).Updates(&ddl.UserSchedule{
+	).Updates(&ddl.Schedule{
 		AbstractTransactionModel: ddl.AbstractTransactionModel{
 			UpdatedAt: time.Now(),
 		},
-		Title:  m.Title,
-		FreqID: m.FreqID,
-		Start:  m.Start,
-		End:    m.End,
+		InterviewFlg: m.InterviewFlg,
+		Title:        m.Title,
+		FreqID:       m.FreqID,
+		Start:        m.Start,
+		End:          m.End,
 	}).Error; err != nil {
 		log.Printf("%v", err)
-		return nil, err
+		return err
 	}
 
-	return &m.ID, nil
+	return nil
 }
 
 // 予定削除
-func (u *UserRepository) DeleteSchedule(tx *gorm.DB, m *ddl.UserSchedule) error {
-	if err := tx.Where(m).Delete(&ddl.UserSchedule{}).Error; err != nil {
+func (u *UserRepository) DeleteSchedule(tx *gorm.DB, m *ddl.Schedule) error {
+	if err := tx.Where(m).Delete(&ddl.Schedule{}).Error; err != nil {
+		log.Printf("%v", err)
+		return err
+	}
+	return nil
+}
+
+// 予定一括削除
+func (u *UserRepository) DeletesSchedule(tx *gorm.DB, m []uint64) error {
+	if err := tx.Table("t_schedule").Where("id IN ?", m).Delete(&ddl.Schedule{}).Error; err != nil {
 		log.Printf("%v", err)
 		return err
 	}
@@ -542,7 +678,7 @@ func (u *UserRepository) DeleteTeamAssociation(tx *gorm.DB, m *ddl.TeamAssociati
 }
 
 // 予定紐づけ登録
-func (u *UserRepository) InsertScheduleAssociation(tx *gorm.DB, m *ddl.UserScheduleAssociation) error {
+func (u *UserRepository) InsertScheduleAssociation(tx *gorm.DB, m *ddl.ScheduleAssociation) error {
 	if err := tx.Create(m).Error; err != nil {
 		log.Printf("%v", err)
 		return err
@@ -551,7 +687,7 @@ func (u *UserRepository) InsertScheduleAssociation(tx *gorm.DB, m *ddl.UserSched
 }
 
 // 予定紐づけ一括登録
-func (u *UserRepository) InsertsScheduleAssociation(tx *gorm.DB, m []*ddl.UserScheduleAssociation) error {
+func (u *UserRepository) InsertsScheduleAssociation(tx *gorm.DB, m []*ddl.ScheduleAssociation) error {
 	if err := tx.Create(m).Error; err != nil {
 		log.Printf("%v", err)
 		return err
@@ -560,16 +696,16 @@ func (u *UserRepository) InsertsScheduleAssociation(tx *gorm.DB, m []*ddl.UserSc
 }
 
 // 予定紐づけ一覧取得
-func (u *UserRepository) ListUserScheduleAssociation(m *ddl.UserScheduleAssociation) ([]entity.UserSchedule, error) {
-	var res []entity.UserSchedule
-	if err := u.db.Table("t_user_schedule").
+func (u *UserRepository) ListUserScheduleAssociation(m *ddl.ScheduleAssociation) ([]entity.Schedule, error) {
+	var res []entity.Schedule
+	if err := u.db.Table("t_schedule").
 		Joins(`
 			left join
-				t_user_schedule_association
+				t_schedule_association
 			on
-				t_user_schedule_association.user_schedule_id = t_user_schedule.id
+				t_schedule_association.schedule_id = t_schedule.id
 		`).
-		Where("t_user_schedule_association.user_id = ?", m.UserID).
+		Where("t_schedule_association.user_id = ?", m.UserID).
 		Find(&res).Error; err != nil {
 		log.Printf("%v", err)
 		return nil, err
@@ -579,11 +715,11 @@ func (u *UserRepository) ListUserScheduleAssociation(m *ddl.UserScheduleAssociat
 }
 
 // 予定毎ユーザー紐づけ取得
-func (u *UserRepository) SearchScheduleUserAssociation(m *ddl.UserScheduleAssociation) ([]entity.UserScheduleAssociation, error) {
-	var res []entity.UserScheduleAssociation
+func (u *UserRepository) SearchScheduleUserAssociation(m *ddl.ScheduleAssociation) ([]entity.ScheduleAssociation, error) {
+	var res []entity.ScheduleAssociation
 	if err := u.db.Where(
-		&ddl.UserScheduleAssociation{
-			UserScheduleID: m.UserScheduleID,
+		&ddl.ScheduleAssociation{
+			ScheduleID: m.ScheduleID,
 		},
 	).Find(&res).Error; err != nil {
 		log.Printf("%v", err)
@@ -594,10 +730,10 @@ func (u *UserRepository) SearchScheduleUserAssociation(m *ddl.UserScheduleAssoci
 }
 
 // 予定紐づけ削除
-func (u *UserRepository) DeleteScheduleAssociation(tx *gorm.DB, m *ddl.UserScheduleAssociation) error {
-	if err := tx.Where(&ddl.UserScheduleAssociation{
-		UserScheduleID: m.UserScheduleID,
-	}).Delete(&ddl.User{}).Error; err != nil {
+func (u *UserRepository) DeleteScheduleAssociation(tx *gorm.DB, m *ddl.ScheduleAssociation) error {
+	if err := tx.Table("t_schedule_association").Where(&ddl.ScheduleAssociation{
+		ScheduleID: m.ScheduleID,
+	}).Delete(&ddl.ScheduleAssociation{}).Error; err != nil {
 		log.Printf("%v", err)
 		return err
 	}
@@ -626,7 +762,27 @@ func (u *UserRepository) InsertsEventAssociation(tx *gorm.DB, m []*ddl.TeamEvent
 func (u *UserRepository) DeleteEventAssociation(tx *gorm.DB, m *ddl.TeamEvent) error {
 	if err := tx.Model(&ddl.TeamEvent{}).Where(&ddl.TeamEvent{
 		TeamID: m.TeamID,
-	}).Delete(&ddl.User{}).Error; err != nil {
+	}).Delete(&ddl.TeamEvent{}).Error; err != nil {
+		log.Printf("%v", err)
+		return err
+	}
+	return nil
+}
+
+// 面接毎イベント一括登録
+func (u *UserRepository) InsertsEventEachInterviewAssociation(tx *gorm.DB, m []*ddl.TeamEventEachInterview) error {
+	if err := tx.Create(m).Error; err != nil {
+		log.Printf("%v", err)
+		return err
+	}
+	return nil
+}
+
+// 面接毎イベント削除
+func (u *UserRepository) DeleteEventEachInterviewAssociation(tx *gorm.DB, m *ddl.TeamEventEachInterview) error {
+	if err := tx.Model(&ddl.TeamEventEachInterview{}).Where(&ddl.TeamEventEachInterview{
+		TeamID: m.TeamID,
+	}).Delete(&ddl.TeamEventEachInterview{}).Error; err != nil {
 		log.Printf("%v", err)
 		return err
 	}
@@ -675,10 +831,10 @@ func (u *UserRepository) InsertUserAssociation(tx *gorm.DB, m *ddl.ApplicantUser
 }
 
 // ユーザー紐づけ取得
-func (a *UserRepository) GetUserAssociation(m []uint64) ([]entity.ApplicantUserAssociation, error) {
+func (u *UserRepository) GetUserAssociation(m []uint64) ([]entity.ApplicantUserAssociation, error) {
 	var res []entity.ApplicantUserAssociation
 
-	query := a.db.Table("t_applicant_user_association").
+	query := u.db.Table("t_applicant_user_association").
 		Where("user_id IN ?", m)
 
 	if err := query.Find(&res).Error; err != nil {
@@ -693,6 +849,159 @@ func (u *UserRepository) DeleteUserAssociation(tx *gorm.DB, m *ddl.ApplicantUser
 	if err := tx.Where(&ddl.ApplicantUserAssociation{
 		ApplicantID: m.ApplicantID,
 	}).Delete(&ddl.User{}).Error; err != nil {
+		log.Printf("%v", err)
+		return err
+	}
+	return nil
+}
+
+// 面接自動割り当てルールイベント登録
+func (u *UserRepository) InsertAutoAssignRule(tx *gorm.DB, m *ddl.TeamAutoAssignRule) error {
+	if err := tx.Create(m).Error; err != nil {
+		log.Printf("%v", err)
+		return err
+	}
+	return nil
+}
+
+// 面接自動割り当てルールイベント取得
+func (u *UserRepository) GetAutoAssignRule(m *ddl.TeamAutoAssignRule) (*entity.TeamAutoAssignRule, error) {
+	var res *entity.TeamAutoAssignRule
+
+	query := u.db.Table("t_team_auto_assign_rule_association").
+		Select(`
+			t_team_auto_assign_rule_association.*,
+			m_auto_assign_rule.hash_key as hash_key
+		`).
+		Joins(`
+			left join 
+				m_auto_assign_rule
+			on
+				m_auto_assign_rule.id = t_team_auto_assign_rule_association.rule_id
+		`).
+		Where(&ddl.TeamAutoAssignRule{
+			TeamID: m.TeamID,
+		})
+
+	if err := query.First(&res).Error; err != nil {
+		log.Printf("%v", err)
+		return nil, err
+	}
+	return res, nil
+}
+
+// 面接自動割り当てルールイベント削除
+func (u *UserRepository) DeleteAutoAssignRule(tx *gorm.DB, m *ddl.TeamAutoAssignRule) error {
+	if err := tx.Where(&ddl.TeamAutoAssignRule{
+		TeamID: m.TeamID,
+	}).Delete(&ddl.TeamAutoAssignRule{}).Error; err != nil {
+		log.Printf("%v", err)
+		return err
+	}
+	return nil
+}
+
+// 面接割り振り優先順位一括登録
+func (u *UserRepository) InsertsAssignPriority(tx *gorm.DB, m []*ddl.TeamAssignPriority) error {
+	if err := tx.Create(m).Error; err != nil {
+		log.Printf("%v", err)
+		return err
+	}
+	return nil
+}
+
+// 面接割り振り優先順位取得
+func (u *UserRepository) GetAssignPriority(m *ddl.TeamAssignPriority) ([]*entity.TeamAssignPriority, error) {
+	var res []*entity.TeamAssignPriority
+
+	query := u.db.Table("t_team_assign_priority").
+		Select(`
+			t_team_assign_priority.priority,
+			t_user.hash_key as hash_key,
+			t_user.name as name
+		`).
+		Joins(`left join t_user on t_team_assign_priority.user_id = t_user.id`).
+		Where(&ddl.TeamAssignPriority{
+			TeamID: m.TeamID,
+		}).
+		Order("t_team_assign_priority.priority ASC")
+
+	if err := query.Find(&res).Error; err != nil {
+		log.Printf("%v", err)
+		return nil, err
+	}
+	return res, nil
+}
+
+// 面接割り振り優先順位削除
+func (u *UserRepository) DeleteAssignPriority(tx *gorm.DB, m *ddl.TeamAssignPriority) error {
+	if err := tx.Where(&ddl.TeamAssignPriority{
+		TeamID: m.TeamID,
+	}).Delete(&ddl.TeamAssignPriority{}).Error; err != nil {
+		log.Printf("%v", err)
+		return err
+	}
+	return nil
+}
+
+// 面接毎参加可能者一括登録
+func (u *UserRepository) InsertsAssignPossible(tx *gorm.DB, m []*ddl.TeamAssignPossible) error {
+	if err := tx.Create(m).Error; err != nil {
+		log.Printf("%v", err)
+		return err
+	}
+	return nil
+}
+
+// 面接毎参加可能者取得
+func (u *UserRepository) GetAssignPossible(m *ddl.TeamAssignPossible) ([]entity.TeamAssignPossible, error) {
+	var res []entity.TeamAssignPossible
+
+	query := u.db.Table("t_team_assign_possible").
+		Select(`
+			t_team_assign_possible.num_of_interview,
+			t_user.hash_key as hash_key,
+			t_user.name as name,
+			t_user.email as email
+		`).
+		Joins(`left join t_user on t_team_assign_possible.user_id = t_user.id`).
+		Where(&ddl.TeamAssignPossible{
+			TeamID: m.TeamID,
+		})
+
+	if err := query.Find(&res).Error; err != nil {
+		log.Printf("%v", err)
+		return nil, err
+	}
+	return res, nil
+}
+
+// 面接毎参加可能者予定取得
+func (u *UserRepository) GetAssignPossibleSchedule(m *ddl.TeamAssignPossible) ([]entity.AssignPossibleSchedule, error) {
+	var res []entity.AssignPossibleSchedule
+
+	query := u.db.Table("t_team_assign_possible").
+		Select(`
+			t_user.id as user_id,
+			t_user.hash_key as user_hash_key
+		`).
+		Joins(`left join t_user on t_team_assign_possible.user_id = t_user.id`).
+		Where(m)
+
+	if err := query.Preload("Schedules", func(db *gorm.DB) *gorm.DB {
+		return db.Preload("Users")
+	}).Find(&res).Error; err != nil {
+		log.Printf("%v", err)
+		return nil, err
+	}
+	return res, nil
+}
+
+// 面接毎参加可能者削除
+func (u *UserRepository) DeleteAssignPossible(tx *gorm.DB, m *ddl.TeamAssignPossible) error {
+	if err := tx.Where(&ddl.TeamAssignPossible{
+		TeamID: m.TeamID,
+	}).Delete(&ddl.TeamAssignPossible{}).Error; err != nil {
 		log.Printf("%v", err)
 		return err
 	}
@@ -784,28 +1093,4 @@ func (u *UserRepository) GetTeamIDs(m []string) ([]uint64, error) {
 	}
 
 	return IDs, nil
-}
-
-// チーム毎ステータスイベント取得
-func (u *UserRepository) StatusEventsByTeam(m *ddl.Team) ([]entity.StatusEventsByTeam, error) {
-	var res []entity.StatusEventsByTeam
-
-	query := u.db.Table("t_team_event").
-		Select(`
-			m_select_status_event.hash_key as event_hash_key,
-			m_select_status_event.desc_ja as desc_ja,
-			m_select_status_event.desc_en as desc_en,
-			t_select_status.hash_key as select_status_hash_key,
-			t_select_status.status_name as status_name
-		`).
-		Joins("left join t_select_status on t_team_event.status_id = t_select_status.id").
-		Joins("left join m_select_status_event on t_team_event.event_id = m_select_status_event.id").
-		Where("t_team_event.team_id = ?", m.ID)
-
-	if err := query.Find(&res).Error; err != nil {
-		log.Printf("%v", err)
-		return nil, err
-	}
-
-	return res, nil
 }
