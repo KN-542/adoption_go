@@ -304,6 +304,16 @@ func (s *ApplicantService) Download(req *request.ApplicantDownload) (*response.A
 		}
 	}
 
+	// ステータス取得
+	list, listErr := s.r.ListStatus(&ddl.SelectStatus{
+		TeamID: teamID,
+	})
+	if listErr != nil {
+		return nil, &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
 	// 重複チェック
 	var request request.ApplicantDownload
 	var outerIDs []string
@@ -382,7 +392,7 @@ func (s *ApplicantService) Download(req *request.ApplicantDownload) (*response.A
 				},
 				OuterID:        row.OuterID,
 				SiteID:         site.ID,
-				Status:         1,
+				Status:         list[0].ID,
 				Name:           row.Name,
 				Email:          row.Email,
 				Tel:            row.Tel,
@@ -448,63 +458,39 @@ func (s *ApplicantService) ReserveTable(req *request.ReserveTable) (*response.Re
 		}
 	}
 
-	// チーム取得
-	ctx := context.Background()
-	team, teamErr := s.redis.Get(ctx, req.HashKey, static.REDIS_USER_TEAM_ID)
-	if teamErr != nil {
-		return nil, &response.Error{
-			Status: http.StatusInternalServerError,
-		}
-	}
-	teamID, teamIDErr := strconv.ParseUint(*team, 10, 64)
-	if teamIDErr != nil {
-		return nil, &response.Error{
-			Status: http.StatusInternalServerError,
-		}
-	}
-
-	// 面接毎参加可能者予定取得
-	// models, modelsErr := s.u.GetAssignPossibleSchedule(&ddl.Team{
-	// 	AbstractTransactionModel: ddl.AbstractTransactionModel{
-	// 		ID: teamID,
-	// 	},
-	// })
-	// if modelsErr != nil {
-	// 	return nil, &response.Error{
-	// 		Status: http.StatusInternalServerError,
-	// 	}
-	// }
-
-	// チーム所属ユーザー一覧取得
-	users, usersErr := s.u.ListUserAssociation(&ddl.TeamAssociation{
-		TeamID: teamID,
+	// 応募者取得
+	applicant, applicantErr := s.r.Get(&ddl.Applicant{
+		AbstractTransactionModel: ddl.AbstractTransactionModel{
+			HashKey: req.HashKey,
+		},
 	})
-	if usersErr != nil {
+	if applicantErr != nil {
 		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
 
-	// ユーザー毎チェック
-	for _, user := range users {
-		// 予定取得
-		schedulesUTC, schedulesErr := s.u.ListUserScheduleAssociation(&ddl.ScheduleAssociation{
-			UserID: user.UserID,
-		})
-		if schedulesErr != nil {
-			return nil, &response.Error{
-				Status: http.StatusInternalServerError,
-			}
+	// 面接参加可能者取得
+	models, modelsErr := s.u.GetAssignPossibleSchedule(&ddl.TeamAssignPossible{
+		TeamID:         applicant.TeamID,
+		NumOfInterview: applicant.NumOfInterview,
+	})
+	if modelsErr != nil {
+		return nil, &response.Error{
+			Status: http.StatusInternalServerError,
 		}
+	}
+
+	// 整形
+	for _, model := range models {
 		// TZを日本に
 		var schedulesJST []entity.Schedule
-		for _, row := range schedulesUTC {
-			start := row.Start.In(jst)
-			end := row.End.In(jst)
-			row.Start = start
-			row.End = end
-			schedulesJST = append(schedulesJST, row)
+		for _, row := range model.Schedules {
+			row.Start = row.Start.In(jst)
+			row.End = row.End.In(jst)
+			schedulesJST = append(schedulesJST, *row)
 		}
+
 		// スケジュールの頻度が「毎日」と「毎週」の場合、コピー
 		start := time.Now().AddDate(0, 0, WEEKS).In(jst)
 		s := time.Date(
@@ -586,73 +572,81 @@ func (s *ApplicantService) ReserveTable(req *request.ReserveTable) (*response.Re
 			if !isReserve {
 				reserveTime = append(reserveTime, dto.ReserveTableSub{
 					Time:      d,
+					Users:     []string{},
 					IsReserve: false,
 				})
 			} else {
-				var count int = 0
+				var tempUsers []string
 				for _, schedule := range schedules {
-					// 予定毎ユーザー数
-					users2, users2Err := s.u.SearchScheduleUserAssociation(&ddl.ScheduleAssociation{
-						ScheduleID: schedule.ID,
-					})
-					if users2Err != nil {
-						return nil, &response.Error{
-							Status: http.StatusInternalServerError,
-						}
-					}
-					for _, u_1 := range users {
-						isDupl := false
-						for _, u_2 := range users2 {
-							if u_1.UserID == u_2.UserID {
-								isDupl = true
-								break
-							}
-						}
-						if isDupl {
-							count++
+					// 時刻が対象範囲の場合
+					if d.After(schedule.Start.Add(-1*time.Minute)) && d.Before(schedule.End.Add(1*time.Minute)) {
+						for _, user := range schedule.Users {
+							tempUsers = append(tempUsers, user.HashKey)
 						}
 					}
 				}
+
+				var users []string
+				for _, model := range models {
+					users = append(users, model.UserHashKey)
+				}
+
+				seen := make(map[string]bool)
+				unableUsers := []string{}
+
+				for _, str := range tempUsers {
+					if !seen[str] {
+						seen[str] = true
+						unableUsers = append(unableUsers, str)
+					}
+				}
+
+				var ableUsers []string
+				for _, a := range users {
+					found := false
+					for _, b := range unableUsers {
+						if a == b {
+							found = true
+							break
+						}
+					}
+
+					if !found {
+						ableUsers = append(ableUsers, a)
+					}
+				}
+
 				reserveTime = append(reserveTime, dto.ReserveTableSub{
 					Time:      d,
-					IsReserve: len(users)-count > 0,
+					Users:     ableUsers,
+					IsReserve: len(ableUsers) > int(applicant.NumOfInterview),
 				})
 			}
 		}
 	}
 
 	// 面接予定取得
-	var resSchedule entity.Schedule
-	applicant, applicantErr := s.r.Get(&ddl.Applicant{
-		AbstractTransactionModel: ddl.AbstractTransactionModel{
-			HashKey: req.HashKey,
-		},
-	})
-	if applicantErr != nil {
-		return nil, &response.Error{
-			Status: http.StatusInternalServerError,
-		}
-	}
+	var res entity.Schedule
 	if applicant.ScheduleID > 0 {
-		schedule, err := s.u.GetScheduleByPrimary(&ddl.Schedule{
+		applicantSchedule, applicantScheduleErr := s.u.GetScheduleByPrimary(&ddl.Schedule{
 			AbstractTransactionModel: ddl.AbstractTransactionModel{
 				ID: applicant.ScheduleID,
 			},
 		})
-		if err != nil {
+		if applicantScheduleErr != nil {
 			return nil, &response.Error{
 				Status: http.StatusInternalServerError,
 			}
 		}
-		resSchedule.Start = schedule.Start
-		resSchedule.HashKey = schedule.HashKey
+		res.Start = applicantSchedule.Start
+		res.End = applicantSchedule.End
 	}
 
 	return &response.ReserveTable{
 		Dates:           times,
 		Options:         reserveTime,
-		Schedule:        resSchedule.Start,
-		ScheduleHashKey: resSchedule.HashKey,
+		Schedule:        res.Start,
+		ScheduleHashKey: res.HashKey,
 	}, nil
 }
 

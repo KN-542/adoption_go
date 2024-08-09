@@ -122,7 +122,7 @@ type IUserRepository interface {
 	// 面接毎参加可能者取得
 	GetAssignPossible(m *ddl.TeamAssignPossible) ([]entity.TeamAssignPossible, error)
 	// 面接毎参加可能者予定取得
-	GetAssignPossibleSchedule(m *ddl.Team) ([]entity.AssignPossibleSchedule, error)
+	GetAssignPossibleSchedule(m *ddl.TeamAssignPossible) ([]entity.AssignPossibleSchedule, error)
 	// 面接毎参加可能者削除
 	DeleteAssignPossible(tx *gorm.DB, m *ddl.TeamAssignPossible) error
 	// メールアドレス重複チェック
@@ -977,21 +977,19 @@ func (u *UserRepository) GetAssignPossible(m *ddl.TeamAssignPossible) ([]entity.
 }
 
 // 面接毎参加可能者予定取得
-func (u *UserRepository) GetAssignPossibleSchedule(m *ddl.Team) ([]entity.AssignPossibleSchedule, error) {
+func (u *UserRepository) GetAssignPossibleSchedule(m *ddl.TeamAssignPossible) ([]entity.AssignPossibleSchedule, error) {
 	var res []entity.AssignPossibleSchedule
 
-	query := u.db.Table("t_schedule_association").
+	query := u.db.Table("t_team_assign_possible").
 		Select(`
-			t_schedule_association.id,
 			t_user.id as user_id,
 			t_user.hash_key as user_hash_key
 		`).
-		Joins(`left join t_user on t_schedule_association.user_id = t_user.id`).
-		Joins(`left join t_team_assign_possible on t_schedule_association.user_id = t_team_assign_possible.user_id`).
-		Where("t_team_assign_possible.team_id = ?", m.ID)
+		Joins(`left join t_user on t_team_assign_possible.user_id = t_user.id`).
+		Where(m)
 
 	if err := query.Preload("Schedules", func(db *gorm.DB) *gorm.DB {
-		return db.Table("t_schedule").Select("id, hash_key")
+		return db.Preload("Users")
 	}).Find(&res).Error; err != nil {
 		log.Printf("%v", err)
 		return nil, err

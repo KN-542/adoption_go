@@ -108,11 +108,10 @@ type InterviewEventsByTeam struct {
 
 // 面接毎参加可能者予定取得
 type AssignPossibleSchedule struct {
-	ddl.ScheduleAssociation
 	// ユーザーID
 	UserID uint64 `json:"user_id"`
 	// ユーザーハッシュキー
 	UserHashKey string `json:"user_hash_key"`
 	// スケジュール
-	Schedules []*ddl.Schedule `json:"schedules" gorm:"many2many:t_schedule_association;foreignKey:user_id;joinForeignKey:user_id;References:id;joinReferences:schedule_id"`
+	Schedules []*Schedule `json:"schedules" gorm:"many2many:t_schedule_association;foreignKey:user_id;joinForeignKey:user_id;References:id;joinReferences:schedule_id"`
 }
