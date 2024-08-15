@@ -51,6 +51,11 @@ type TeamAssociation struct {
 	ddl.TeamAssociation
 }
 
+// Team Event
+type TeamEvent struct {
+	ddl.TeamEvent
+}
+
 // Team Auto Assign Rule
 type TeamAutoAssignRule struct {
 	ddl.TeamAutoAssignRule

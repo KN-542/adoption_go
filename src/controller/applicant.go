@@ -36,6 +36,8 @@ type IApplicantController interface {
 	DocumentDownload(e echo.Context) error
 	// Google Meet Url 発行
 	GetGoogleMeetUrl(e echo.Context) error
+	// 面接官割り振り
+	AssignUser(e echo.Context) error
 }
 
 type ApplicantController struct {
@@ -317,7 +319,6 @@ func (c *ApplicantController) Get(e echo.Context) error {
 // 書類アップロード
 func (c *ApplicantController) DocumentsUpload(e echo.Context) error {
 	hashKey := e.FormValue("hash_key")
-	fileName := e.FormValue("file_name")
 
 	// JWT検証
 	if err := JWTDecodeCommon(c, e, hashKey, JWT_TOKEN2, JWT_SECRET2, false); err != nil {
@@ -340,7 +341,6 @@ func (c *ApplicantController) DocumentsUpload(e echo.Context) error {
 			},
 			Extension: resumeExtension,
 			NamePre:   "resume",
-			Name:      fileName,
 		}, resume); err != nil {
 			return e.JSON(err.Status, response.ErrorConvert(*err))
 		}
@@ -362,7 +362,6 @@ func (c *ApplicantController) DocumentsUpload(e echo.Context) error {
 			},
 			Extension: curriculumVitaeExtension,
 			NamePre:   "curriculum_vitae",
-			Name:      fileName,
 		}, curriculumVitae); err != nil {
 			return e.JSON(err.Status, response.ErrorConvert(*err))
 		}
@@ -480,4 +479,47 @@ func (c *ApplicantController) GetGoogleMeetUrl(e echo.Context) error {
 		return e.JSON(err.Status, response.ErrorConvert(*err))
 	}
 	return e.JSON(http.StatusOK, res)
+}
+
+// 面接官割り振り
+func (c *ApplicantController) AssignUser(e echo.Context) error {
+	req := request.AssignUser{}
+	if err := e.Bind(&req); err != nil {
+		log.Printf("%v", err)
+		return e.JSON(http.StatusBadRequest, fmt.Errorf(static.MESSAGE_BAD_REQUEST))
+	}
+
+	// JWT検証
+	if err := JWTDecodeCommon(
+		c,
+		e,
+		req.UserHashKey,
+		JWT_TOKEN,
+		JWT_SECRET,
+		true,
+	); err != nil {
+		return err
+	}
+
+	// ロールチェック
+	exist, roleErr := c.role.Check(&request.CheckRole{
+		Abstract: request.Abstract{
+			UserHashKey: req.UserHashKey,
+		},
+		ID: static.ROLE_MANAGEMENT_APPLICANT_ASSIGN_USER,
+	})
+	if roleErr != nil {
+		return e.JSON(roleErr.Status, response.ErrorConvert(*roleErr))
+	}
+	if !exist {
+		err := &response.Error{
+			Status: http.StatusForbidden,
+		}
+		return e.JSON(err.Status, response.ErrorConvert(*err))
+	}
+
+	if err := c.s.AssignUser(&req); err != nil {
+		return e.JSON(err.Status, response.ErrorConvert(*err))
+	}
+	return e.JSON(http.StatusOK, "OK")
 }

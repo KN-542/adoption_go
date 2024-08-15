@@ -37,6 +37,8 @@ type IApplicantValidator interface {
 	UpdateStatusSub(a *request.UpdateStatusSub) error
 	// 応募者ステータス変更サブ2
 	UpdateStatusSub2(a *request.UpdateStatusSub2) error
+	// 面接官割り振り
+	AssignUser(a *request.AssignUser) error
 }
 
 type ApplicantValidator struct{}
@@ -215,7 +217,7 @@ func (v *ApplicantValidator) GetGoogleMeetUrl(a *request.GetGoogleMeetUrl) error
 	return validation.ValidateStruct(
 		a,
 		validation.Field(
-			&a.HashKey,
+			&a.Code,
 			validation.Required,
 		),
 	)
@@ -226,8 +228,9 @@ func (v *ApplicantValidator) InsertDesiredAt(a *request.InsertDesiredAt) error {
 	return validation.ValidateStruct(
 		a,
 		validation.Field(
-			&a.HashKey,
+			&a.Title,
 			validation.Required,
+			validation.Length(1, 75),
 		),
 	)
 }
@@ -277,6 +280,23 @@ func (v *ApplicantValidator) UpdateStatusSub2(a *request.UpdateStatusSub2) error
 		validation.Field(
 			&a.Status,
 			validation.Min(1),
+		),
+	)
+}
+
+// 面接官割り振り
+func (v *ApplicantValidator) AssignUser(a *request.AssignUser) error {
+	return validation.ValidateStruct(
+		a,
+		validation.Field(
+			&a.HashKey,
+			validation.Required,
+		),
+		validation.Field(
+			&a.HashKeys,
+			validation.Required,
+			validation.Length(1, 0),
+			validation.Each(validation.Required),
 		),
 	)
 }

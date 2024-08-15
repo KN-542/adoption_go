@@ -37,8 +37,20 @@ type IApplicantRepository interface {
 	CheckDuplByOuterId(m *dto.CheckDuplDownloading) ([]entity.Applicant, error)
 	// 選考ステータス更新
 	UpdateSelectStatus(tx *gorm.DB, m *ddl.Applicant) error
+	// 応募者面接予定紐づけ登録
+	InsertApplicantScheduleAssociation(tx *gorm.DB, m *ddl.ApplicantScheduleAssociation) error
 	// 応募者面接予定紐づけ更新
 	UpdateApplicantScheduleAssociation(tx *gorm.DB, m *ddl.ApplicantScheduleAssociation) error
+	// 履歴書登録
+	InsertApplicantResumeAssociation(tx *gorm.DB, m *ddl.ApplicantResumeAssociation) error
+	// 履歴書削除
+	DeleteApplicantResumeAssociation(tx *gorm.DB, m *ddl.ApplicantResumeAssociation) error
+	// 職務経歴書登録
+	InsertApplicantCurriculumVitaeAssociation(tx *gorm.DB, m *ddl.ApplicantCurriculumVitaeAssociation) error
+	// 職務経歴書削除
+	DeleteApplicantCurriculumVitaeAssociation(tx *gorm.DB, m *ddl.ApplicantCurriculumVitaeAssociation) error
+	// Google Meet URL登録
+	InsertApplicantURLAssociation(tx *gorm.DB, m *ddl.ApplicantURLAssociation) error
 }
 
 type ApplicantRepository struct {
@@ -78,12 +90,9 @@ func (a *ApplicantRepository) Update(tx *gorm.DB, m *ddl.Applicant) error {
 		AbstractTransactionModel: ddl.AbstractTransactionModel{
 			UpdatedAt: time.Now(),
 		},
-		Status:          m.Status,
-		Resume:          m.Resume,
-		CurriculumVitae: m.CurriculumVitae,
-		GoogleMeetURL:   m.GoogleMeetURL,
-		TeamID:          m.TeamID,
-		NumOfInterview:  m.NumOfInterview,
+		Status:         m.Status,
+		TeamID:         m.TeamID,
+		NumOfInterview: m.NumOfInterview,
 	}).Error; err != nil {
 		log.Printf("%v", err)
 		return err
@@ -101,21 +110,57 @@ func (a *ApplicantRepository) Search(m *dto.SearchApplicant) ([]*entity.SearchAp
 			t_applicant.hash_key,
 			t_applicant.name,
 			t_applicant.email,
-			t_applicant.resume,
-			t_applicant.curriculum_vitae,
-			t_applicant.google_meet_url,
 			t_applicant.created_at,
 			t_select_status.status_name as status_name,
 			m_site.site_name as site_name,
 			t_schedule.hash_key as schedule_hash_key,
-			t_schedule.start as start
+			t_schedule.start as start,
+			t_applicant_resume_association.extension as resume_extension,
+			t_applicant_curriculum_vitae_association.extension as curriculum_vitae_extension,
+			t_applicant_url_association.url as google_meet_url
 		`).
-		Joins("left join t_select_status on t_applicant.status = t_select_status.id").
-		Joins("left join m_site on t_applicant.site_id = m_site.id").
-		Joins("left join t_applicant_user_association on t_applicant_user_association.applicant_id = t_applicant.id").
-		Joins("left join t_user on t_applicant_user_association.user_id = t_user.id").
-		Joins("left join t_applicant_schedule_association on t_applicant_schedule_association.applicant_id = t_applicant.id").
-		Joins("left join t_schedule on t_applicant_schedule_association.schedule_id = t_schedule.id").
+		Joins(`
+			left join
+				t_select_status
+			on
+				t_applicant.status = t_select_status.id
+		`).
+		Joins(`
+			left join
+				m_site
+			on
+				t_applicant.site_id = m_site.id
+		`).
+		Joins(`
+			left join
+				t_applicant_schedule_association
+			on
+				t_applicant_schedule_association.applicant_id = t_applicant.id
+		`).
+		Joins(`
+			left join
+				t_schedule
+			on
+				t_applicant_schedule_association.schedule_id = t_schedule.id
+		`).
+		Joins(`
+			left join
+				t_applicant_resume_association
+			on
+				t_applicant_resume_association.applicant_id = t_applicant.id
+		`).
+		Joins(`
+			left join
+				t_applicant_curriculum_vitae_association
+			on
+				t_applicant_curriculum_vitae_association.applicant_id = t_applicant.id
+		`).
+		Joins(`
+			left join
+				t_applicant_url_association
+			on
+				t_applicant_url_association.applicant_id = t_applicant.id
+		`).
 		Where("t_applicant.team_id = ?", m.TeamID).
 		Where("t_applicant.company_id = ?", m.CompanyID)
 
@@ -128,14 +173,15 @@ func (a *ApplicantRepository) Search(m *dto.SearchApplicant) ([]*entity.SearchAp
 	}
 
 	if m.ResumeFlg == uint(static.DOCUMENT_EXIST) {
-		query = query.Where("t_applicant.resume != ''")
-	} else {
-		query = query.Where("t_applicant.resume = ''")
+		query = query.Where("t_applicant_resume_association.applicant_id IS NOT NULL")
+	} else if m.ResumeFlg == uint(static.DOCUMENT_NOT_EXIST) {
+		query = query.Where("t_applicant_resume_association.applicant_id IS NULL")
 	}
+
 	if m.CurriculumVitaeFlg == uint(static.DOCUMENT_EXIST) {
-		query = query.Where("t_applicant.curriculum_vitae != ''")
-	} else {
-		query = query.Where("t_applicant.curriculum_vitae = ''")
+		query = query.Where("t_applicant_curriculum_vitae_association.applicant_id IS NOT NULL")
+	} else if m.CurriculumVitaeFlg == uint(static.DOCUMENT_NOT_EXIST) {
+		query = query.Where("t_applicant_curriculum_vitae_association.applicant_id IS NULL")
 	}
 
 	if m.Name != "" {
@@ -187,8 +233,37 @@ func (a *ApplicantRepository) Search(m *dto.SearchApplicant) ([]*entity.SearchAp
 func (a *ApplicantRepository) Get(m *ddl.Applicant) (*entity.Applicant, error) {
 	var res entity.Applicant
 	if err := a.db.Model(&ddl.Applicant{}).
-		Select("t_applicant.*, t_applicant_schedule_association.schedule_id").
-		Joins("left join t_applicant_schedule_association on t_applicant_schedule_association.applicant_id = t_applicant.id").
+		Select(`
+			t_applicant.*,
+			t_applicant_schedule_association.schedule_id,
+			t_applicant_resume_association.extension as resume_extension,
+			t_applicant_curriculum_vitae_association.extension as curriculum_vitae_extension,
+			t_applicant_url_association.url as google_meet_url
+		`).
+		Joins(`
+			left join
+				t_applicant_schedule_association
+			on
+				t_applicant_schedule_association.applicant_id = t_applicant.id
+		`).
+		Joins(`
+			left join
+				t_applicant_resume_association
+			on
+				t_applicant_resume_association.applicant_id = t_applicant.id
+		`).
+		Joins(`
+			left join
+				t_applicant_curriculum_vitae_association
+			on
+				t_applicant_curriculum_vitae_association.applicant_id = t_applicant.id
+		`).
+		Joins(`
+			left join
+				t_applicant_url_association
+			on
+				t_applicant_url_association.applicant_id = t_applicant.id
+		`).
 		Where(
 			&ddl.Applicant{
 				AbstractTransactionModel: ddl.AbstractTransactionModel{
@@ -255,7 +330,8 @@ func (a *ApplicantRepository) CountByPrimaryKey(key *string) (*int64, error) {
 func (a *ApplicantRepository) GetByEmail(m *ddl.Applicant) ([]entity.Applicant, error) {
 	var l []entity.Applicant
 	if err := a.db.Where(&ddl.Applicant{
-		Email: m.Email,
+		Email:  m.Email,
+		TeamID: m.TeamID,
 	}).Find(&l).Error; err != nil {
 		log.Printf("%v", err)
 		return nil, err
@@ -331,6 +407,15 @@ func (a *ApplicantRepository) UpdateSelectStatus(tx *gorm.DB, m *ddl.Applicant) 
 	return nil
 }
 
+// 応募者面接予定紐づけ登録
+func (a *ApplicantRepository) InsertApplicantScheduleAssociation(tx *gorm.DB, m *ddl.ApplicantScheduleAssociation) error {
+	if err := tx.Create(m).Error; err != nil {
+		log.Printf("%v", err)
+		return err
+	}
+	return nil
+}
+
 // 応募者面接予定紐づけ更新
 func (a *ApplicantRepository) UpdateApplicantScheduleAssociation(tx *gorm.DB, m *ddl.ApplicantScheduleAssociation) error {
 	if err := tx.Model(&ddl.ApplicantScheduleAssociation{}).
@@ -340,6 +425,55 @@ func (a *ApplicantRepository) UpdateApplicantScheduleAssociation(tx *gorm.DB, m 
 		Updates(&ddl.ApplicantScheduleAssociation{
 			ScheduleID: m.ScheduleID,
 		}).Error; err != nil {
+		log.Printf("%v", err)
+		return err
+	}
+	return nil
+}
+
+// 履歴書登録
+func (a *ApplicantRepository) InsertApplicantResumeAssociation(tx *gorm.DB, m *ddl.ApplicantResumeAssociation) error {
+	if err := tx.Create(m).Error; err != nil {
+		log.Printf("%v", err)
+		return err
+	}
+	return nil
+}
+
+// 履歴書削除
+func (a *ApplicantRepository) DeleteApplicantResumeAssociation(tx *gorm.DB, m *ddl.ApplicantResumeAssociation) error {
+	if err := tx.Where(&ddl.ApplicantResumeAssociation{
+		ApplicantID: m.ApplicantID,
+	}).Delete(&ddl.ApplicantResumeAssociation{}).Error; err != nil {
+		log.Printf("%v", err)
+		return err
+	}
+	return nil
+}
+
+// 職務経歴書登録
+func (a *ApplicantRepository) InsertApplicantCurriculumVitaeAssociation(tx *gorm.DB, m *ddl.ApplicantCurriculumVitaeAssociation) error {
+	if err := tx.Create(m).Error; err != nil {
+		log.Printf("%v", err)
+		return err
+	}
+	return nil
+}
+
+// 職務経歴書削除
+func (a *ApplicantRepository) DeleteApplicantCurriculumVitaeAssociation(tx *gorm.DB, m *ddl.ApplicantCurriculumVitaeAssociation) error {
+	if err := tx.Where(&ddl.ApplicantCurriculumVitaeAssociation{
+		ApplicantID: m.ApplicantID,
+	}).Delete(&ddl.ApplicantCurriculumVitaeAssociation{}).Error; err != nil {
+		log.Printf("%v", err)
+		return err
+	}
+	return nil
+}
+
+// Google Meet URL登録
+func (a *ApplicantRepository) InsertApplicantURLAssociation(tx *gorm.DB, m *ddl.ApplicantURLAssociation) error {
+	if err := tx.Create(m).Error; err != nil {
 		log.Printf("%v", err)
 		return err
 	}

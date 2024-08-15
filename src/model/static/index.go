@@ -19,6 +19,8 @@ const (
 	CODE_EXPIRED      uint = 2
 	// パスワード変更
 	CODE_INIT_PASSWORD_INCORRECT uint = 1
+	// チーム未検証
+	CODE_CONFIRM_TEAM_NOT_EXIST uint = 1
 
 	/*
 		company

@@ -23,6 +23,8 @@ type ILoginValidator interface {
 	Logout(u *request.Logout) error
 	// ログイン種別取得
 	GetLoginType(u *request.GetLoginType) error
+	// チーム存在確認(応募者)
+	ConfirmTeamApplicant(u *request.ConfirmTeamApplicant) error
 	// ログイン(応募者)
 	LoginApplicant(u *request.LoginApplicant) error
 	// MFA 認証コード生成(応募者)
@@ -149,6 +151,17 @@ func (v *LoginValidator) GetLoginType(u *request.GetLoginType) error {
 	)
 }
 
+// チーム存在確認(応募者)
+func (v *LoginValidator) ConfirmTeamApplicant(u *request.ConfirmTeamApplicant) error {
+	return validation.ValidateStruct(
+		u,
+		validation.Field(
+			&u.HashKey,
+			validation.Required,
+		),
+	)
+}
+
 // ログイン(応募者)
 func (v *LoginValidator) LoginApplicant(u *request.LoginApplicant) error {
 	return validation.ValidateStruct(
@@ -158,6 +171,10 @@ func (v *LoginValidator) LoginApplicant(u *request.LoginApplicant) error {
 			validation.Required,
 			validation.Length(1, 100),
 			is.Email,
+		),
+		validation.Field(
+			&u.TeamHashKey,
+			validation.Required,
 		),
 	)
 }

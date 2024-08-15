@@ -139,6 +139,7 @@ const (
 	PRE_ROLE          string = "role"
 	PRE_USER          string = "user"
 	PRE_TEAM          string = "team"
+	PRE_SCHEDULE      string = "schedule"
 	PRE_SELECT_STATUS string = "select_status"
 )
 

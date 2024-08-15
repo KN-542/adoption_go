@@ -73,8 +73,6 @@ type FileUpload struct {
 	Extension string `json:"extension"`
 	// ファイル名(Pre)
 	NamePre string `json:"name_pre"`
-	// ファイル名
-	Name string `json:"name"`
 }
 
 // ファイルダウンロード
@@ -100,20 +98,22 @@ type GetOauthURL struct {
 // GoogleMeetUrl発行
 type GetGoogleMeetUrl struct {
 	Abstract
-	ddl.Applicant
 	Code string `json:"code"`
 }
 
 // 面接希望日登録
 type InsertDesiredAt struct {
-	// ハッシュキー
-	HashKey string `json:"hash_key"`
+	ddl.Schedule
+	// 応募者ハッシュキー
+	ApplicantHashKey string `json:"applicant_hash_key"`
 	// 希望面接日時
 	DesiredAt time.Time `json:"desired_at"`
 	// タイトル
 	Title string `json:"title"`
-	// 予定ハッシュキー
-	ScheduleHashKey string `json:"schedule_hash_key"`
+	// 履歴書拡張子
+	ResumeExtension string `json:"resume_extension"`
+	// 職務経歴書拡張子
+	CurriculumVitaeExtension string `json:"curriculum_vitae_extension"`
 }
 
 // 応募者ステータス変更
@@ -154,4 +154,12 @@ type UpdateStatusSub3 struct {
 	Num uint `json:"num"`
 	// ステータス
 	Status int `json:"status"`
+}
+
+// 面接官割り振り
+type AssignUser struct {
+	Abstract
+	ddl.Applicant
+	// ハッシュキーリスト
+	HashKeys []string `json:"hash_keys"`
 }

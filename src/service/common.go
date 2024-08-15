@@ -51,7 +51,6 @@ func (c *CommonService) Sidebar(req *request.Sidebar) (*response.Sidebar, *respo
 		log.Printf("%v", err)
 		return nil, &response.Error{
 			Status: http.StatusBadRequest,
-			Code:   static.CODE_BAD_REQUEST,
 		}
 	}
 
@@ -145,7 +144,6 @@ func (c *CommonService) Roles(req *request.Roles) (*response.Roles, *response.Er
 		log.Printf("%v", err)
 		return nil, &response.Error{
 			Status: http.StatusBadRequest,
-			Code:   static.CODE_BAD_REQUEST,
 		}
 	}
 
@@ -227,7 +225,6 @@ func (c *CommonService) Teams(req *request.TeamsBelong) (*response.TeamsBelong, 
 		log.Printf("%v", err)
 		return nil, &response.Error{
 			Status: http.StatusBadRequest,
-			Code:   static.CODE_BAD_REQUEST,
 		}
 	}
 
@@ -263,7 +260,6 @@ func (c *CommonService) ChangeTeam(req *request.ChangeTeam) *response.Error {
 		log.Printf("%v", err)
 		return &response.Error{
 			Status: http.StatusBadRequest,
-			Code:   static.CODE_BAD_REQUEST,
 		}
 	}
 
