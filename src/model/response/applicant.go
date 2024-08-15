@@ -36,6 +36,10 @@ type ReserveTable struct {
 	Schedule time.Time `json:"schedule"`
 	// 予定ハッシュキー
 	ScheduleHashKey string `json:"schedule_hash_key"`
+	// 履歴書表示
+	IsResume bool `json:"is_resume"`
+	// 職務経歴書表示
+	IsCurriculumVitae bool `json:"is_curriculum_vitae"`
 }
 
 // 応募者取得
@@ -50,5 +54,5 @@ type GetOauthURL struct {
 
 // GoogleMeetUrl発行
 type GetGoogleMeetUrl struct {
-	entity.Applicant
+	Url string `json:"url"`
 }

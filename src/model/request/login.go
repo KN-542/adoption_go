@@ -42,6 +42,8 @@ type GetLoginType struct {
 // LoginApplicant
 type LoginApplicant struct {
 	ddl.Applicant
+	// チームハッシュキー
+	TeamHashKey string `json:"team_hash_key"`
 }
 
 // CodeGenerateApplicant

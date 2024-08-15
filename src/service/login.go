@@ -43,6 +43,8 @@ type ILoginService interface {
 	Logout(req *request.Logout, token string) (*http.Cookie, *response.Error)
 	// ログイン種別取得
 	GetLoginType(req *request.GetLoginType) (*response.GetLoginType, *response.Error)
+	// チーム存在確認(応募者)
+	ConfirmTeamApplicant(req *request.ConfirmTeamApplicant) *response.Error
 	// ログイン(応募者)
 	LoginApplicant(req *request.LoginApplicant) (*response.LoginApplicant, *response.Error)
 	// MFA 認証コード生成(応募者)
@@ -80,7 +82,6 @@ func (l *LoginService) Login(req *request.Login) (*response.Login, *response.Err
 		log.Printf("%v", err)
 		return nil, &response.Error{
 			Status: http.StatusBadRequest,
-			Code:   static.CODE_BAD_REQUEST,
 		}
 	}
 
@@ -202,7 +203,6 @@ func (l *LoginService) CodeGenerate(req *request.CodeGenerate) *response.Error {
 		log.Printf("%v", err)
 		return &response.Error{
 			Status: http.StatusBadRequest,
-			Code:   static.CODE_BAD_REQUEST,
 		}
 	}
 
@@ -245,7 +245,6 @@ func (l *LoginService) MFA(req *request.MFA) (*response.MFA, *response.Error) {
 		log.Printf("%v", err)
 		return nil, &response.Error{
 			Status: http.StatusBadRequest,
-			Code:   static.CODE_BAD_REQUEST,
 		}
 	}
 
@@ -399,7 +398,6 @@ func (l *LoginService) UserCheck(req *request.JWTDecode) *response.Error {
 		log.Printf("%v", err)
 		return &response.Error{
 			Status: http.StatusBadRequest,
-			Code:   static.CODE_BAD_REQUEST,
 		}
 	}
 
@@ -447,7 +445,6 @@ func (l *LoginService) PasswordChange(req *request.PasswordChange) *response.Err
 		log.Printf("%v", err)
 		return &response.Error{
 			Status: http.StatusBadRequest,
-			Code:   static.CODE_BAD_REQUEST,
 		}
 	}
 
@@ -521,7 +518,6 @@ func (l *LoginService) Logout(req *request.Logout, token string) (*http.Cookie, 
 		log.Printf("%v", err)
 		return nil, &response.Error{
 			Status: http.StatusBadRequest,
-			Code:   static.CODE_BAD_REQUEST,
 		}
 	}
 
@@ -554,7 +550,6 @@ func (l *LoginService) GetLoginType(req *request.GetLoginType) (*response.GetLog
 		log.Printf("%v", err)
 		return nil, &response.Error{
 			Status: http.StatusBadRequest,
-			Code:   static.CODE_BAD_REQUEST,
 		}
 	}
 
@@ -578,6 +573,32 @@ func (l *LoginService) GetLoginType(req *request.GetLoginType) (*response.GetLog
 	}, nil
 }
 
+// チーム存在確認(応募者)
+func (l *LoginService) ConfirmTeamApplicant(req *request.ConfirmTeamApplicant) *response.Error {
+	// バリデーション
+	if err := l.v.ConfirmTeamApplicant(req); err != nil {
+		log.Printf("%v", err)
+		return &response.Error{
+			Status: http.StatusBadRequest,
+		}
+	}
+
+	// チーム取得
+	_, err := l.login.GetTeam(&ddl.Team{
+		AbstractTransactionModel: ddl.AbstractTransactionModel{
+			HashKey: req.HashKey,
+		},
+	})
+	if err != nil {
+		return &response.Error{
+			Status: http.StatusNotFound,
+			Code:   static.CODE_CONFIRM_TEAM_NOT_EXIST,
+		}
+	}
+
+	return nil
+}
+
 // ログイン(応募者)
 func (l *LoginService) LoginApplicant(req *request.LoginApplicant) (*response.LoginApplicant, *response.Error) {
 	// バリデーション
@@ -585,9 +606,21 @@ func (l *LoginService) LoginApplicant(req *request.LoginApplicant) (*response.Lo
 		log.Printf("%v", err)
 		return nil, &response.Error{
 			Status: http.StatusBadRequest,
-			Code:   static.CODE_BAD_REQUEST,
 		}
 	}
+
+	// チーム取得
+	team, teamErr := l.login.GetTeam(&ddl.Team{
+		AbstractTransactionModel: ddl.AbstractTransactionModel{
+			HashKey: req.TeamHashKey,
+		},
+	})
+	if teamErr != nil {
+		return nil, &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+	req.TeamID = team.ID
 
 	// ログイン認証
 	applicants, err := l.applicant.GetByEmail(&req.Applicant)
@@ -633,7 +666,7 @@ func (l *LoginService) LoginApplicant(req *request.LoginApplicant) (*response.Lo
 	s3Name := applicant.Name + "_" + strings.Replace(applicant.Email, ".", "", -1)
 	if err := l.redis.Set(
 		ctx,
-		req.HashKey,
+		applicant.HashKey,
 		static.REDIS_S3_NAME,
 		&s3Name,
 		24*time.Hour,
@@ -663,7 +696,6 @@ func (l *LoginService) CodeGenerateApplicant(req *request.CodeGenerateApplicant)
 		log.Printf("%v", err)
 		return &response.Error{
 			Status: http.StatusBadRequest,
-			Code:   static.CODE_BAD_REQUEST,
 		}
 	}
 
@@ -706,7 +738,6 @@ func (l *LoginService) MFAApplicant(req *request.MFAApplicant) *response.Error {
 		log.Printf("%v", err)
 		return &response.Error{
 			Status: http.StatusBadRequest,
-			Code:   static.CODE_BAD_REQUEST,
 		}
 	}
 
@@ -772,7 +803,6 @@ func (l *LoginService) LogoutApplicant(req *request.LogoutApplicant, token strin
 		log.Printf("%v", err)
 		return nil, &response.Error{
 			Status: http.StatusBadRequest,
-			Code:   static.CODE_BAD_REQUEST,
 		}
 	}
 

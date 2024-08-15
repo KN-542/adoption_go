@@ -30,6 +30,8 @@ type ILoginController interface {
 	PasswordChange(e echo.Context) error
 	// ログアウト
 	Logout(e echo.Context) error
+	// チーム存在確認(応募者)
+	ConfirmTeamApplicant(e echo.Context) error
 	// ログイン(応募者)
 	LoginApplicant(e echo.Context) error
 	// MFA 認証コード生成(応募者)
@@ -164,6 +166,20 @@ func (c *LoginController) Logout(e echo.Context) error {
 	}
 	e.SetCookie(cookie)
 
+	return e.JSON(http.StatusOK, "OK")
+}
+
+// チーム存在確認(応募者)
+func (c *LoginController) ConfirmTeamApplicant(e echo.Context) error {
+	req := request.ConfirmTeamApplicant{}
+	if err := e.Bind(&req); err != nil {
+		log.Printf("%v", err)
+		return e.JSON(http.StatusBadRequest, fmt.Errorf(static.MESSAGE_BAD_REQUEST))
+	}
+
+	if err := c.s.ConfirmTeamApplicant(&req); err != nil {
+		return e.JSON(err.Status, response.ErrorConvert(*err))
+	}
 	return e.JSON(http.StatusOK, "OK")
 }
 

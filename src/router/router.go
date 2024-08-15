@@ -37,6 +37,7 @@ func NewRouter(
 	e.POST("/mfa", login.MFA)
 	e.POST("/decode", login.JWTDecode)
 	e.POST("/password_change", login.PasswordChange)
+	e.POST("/confirm_team_applicant", login.ConfirmTeamApplicant)
 	e.POST("/login_applicant", login.LoginApplicant)
 	e.POST("/mfa_applicant", login.MFAApplicant)
 	e.POST("/decode_applicant", login.JWTDecodeApplicant)
@@ -80,6 +81,7 @@ func NewRouter(
 	e.POST("/applicant/sites", applicant.GetSites)
 	e.POST("/applicant/get_google_meet_url", applicant.GetGoogleMeetUrl)
 	e.POST("/applicant/reserve_table", applicant.ReserveTable)
+	e.POST("/applicant/assign_user", applicant.AssignUser)
 
 	// ロール
 	e.POST("/role/search_company", role.SearchByCompanyID)

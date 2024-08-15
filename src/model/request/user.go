@@ -65,6 +65,11 @@ type GetOwnTeam struct {
 	Abstract
 }
 
+// チーム存在確認
+type ConfirmTeamApplicant struct {
+	ddl.Team
+}
+
 // チーム検索
 type SearchTeam struct {
 	Abstract

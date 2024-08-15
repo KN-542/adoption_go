@@ -46,7 +46,6 @@ func (c *CompanyService) Create(req *request.CreateCompany) (*response.CreateCom
 		log.Printf("%v", err)
 		return nil, &response.Error{
 			Status: http.StatusBadRequest,
-			Code:   static.CODE_BAD_REQUEST,
 		}
 	}
 
@@ -330,7 +329,6 @@ func (c *CompanyService) Search(req *request.SearchCompany) (*response.SearchCom
 		log.Printf("%v", err)
 		return nil, &response.Error{
 			Status: http.StatusBadRequest,
-			Code:   static.CODE_BAD_REQUEST,
 		}
 	}
 

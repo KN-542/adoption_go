@@ -57,6 +57,9 @@ func main() {
 			&ddl.Applicant{},
 			&ddl.ApplicantUserAssociation{},
 			&ddl.ApplicantScheduleAssociation{},
+			&ddl.ApplicantResumeAssociation{},
+			&ddl.ApplicantCurriculumVitaeAssociation{},
+			&ddl.ApplicantURLAssociation{},
 			&ddl.Manuscript{},
 			&ddl.ManuscriptTeamAssociation{},
 			&ddl.ManuscriptSiteAssociation{},
@@ -506,21 +509,18 @@ func main() {
 			log.Println(err)
 		}
 		applicant := map[string]string{
-			"id":               "ID",
-			"outer_id":         "媒体側ID",
-			"hash_key":         "ハッシュキー",
-			"site_id":          "サイトID",
-			"status":           "ステータス",
-			"name":             "氏名",
-			"email":            "メールアドレス",
-			"tel":              "TEL",
-			"age":              "年齢",
-			"resume":           "履歴書",
-			"curriculum_vitae": "職務経歴書",
-			"google_meet_url":  "Google Meet URL",
-			"company_id":       "企業ID",
-			"created_at":       "登録日時",
-			"updated_at":       "更新日時",
+			"id":         "ID",
+			"outer_id":   "媒体側ID",
+			"hash_key":   "ハッシュキー",
+			"site_id":    "サイトID",
+			"status":     "ステータス",
+			"name":       "氏名",
+			"email":      "メールアドレス",
+			"tel":        "TEL",
+			"age":        "年齢",
+			"company_id": "企業ID",
+			"created_at": "登録日時",
+			"updated_at": "更新日時",
 		}
 		if err := AddColumnComments(dbConn, "t_applicant", applicant); err != nil {
 			log.Println(err)
@@ -547,6 +547,42 @@ func main() {
 			"schedule_id":  "予定ID",
 		}
 		if err := AddColumnComments(dbConn, "t_applicant_schedule_association", applicantScheduleAssociation); err != nil {
+			log.Println(err)
+		}
+
+		// t_applicant_resume_association
+		if err := AddTableComment(dbConn, "t_applicant_resume_association", "応募者履歴書紐づけ"); err != nil {
+			log.Println(err)
+		}
+		applicantResumeAssociation := map[string]string{
+			"applicant_id": "応募者ID",
+			"extension":    "拡張子",
+		}
+		if err := AddColumnComments(dbConn, "t_applicant_resume_association", applicantResumeAssociation); err != nil {
+			log.Println(err)
+		}
+
+		// t_applicant_curriculum_vitae_association
+		if err := AddTableComment(dbConn, "t_applicant_curriculum_vitae_association", "応募者職務経歴書紐づけ"); err != nil {
+			log.Println(err)
+		}
+		applicantCurriculumVitaeAssociation := map[string]string{
+			"applicant_id": "応募者ID",
+			"extension":    "拡張子",
+		}
+		if err := AddColumnComments(dbConn, "t_applicant_curriculum_vitae_association", applicantCurriculumVitaeAssociation); err != nil {
+			log.Println(err)
+		}
+
+		// t_applicant_url_association
+		if err := AddTableComment(dbConn, "t_applicant_url_association", "応募者面接用URL紐づけ"); err != nil {
+			log.Println(err)
+		}
+		applicantURLAssociation := map[string]string{
+			"applicant_id": "応募者ID",
+			"url":          "URL",
+		}
+		if err := AddColumnComments(dbConn, "t_applicant_url_association", applicantURLAssociation); err != nil {
 			log.Println(err)
 		}
 
@@ -739,6 +775,9 @@ func main() {
 			&ddl.Applicant{},
 			&ddl.ApplicantUserAssociation{},
 			&ddl.ApplicantScheduleAssociation{},
+			&ddl.ApplicantResumeAssociation{},
+			&ddl.ApplicantCurriculumVitaeAssociation{},
+			&ddl.ApplicantURLAssociation{},
 			&ddl.Manuscript{},
 			&ddl.ManuscriptTeamAssociation{},
 			&ddl.ManuscriptSiteAssociation{},

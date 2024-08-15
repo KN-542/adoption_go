@@ -41,7 +41,6 @@ func (r *RoleService) Check(req *request.CheckRole) (bool, *response.Error) {
 		log.Printf("%v", err)
 		return false, &response.Error{
 			Status: http.StatusBadRequest,
-			Code:   static.CODE_BAD_REQUEST,
 		}
 	}
 

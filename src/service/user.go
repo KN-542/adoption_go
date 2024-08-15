@@ -93,7 +93,6 @@ func (u *UserService) Create(req *request.CreateUser) (*response.CreateUser, *re
 		log.Printf("%v", err)
 		return nil, &response.Error{
 			Status: http.StatusBadRequest,
-			Code:   static.CODE_BAD_REQUEST,
 		}
 	}
 
@@ -141,7 +140,6 @@ func (u *UserService) Create(req *request.CreateUser) (*response.CreateUser, *re
 			log.Printf("%v", err)
 			return nil, &response.Error{
 				Status: http.StatusBadRequest,
-				Code:   static.CODE_BAD_REQUEST,
 			}
 		}
 
@@ -266,7 +264,6 @@ func (u *UserService) Search(req *request.SearchUser) (*response.SearchUser, *re
 		log.Printf("%v", err)
 		return nil, &response.Error{
 			Status: http.StatusBadRequest,
-			Code:   static.CODE_BAD_REQUEST,
 		}
 	}
 
@@ -343,7 +340,6 @@ func (u *UserService) Get(req *request.GetUser) (*response.GetUser, *response.Er
 		log.Printf("%v", err)
 		return nil, &response.Error{
 			Status: http.StatusBadRequest,
-			Code:   static.CODE_BAD_REQUEST,
 		}
 	}
 
@@ -376,7 +372,6 @@ func (u *UserService) SearchTeam(req *request.SearchTeam) (*response.SearchTeam,
 		log.Printf("%v", err)
 		return nil, &response.Error{
 			Status: http.StatusBadRequest,
-			Code:   static.CODE_BAD_REQUEST,
 		}
 	}
 
@@ -435,7 +430,6 @@ func (u *UserService) GetTeam(req *request.GetTeam) (*response.GetTeam, *respons
 		log.Printf("%v", err)
 		return nil, &response.Error{
 			Status: http.StatusBadRequest,
-			Code:   static.CODE_BAD_REQUEST,
 		}
 	}
 
@@ -448,7 +442,6 @@ func (u *UserService) GetTeam(req *request.GetTeam) (*response.GetTeam, *respons
 	if err != nil {
 		return nil, &response.Error{
 			Status: http.StatusBadRequest,
-			Code:   static.CODE_BAD_REQUEST,
 		}
 	}
 
@@ -495,7 +488,6 @@ func (u *UserService) GetOwnTeam(req *request.GetOwnTeam) (*response.GetOwnTeam,
 	if resErr != nil {
 		return nil, &response.Error{
 			Status: http.StatusBadRequest,
-			Code:   static.CODE_BAD_REQUEST,
 		}
 	}
 
@@ -512,7 +504,6 @@ func (u *UserService) GetOwnTeam(req *request.GetOwnTeam) (*response.GetOwnTeam,
 	if eventsErr != nil {
 		return nil, &response.Error{
 			Status: http.StatusBadRequest,
-			Code:   static.CODE_BAD_REQUEST,
 		}
 	}
 
@@ -525,7 +516,6 @@ func (u *UserService) GetOwnTeam(req *request.GetOwnTeam) (*response.GetOwnTeam,
 		if tempErr != nil {
 			return nil, &response.Error{
 				Status: http.StatusBadRequest,
-				Code:   static.CODE_BAD_REQUEST,
 			}
 		}
 		autoRule = *temp
@@ -540,7 +530,6 @@ func (u *UserService) GetOwnTeam(req *request.GetOwnTeam) (*response.GetOwnTeam,
 		if tempErr != nil {
 			return nil, &response.Error{
 				Status: http.StatusBadRequest,
-				Code:   static.CODE_BAD_REQUEST,
 			}
 		}
 		for _, row := range tempList {
@@ -555,7 +544,6 @@ func (u *UserService) GetOwnTeam(req *request.GetOwnTeam) (*response.GetOwnTeam,
 	if possibleErr != nil {
 		return nil, &response.Error{
 			Status: http.StatusBadRequest,
-			Code:   static.CODE_BAD_REQUEST,
 		}
 	}
 
@@ -588,7 +576,6 @@ func (u *UserService) CreateTeam(req *request.CreateTeam) *response.Error {
 		log.Printf("%v", err)
 		return &response.Error{
 			Status: http.StatusBadRequest,
-			Code:   static.CODE_BAD_REQUEST,
 		}
 	}
 
@@ -758,7 +745,6 @@ func (u *UserService) UpdateTeam(req *request.UpdateTeam) *response.Error {
 		log.Printf("%v", err)
 		return &response.Error{
 			Status: http.StatusBadRequest,
-			Code:   static.CODE_BAD_REQUEST,
 		}
 	}
 
@@ -845,7 +831,6 @@ func (u *UserService) UpdateBasicTeam(req *request.UpdateBasicTeam) *response.Er
 		log.Printf("%v", err)
 		return &response.Error{
 			Status: http.StatusBadRequest,
-			Code:   static.CODE_BAD_REQUEST,
 		}
 	}
 
@@ -873,7 +858,6 @@ func (u *UserService) UpdateBasicTeam(req *request.UpdateBasicTeam) *response.Er
 	if err != nil {
 		return &response.Error{
 			Status: http.StatusBadRequest,
-			Code:   static.CODE_BAD_REQUEST,
 		}
 	}
 	req.HashKey = team.HashKey
@@ -914,7 +898,6 @@ func (u *UserService) DeleteTeam(req *request.DeleteTeam) *response.Error {
 		log.Printf("%v", err)
 		return &response.Error{
 			Status: http.StatusBadRequest,
-			Code:   static.CODE_BAD_REQUEST,
 		}
 	}
 
@@ -1062,7 +1045,6 @@ func (u *UserService) CreateSchedule(req *request.CreateSchedule) *response.Erro
 		log.Printf("%v", err)
 		return &response.Error{
 			Status: http.StatusBadRequest,
-			Code:   static.CODE_BAD_REQUEST,
 		}
 	}
 
@@ -1177,7 +1159,6 @@ func (u *UserService) UpdateSchedule(req *request.UpdateSchedule) *response.Erro
 		log.Printf("%v", err)
 		return &response.Error{
 			Status: http.StatusBadRequest,
-			Code:   static.CODE_BAD_REQUEST,
 		}
 	}
 
@@ -1413,7 +1394,6 @@ func (u *UserService) DeleteSchedule(req *request.DeleteSchedule) *response.Erro
 		log.Printf("%v", err)
 		return &response.Error{
 			Status: http.StatusBadRequest,
-			Code:   static.CODE_BAD_REQUEST,
 		}
 	}
 
@@ -1554,7 +1534,6 @@ func (u *UserService) UpdateAssignMethod(req *request.UpdateAssignMethod) *respo
 		log.Printf("%v", err)
 		return &response.Error{
 			Status: http.StatusBadRequest,
-			Code:   static.CODE_BAD_REQUEST,
 		}
 	}
 	for _, row := range req.PossibleList {
@@ -1562,7 +1541,6 @@ func (u *UserService) UpdateAssignMethod(req *request.UpdateAssignMethod) *respo
 			log.Printf("%v", err)
 			return &response.Error{
 				Status: http.StatusBadRequest,
-				Code:   static.CODE_BAD_REQUEST,
 			}
 		}
 	}
@@ -1611,7 +1589,6 @@ func (u *UserService) UpdateAssignMethod(req *request.UpdateAssignMethod) *respo
 			log.Printf("%v", err)
 			return &response.Error{
 				Status: http.StatusBadRequest,
-				Code:   static.CODE_BAD_REQUEST,
 			}
 		}
 
@@ -1636,7 +1613,6 @@ func (u *UserService) UpdateAssignMethod(req *request.UpdateAssignMethod) *respo
 			log.Printf("%v", err)
 			return &response.Error{
 				Status: http.StatusBadRequest,
-				Code:   static.CODE_BAD_REQUEST,
 			}
 		}
 
