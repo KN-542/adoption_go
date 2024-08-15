@@ -164,6 +164,32 @@ func (a *ApplicantRepository) Search(m *dto.SearchApplicant) ([]*entity.SearchAp
 		Where("t_applicant.team_id = ?", m.TeamID).
 		Where("t_applicant.company_id = ?", m.CompanyID)
 
+	if len(m.Users) > 0 {
+		query = query.Joins(`
+			inner join
+				t_applicant_user_association
+			on
+				t_applicant_user_association.applicant_id = t_applicant.id
+		`).Joins(`
+			inner join
+				t_user
+			on
+				t_applicant_user_association.user_id = t_user.id
+		`).Where("t_user.hash_key IN ?", m.Users)
+	} else {
+		query = query.Joins(`
+			left join
+				t_applicant_user_association
+			on
+				t_applicant_user_association.applicant_id = t_applicant.id
+		`).Joins(`
+			left join
+				t_user
+			on
+				t_applicant_user_association.user_id = t_user.id
+		`)
+	}
+
 	if len(m.Sites) > 0 {
 		query = query.Where("m_site.hash_key IN ?", m.Sites)
 	}
@@ -189,10 +215,6 @@ func (a *ApplicantRepository) Search(m *dto.SearchApplicant) ([]*entity.SearchAp
 	}
 	if m.Email != "" {
 		query = query.Where("t_applicant.email LIKE ?", "%"+m.Email+"%")
-	}
-
-	if len(m.Users) > 0 {
-		query = query.Where("t_user.hash_key IN ?", m.Users)
 	}
 
 	if m.InterviewerDateFrom.Year() >= 1900 && m.InterviewerDateTo.Year() >= 1900 {
