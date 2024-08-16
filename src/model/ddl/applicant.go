@@ -7,7 +7,7 @@ t_applicant
 type Applicant struct {
 	AbstractTransactionModel
 	// 媒体側ID
-	OuterID string `json:"outer_id" gorm:"not null;check:outer_id <> '';type:varchar(255)"`
+	OuterID string `json:"outer_id" gorm:"not null;check:outer_id <> '';type:varchar(255);index"`
 	// サイトID
 	SiteID uint `json:"site_id" gorm:"index"`
 	// ステータス
@@ -23,7 +23,7 @@ type Applicant struct {
 	// 面接回数
 	NumOfInterview uint `json:"num_of_interview"`
 	// チームID
-	TeamID uint64 `json:"team_id"`
+	TeamID uint64 `json:"team_id" gorm:"index"`
 	// サイト(外部キー)
 	Sites Site `gorm:"foreignKey:site_id;references:id"`
 	// ステータス(外部キー)
@@ -38,9 +38,9 @@ t_applicant_user_association
 */
 type ApplicantUserAssociation struct {
 	// 応募者ID
-	ApplicantID uint64 `json:"applicant_id" gorm:"primaryKey"`
+	ApplicantID uint64 `json:"applicant_id" gorm:"primaryKey;index"`
 	// ユーザーID
-	UserID uint64 `json:"user_id" gorm:"primaryKey"`
+	UserID uint64 `json:"user_id" gorm:"primaryKey;index"`
 	// 応募者(外部キー)
 	Applicant Applicant `gorm:"foreignKey:applicant_id;references:id"`
 	// ユーザー(外部キー)
@@ -53,9 +53,9 @@ t_applicant_schedule_association
 */
 type ApplicantScheduleAssociation struct {
 	// 応募者ID
-	ApplicantID uint64 `json:"applicant_id" gorm:"primaryKey"`
+	ApplicantID uint64 `json:"applicant_id" gorm:"primaryKey;index"`
 	// 予定ID
-	ScheduleID uint64 `json:"schedule_id"`
+	ScheduleID uint64 `json:"schedule_id" gorm:"index"`
 	// 応募者(外部キー)
 	Applicant Applicant `gorm:"foreignKey:applicant_id;references:id"`
 	// ユーザー(外部キー)
@@ -68,7 +68,7 @@ t_applicant_resume_association
 */
 type ApplicantResumeAssociation struct {
 	// 応募者ID
-	ApplicantID uint64 `json:"applicant_id" gorm:"primaryKey"`
+	ApplicantID uint64 `json:"applicant_id" gorm:"primaryKey;index"`
 	// 拡張子
 	Extension string `json:"extension" gorm:"not null;check:extension <> '';type:varchar(30)"`
 	// 応募者(外部キー)
@@ -81,7 +81,7 @@ t_applicant_curriculum_vitae_association
 */
 type ApplicantCurriculumVitaeAssociation struct {
 	// 応募者ID
-	ApplicantID uint64 `json:"applicant_id" gorm:"primaryKey"`
+	ApplicantID uint64 `json:"applicant_id" gorm:"primaryKey;index"`
 	// 拡張子
 	Extension string `json:"extension" gorm:"not null;check:extension <> '';type:varchar(30)"`
 	// 応募者(外部キー)
@@ -94,7 +94,7 @@ t_applicant_url_association
 */
 type ApplicantURLAssociation struct {
 	// 応募者ID
-	ApplicantID uint64 `json:"applicant_id" gorm:"primaryKey"`
+	ApplicantID uint64 `json:"applicant_id" gorm:"primaryKey;index"`
 	// URL
 	URL string `json:"url" gorm:"not null;check:url <> '';type:text"`
 	// 応募者(外部キー)

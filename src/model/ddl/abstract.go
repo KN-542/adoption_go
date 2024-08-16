@@ -17,9 +17,9 @@ type AbstractTransactionModel struct {
 	// 企業ID
 	CompanyID uint64 `json:"company_id" gorm:"index"`
 	// 登録日時
-	CreatedAt time.Time `json:"created_at"`
+	CreatedAt time.Time `json:"created_at" gorm:"index"`
 	// 更新日時
-	UpdatedAt time.Time `json:"updated_at"`
+	UpdatedAt time.Time `json:"updated_at" gorm:"index"`
 	// 企業(外部キー)
 	Company Company `gorm:"foreignKey:company_id;references:id"`
 }

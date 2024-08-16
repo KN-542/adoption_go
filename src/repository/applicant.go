@@ -20,7 +20,7 @@ type IApplicantRepository interface {
 	// 更新
 	Update(tx *gorm.DB, m *ddl.Applicant) error
 	// 検索
-	Search(m *dto.SearchApplicant) ([]*entity.SearchApplicant, error)
+	Search(m *dto.SearchApplicant) ([]*entity.SearchApplicant, int64, error)
 	// 取得
 	Get(m *ddl.Applicant) (*entity.Applicant, error)
 	// 応募者ステータス一覧
@@ -101,95 +101,27 @@ func (a *ApplicantRepository) Update(tx *gorm.DB, m *ddl.Applicant) error {
 }
 
 // 検索
-func (a *ApplicantRepository) Search(m *dto.SearchApplicant) ([]*entity.SearchApplicant, error) {
+func (a *ApplicantRepository) Search(m *dto.SearchApplicant) ([]*entity.SearchApplicant, int64, error) {
 	var applicants []*entity.SearchApplicant
+	var totalCount int64
 
 	query := a.db.Table("t_applicant").
-		Select(`
-			t_applicant.id,
-			t_applicant.hash_key,
-			t_applicant.name,
-			t_applicant.email,
-			t_applicant.created_at,
-			t_select_status.status_name as status_name,
-			m_site.site_name as site_name,
-			t_schedule.hash_key as schedule_hash_key,
-			t_schedule.start as start,
-			t_applicant_resume_association.extension as resume_extension,
-			t_applicant_curriculum_vitae_association.extension as curriculum_vitae_extension,
-			t_applicant_url_association.url as google_meet_url
-		`).
-		Joins(`
-			left join
-				t_select_status
-			on
-				t_applicant.status = t_select_status.id
-		`).
-		Joins(`
-			left join
-				m_site
-			on
-				t_applicant.site_id = m_site.id
-		`).
-		Joins(`
-			left join
-				t_applicant_schedule_association
-			on
-				t_applicant_schedule_association.applicant_id = t_applicant.id
-		`).
-		Joins(`
-			left join
-				t_schedule
-			on
-				t_applicant_schedule_association.schedule_id = t_schedule.id
-		`).
-		Joins(`
-			left join
-				t_applicant_resume_association
-			on
-				t_applicant_resume_association.applicant_id = t_applicant.id
-		`).
-		Joins(`
-			left join
-				t_applicant_curriculum_vitae_association
-			on
-				t_applicant_curriculum_vitae_association.applicant_id = t_applicant.id
-		`).
-		Joins(`
-			left join
-				t_applicant_url_association
-			on
-				t_applicant_url_association.applicant_id = t_applicant.id
-		`).
-		Where("t_applicant.team_id = ?", m.TeamID).
-		Where("t_applicant.company_id = ?", m.CompanyID)
+		Joins("LEFT JOIN t_select_status ON t_applicant.status = t_select_status.id").
+		Joins("LEFT JOIN m_site ON t_applicant.site_id = m_site.id").
+		Joins("LEFT JOIN t_applicant_schedule_association ON t_applicant_schedule_association.applicant_id = t_applicant.id").
+		Joins("LEFT JOIN t_schedule ON t_applicant_schedule_association.schedule_id = t_schedule.id").
+		Joins("LEFT JOIN t_applicant_resume_association ON t_applicant_resume_association.applicant_id = t_applicant.id").
+		Joins("LEFT JOIN t_applicant_curriculum_vitae_association ON t_applicant_curriculum_vitae_association.applicant_id = t_applicant.id").
+		Joins("LEFT JOIN t_applicant_url_association ON t_applicant_url_association.applicant_id = t_applicant.id").
+		Where("t_applicant.team_id = ? AND t_applicant.company_id = ?", m.TeamID, m.CompanyID)
 
 	if len(m.Users) > 0 {
-		query = query.Joins(`
-			inner join
-				t_applicant_user_association
-			on
-				t_applicant_user_association.applicant_id = t_applicant.id
-		`).Joins(`
-			inner join
-				t_user
-			on
-				t_applicant_user_association.user_id = t_user.id
-		`).Where("t_user.hash_key IN ?", m.Users)
-	} else {
-		query = query.Joins(`
-			left join
-				t_applicant_user_association
-			on
-				t_applicant_user_association.applicant_id = t_applicant.id
-		`).Joins(`
-			left join
-				t_user
-			on
-				t_applicant_user_association.user_id = t_user.id
-		`)
+		query = query.Joins("INNER JOIN t_applicant_user_association ON t_applicant_user_association.applicant_id = t_applicant.id").
+			Joins("INNER JOIN t_user ON t_applicant_user_association.user_id = t_user.id").
+			Where("t_user.hash_key IN ?", m.Users)
 	}
 
+	// Apply search conditions
 	if len(m.Sites) > 0 {
 		query = query.Where("m_site.hash_key IN ?", m.Sites)
 	}
@@ -217,19 +149,19 @@ func (a *ApplicantRepository) Search(m *dto.SearchApplicant) ([]*entity.SearchAp
 		query = query.Where("t_applicant.email LIKE ?", "%"+m.Email+"%")
 	}
 
-	if m.InterviewerDateFrom.Year() >= 1900 && m.InterviewerDateTo.Year() >= 1900 {
+	if !m.InterviewerDateFrom.IsZero() && !m.InterviewerDateTo.IsZero() {
 		query = query.Where("t_schedule.start >= ? AND t_schedule.start < ?", m.InterviewerDateFrom, m.InterviewerDateTo.AddDate(0, 0, 1))
-	} else if m.InterviewerDateFrom.Year() >= 1900 {
+	} else if !m.InterviewerDateFrom.IsZero() {
 		query = query.Where("t_schedule.start >= ?", m.InterviewerDateFrom)
-	} else if m.InterviewerDateTo.Year() >= 1900 {
+	} else if !m.InterviewerDateTo.IsZero() {
 		query = query.Where("t_schedule.start < ?", m.InterviewerDateTo.AddDate(0, 0, 1))
 	}
 
-	if m.CreatedAtFrom.Year() >= 1900 && m.CreatedAtTo.Year() >= 1900 {
+	if !m.CreatedAtFrom.IsZero() && !m.CreatedAtTo.IsZero() {
 		query = query.Where("t_applicant.created_at >= ? AND t_applicant.created_at < ?", m.CreatedAtFrom, m.CreatedAtTo.AddDate(0, 0, 1))
-	} else if m.CreatedAtFrom.Year() >= 1900 {
+	} else if !m.CreatedAtFrom.IsZero() {
 		query = query.Where("t_applicant.created_at >= ?", m.CreatedAtFrom)
-	} else if m.CreatedAtTo.Year() >= 1900 {
+	} else if !m.CreatedAtTo.IsZero() {
 		query = query.Where("t_applicant.created_at < ?", m.CreatedAtTo.AddDate(0, 0, 1))
 	}
 
@@ -241,14 +173,88 @@ func (a *ApplicantRepository) Search(m *dto.SearchApplicant) ([]*entity.SearchAp
 		}
 	}
 
-	if err := query.Preload("Users", func(db *gorm.DB) *gorm.DB {
-		return db.Select("id", "hash_key", "name")
-	}).Find(&applicants).Error; err != nil {
-		log.Printf("%v", err)
-		return nil, err
+	if err := query.Count(&totalCount).Error; err != nil {
+		log.Printf("Error counting total records: %v", err)
+		return nil, 0, err
 	}
 
-	return applicants, nil
+	pageSize := 30
+	offset := (m.Page - 1) * pageSize
+	err := query.Select(`
+		t_applicant.id,
+		t_applicant.hash_key,
+		t_applicant.outer_id,
+		t_applicant.site_id,
+		t_applicant.status,
+		t_applicant.name,
+		t_applicant.email,
+		t_applicant.tel,
+		t_applicant.age,
+		t_applicant.num_of_interview,
+		t_applicant.team_id,
+		t_applicant.created_at,
+		t_applicant.updated_at,
+		t_applicant.company_id,
+		t_select_status.status_name,
+		m_site.site_name,
+		t_schedule.hash_key as schedule_hash_key,
+		t_schedule.start,
+		t_applicant_resume_association.extension as resume_extension,
+		t_applicant_curriculum_vitae_association.extension as curriculum_vitae_extension,
+		t_applicant_url_association.url as google_meet_url
+	`).
+		Offset(offset).
+		Limit(pageSize).
+		Find(&applicants).
+		Error
+
+	if err != nil {
+		log.Printf("Error fetching records: %v", err)
+		return nil, 0, err
+	}
+
+	if len(applicants) > 0 {
+		var applicantIDs []uint64
+		for _, app := range applicants {
+			applicantIDs = append(applicantIDs, app.ID)
+		}
+
+		var userAssociations []struct {
+			ApplicantID uint64
+			UserID      uint64
+			HashKey     string
+			Name        string
+		}
+
+		err := a.db.Table("t_applicant_user_association").
+			Select("t_applicant_user_association.applicant_id, t_user.id as user_id, t_user.hash_key, t_user.name").
+			Joins("INNER JOIN t_user ON t_applicant_user_association.user_id = t_user.id").
+			Where("t_applicant_user_association.applicant_id IN ?", applicantIDs).
+			Find(&userAssociations).Error
+
+		if err != nil {
+			log.Printf("Error fetching associated users: %v", err)
+			return nil, 0, err
+		}
+
+		userMap := make(map[uint64][]*ddl.User)
+		for _, assoc := range userAssociations {
+			user := &ddl.User{
+				AbstractTransactionModel: ddl.AbstractTransactionModel{
+					ID:      assoc.UserID,
+					HashKey: assoc.HashKey,
+				},
+				Name: assoc.Name,
+			}
+			userMap[assoc.ApplicantID] = append(userMap[assoc.ApplicantID], user)
+		}
+
+		for _, app := range applicants {
+			app.Users = userMap[app.ID]
+		}
+	}
+
+	return applicants, totalCount, nil
 }
 
 // 応募者取得(ハッシュキー)

@@ -115,7 +115,7 @@ func (s *ApplicantService) Search(req *request.SearchApplicant) (*response.Searc
 	req.CompanyID = companyID
 
 	// 検索
-	applicants, searchErr := s.r.Search(&dto.SearchApplicant{
+	applicants, num, searchErr := s.r.Search(&dto.SearchApplicant{
 		SearchApplicant: *req,
 		Users:           req.Users,
 	})
@@ -143,6 +143,7 @@ func (s *ApplicantService) Search(req *request.SearchApplicant) (*response.Searc
 
 	return &response.SearchApplicant{
 		List: res,
+		Num:  num,
 	}, nil
 }
 

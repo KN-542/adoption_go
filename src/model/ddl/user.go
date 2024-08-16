@@ -19,9 +19,9 @@ type User struct {
 	// 初回パスワード(ハッシュ化)
 	InitPassword string `json:"init_password" gorm:"not null;check:init_password <> ''"`
 	// ロールID
-	RoleID uint64 `json:"role_id"`
+	RoleID uint64 `json:"role_id" gorm:"index"`
 	// ユーザー種別
-	UserType uint `json:"user_type"`
+	UserType uint `json:"user_type" gorm:"index"`
 	// リフレッシュトークン
 	RefreshToken string `json:"refresh_token" gorm:"type:text"`
 	// ロール(外部キー)

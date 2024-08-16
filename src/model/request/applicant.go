@@ -9,6 +9,8 @@ import (
 type SearchApplicant struct {
 	Abstract
 	ddl.Applicant
+	// ページ
+	Page int `json:"page"`
 	// サイト一覧
 	Sites []string `json:"sites"`
 	// 応募者ステータス

@@ -9,6 +9,8 @@ import (
 // 検索
 type SearchApplicant struct {
 	List []entity.SearchApplicant `json:"list"`
+	// 総数
+	Num int64 `json:"num"`
 }
 
 // サイト一覧取得
