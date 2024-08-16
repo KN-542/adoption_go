@@ -936,6 +936,20 @@ func (u *UserService) DeleteTeam(req *request.DeleteTeam) *response.Error {
 		}
 	}
 
+	// 参加可能者削除
+	if err := u.user.DeleteAssignPossible(tx, &ddl.TeamAssignPossible{
+		TeamID: team.ID,
+	}); err != nil {
+		if err := u.d.TxRollback(tx); err != nil {
+			return &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
 	// 紐づけ削除
 	if err := u.user.DeleteTeamAssociation(tx, &ddl.TeamAssociation{
 		TeamID: team.ID,
