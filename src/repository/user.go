@@ -53,6 +53,8 @@ type IUserRepository interface {
 	GetSchedule(m *ddl.Schedule) (*entity.Schedule, error)
 	// 予定取得_PK
 	GetScheduleByPrimary(m *ddl.Schedule) (*entity.Schedule, error)
+	// 予定取得_チームID
+	GetScheduleByTeamID(m *ddl.Schedule) ([]entity.Schedule, error)
 	// 予定更新
 	UpdateSchedule(tx *gorm.DB, m *ddl.Schedule) error
 	// 予定更新_PK
@@ -119,6 +121,8 @@ type IUserRepository interface {
 	InsertsAssignPriority(tx *gorm.DB, m []*ddl.TeamAssignPriority) error
 	// 面接割り振り優先順位取得
 	GetAssignPriority(m *ddl.TeamAssignPriority) ([]*entity.TeamAssignPriority, error)
+	// 面接割り振り優先順位取得_複数チーム
+	GetAssignPriorityTeams(m []uint64) ([]*entity.TeamAssignPriority, error)
 	// 面接割り振り優先順位削除
 	DeleteAssignPriority(tx *gorm.DB, m *ddl.TeamAssignPriority) error
 	// 面接毎参加可能者一括登録
@@ -548,6 +552,21 @@ func (u *UserRepository) GetScheduleByPrimary(m *ddl.Schedule) (*entity.Schedule
 	return &res, nil
 }
 
+// 予定取得_チームID
+func (u *UserRepository) GetScheduleByTeamID(m *ddl.Schedule) ([]entity.Schedule, error) {
+	var res []entity.Schedule
+	if err := u.db.Where(
+		&ddl.Schedule{
+			TeamID: m.TeamID,
+		},
+	).Find(&res).Error; err != nil {
+		log.Printf("%v", err)
+		return nil, err
+	}
+
+	return res, nil
+}
+
 // 予定取得
 func (u *UserRepository) GetSchedule(m *ddl.Schedule) (*entity.Schedule, error) {
 	var res entity.Schedule
@@ -970,6 +989,27 @@ func (u *UserRepository) GetAssignPriority(m *ddl.TeamAssignPriority) ([]*entity
 		Where(&ddl.TeamAssignPriority{
 			TeamID: m.TeamID,
 		}).
+		Order("t_team_assign_priority.priority ASC")
+
+	if err := query.Find(&res).Error; err != nil {
+		log.Printf("%v", err)
+		return nil, err
+	}
+	return res, nil
+}
+
+// 面接割り振り優先順位取得_複数チーム
+func (u *UserRepository) GetAssignPriorityTeams(m []uint64) ([]*entity.TeamAssignPriority, error) {
+	var res []*entity.TeamAssignPriority
+
+	query := u.db.Table("t_team_assign_priority").
+		Select(`
+			t_team_assign_priority.priority,
+			t_user.hash_key as hash_key,
+			t_user.name as name
+		`).
+		Joins(`left join t_user on t_team_assign_priority.user_id = t_user.id`).
+		Where("t_team_assign_priority.team_id IN ?", m).
 		Order("t_team_assign_priority.priority ASC")
 
 	if err := query.Find(&res).Error; err != nil {

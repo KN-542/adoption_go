@@ -63,27 +63,29 @@ type IUserService interface {
 }
 
 type UserService struct {
-	user      repository.IUserRepository
-	role      repository.IRoleRepository
-	applicant repository.IApplicantRepository
-	master    repository.IMasterRepository
-	v         validator.IUserValidator
-	d         repository.IDBRepository
-	outer     repository.IOuterIFRepository
-	redis     repository.IRedisRepository
+	user       repository.IUserRepository
+	role       repository.IRoleRepository
+	applicant  repository.IApplicantRepository
+	manuscript repository.IManuscriptRepository
+	master     repository.IMasterRepository
+	v          validator.IUserValidator
+	d          repository.IDBRepository
+	outer      repository.IOuterIFRepository
+	redis      repository.IRedisRepository
 }
 
 func NewUserService(
 	user repository.IUserRepository,
 	role repository.IRoleRepository,
 	applicant repository.IApplicantRepository,
+	manuscript repository.IManuscriptRepository,
 	master repository.IMasterRepository,
 	v validator.IUserValidator,
 	d repository.IDBRepository,
 	outer repository.IOuterIFRepository,
 	redis repository.IRedisRepository,
 ) IUserService {
-	return &UserService{user, role, applicant, master, v, d, outer, redis}
+	return &UserService{user, role, applicant, manuscript, master, v, d, outer, redis}
 }
 
 // 登録
@@ -125,14 +127,6 @@ func (u *UserService) Create(req *request.CreateUser) (*response.CreateUser, *re
 		}
 	}
 
-	// チームのIDを取得
-	teams, teamsErr := u.user.GetTeamIDs(req.Teams)
-	if teamsErr != nil {
-		return nil, &response.Error{
-			Status: http.StatusInternalServerError,
-		}
-	}
-
 	// ログイン種別が管理者の場合、チームに関するバリデーション
 	if loginType == uint64(static.LOGIN_TYPE_MANAGEMENT) {
 		// バリデーション
@@ -142,7 +136,26 @@ func (u *UserService) Create(req *request.CreateUser) (*response.CreateUser, *re
 				Status: http.StatusBadRequest,
 			}
 		}
+	}
 
+	// チームのIDを取得
+	teams, teamsErr := u.user.GetTeamIDs(req.Teams)
+	if teamsErr != nil {
+		return nil, &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// 各チームの面接官割り振り優先順位取得
+	priorities, prioritiesErr := u.user.GetAssignPriorityTeams(teams)
+	if prioritiesErr != nil {
+		return nil, &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// メールアドレス重複チェック
+	if loginType == uint64(static.LOGIN_TYPE_MANAGEMENT) {
 		// メールアドレス重複チェック_管理者
 		if err := u.user.EmailDuplCheckManagement(&req.User, teams); err != nil {
 			return nil, &response.Error{
@@ -221,6 +234,7 @@ func (u *UserService) Create(req *request.CreateUser) (*response.CreateUser, *re
 		}
 	}
 
+	// チーム紐づけ一括登録
 	var teamAssociations []*ddl.TeamAssociation
 	for _, id := range teams {
 		teamAssociations = append(teamAssociations, &ddl.TeamAssociation{
@@ -228,7 +242,6 @@ func (u *UserService) Create(req *request.CreateUser) (*response.CreateUser, *re
 			UserID: user.ID,
 		})
 	}
-	// チーム紐づけ一括登録
 	if err := u.user.InsertsTeamAssociation(tx, teamAssociations); err != nil {
 		if err := u.d.TxRollback(tx); err != nil {
 			return nil, &response.Error{
@@ -237,6 +250,35 @@ func (u *UserService) Create(req *request.CreateUser) (*response.CreateUser, *re
 		}
 		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// 面接割り振り優先順位登録
+	for _, id := range teams {
+		var count uint
+		for _, row := range priorities {
+			if row.TeamID == id {
+				count++
+			}
+		}
+
+		if count > 0 {
+			var list []*ddl.TeamAssignPriority
+			list = append(list, &ddl.TeamAssignPriority{
+				TeamID:   id,
+				UserID:   user.ID,
+				Priority: count + 1,
+			})
+			if err := u.user.InsertsAssignPriority(tx, list); err != nil {
+				if err := u.d.TxRollback(tx); err != nil {
+					return nil, &response.Error{
+						Status: http.StatusInternalServerError,
+					}
+				}
+				return nil, &response.Error{
+					Status: http.StatusInternalServerError,
+				}
+			}
 		}
 	}
 
@@ -765,9 +807,31 @@ func (u *UserService) UpdateTeam(req *request.UpdateTeam) *response.Error {
 	}
 	req.CompanyID = companyID
 
+	// チーム取得
+	team, teamErr := u.user.GetTeam(&ddl.Team{
+		AbstractTransactionModel: ddl.AbstractTransactionModel{
+			HashKey: req.HashKey,
+		},
+	})
+	if teamErr != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
 	// ユーザー存在確認
 	ids, idsErr := u.user.GetIDs(req.Users)
 	if idsErr != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// 優先順位取得
+	priority, priorityErr := u.user.GetAssignPriority(&ddl.TeamAssignPriority{
+		TeamID: team.ID,
+	})
+	if priorityErr != nil {
 		return &response.Error{
 			Status: http.StatusInternalServerError,
 		}
@@ -781,7 +845,7 @@ func (u *UserService) UpdateTeam(req *request.UpdateTeam) *response.Error {
 	}
 
 	// チーム更新
-	team, err := u.user.UpdateTeam(tx, &req.Team)
+	_, err := u.user.UpdateTeam(tx, &req.Team)
 	if err != nil {
 		if err := u.d.TxRollback(tx); err != nil {
 			return &response.Error{
@@ -795,11 +859,21 @@ func (u *UserService) UpdateTeam(req *request.UpdateTeam) *response.Error {
 
 	if len(ids) > 0 {
 		var teamAssociations []*ddl.TeamAssociation
-		for _, id := range ids {
+		var priorityAssociations []*ddl.TeamAssignPriority
+
+		for index, id := range ids {
 			teamAssociations = append(teamAssociations, &ddl.TeamAssociation{
 				TeamID: team.ID,
 				UserID: id,
 			})
+
+			if len(priority) > 0 {
+				priorityAssociations = append(priorityAssociations, &ddl.TeamAssignPriority{
+					TeamID:   team.ID,
+					UserID:   id,
+					Priority: uint(len(priority) + index + 1),
+				})
+			}
 		}
 
 		// チーム紐づけ一括登録
@@ -811,6 +885,20 @@ func (u *UserService) UpdateTeam(req *request.UpdateTeam) *response.Error {
 			}
 			return &response.Error{
 				Status: http.StatusInternalServerError,
+			}
+		}
+
+		// 優先順位登録
+		if len(priorityAssociations) > 0 {
+			if err := u.user.InsertsAssignPriority(tx, priorityAssociations); err != nil {
+				if err := u.d.TxRollback(tx); err != nil {
+					return &response.Error{
+						Status: http.StatusInternalServerError,
+					}
+				}
+				return &response.Error{
+					Status: http.StatusInternalServerError,
+				}
 			}
 		}
 	}
@@ -913,7 +1001,29 @@ func (u *UserService) DeleteTeam(req *request.DeleteTeam) *response.Error {
 		}
 	}
 
+	// redisのチームID取得、一致なら削除不可
+	ctx := context.Background()
+	t, teamErr := u.redis.Get(ctx, req.UserHashKey, static.REDIS_USER_TEAM_ID)
+	if teamErr != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+	teamID, teamIDErr := strconv.ParseUint(*t, 10, 64)
+	if teamIDErr != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+	if team.ID == teamID {
+		return &response.Error{
+			Status: http.StatusConflict,
+			Code:   static.CODE_TEAM_USER_CANNOT_DELETE_TEAM,
+		}
+	}
+
 	// 削除可能判定
+	// t_applicant
 	apps, appsErr := u.applicant.GetByTeamID(&ddl.Applicant{
 		TeamID: team.ID,
 	})
@@ -925,7 +1035,39 @@ func (u *UserService) DeleteTeam(req *request.DeleteTeam) *response.Error {
 	if len(apps) > 0 {
 		return &response.Error{
 			Status: http.StatusConflict,
-			Code:   static.CODE_TEAM_USER_CANNOT_DELETE,
+			Code:   static.CODE_TEAM_USER_CANNOT_DELETE_APPLICANT,
+		}
+	}
+	// t_schedule
+	schedules, schedulesErr := u.user.GetScheduleByTeamID(&ddl.Schedule{
+		TeamID: team.ID,
+	})
+	if schedulesErr != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+	if len(schedules) > 0 {
+		return &response.Error{
+			Status: http.StatusConflict,
+			Code:   static.CODE_TEAM_USER_CANNOT_DELETE_SCHEDULE,
+		}
+	}
+	// t_manuscript_team_association
+	manuscripts, manuscriptsErr := u.manuscript.GetAssociationByTeamID(
+		&ddl.ManuscriptTeamAssociation{
+			TeamID: team.ID,
+		},
+	)
+	if manuscriptsErr != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+	if len(manuscripts) > 0 {
+		return &response.Error{
+			Status: http.StatusConflict,
+			Code:   static.CODE_TEAM_USER_CANNOT_DELETE_MANUSCRIPT,
 		}
 	}
 
@@ -936,21 +1078,8 @@ func (u *UserService) DeleteTeam(req *request.DeleteTeam) *response.Error {
 		}
 	}
 
-	// 参加可能者削除
-	if err := u.user.DeleteAssignPossible(tx, &ddl.TeamAssignPossible{
-		TeamID: team.ID,
-	}); err != nil {
-		if err := u.d.TxRollback(tx); err != nil {
-			return &response.Error{
-				Status: http.StatusInternalServerError,
-			}
-		}
-		return &response.Error{
-			Status: http.StatusInternalServerError,
-		}
-	}
-
-	// 紐づけ削除
+	// 関連する紐づけ削除
+	// t_team_association
 	if err := u.user.DeleteTeamAssociation(tx, &ddl.TeamAssociation{
 		TeamID: team.ID,
 	}); err != nil {
@@ -963,9 +1092,86 @@ func (u *UserService) DeleteTeam(req *request.DeleteTeam) *response.Error {
 			Status: http.StatusInternalServerError,
 		}
 	}
-
-	// 選考状況削除
-	if err := u.applicant.DeleteStatus(tx, &ddl.SelectStatus{
+	//  t_team_assign_possible
+	if err := u.user.DeleteAssignPossible(tx, &ddl.TeamAssignPossible{
+		TeamID: team.ID,
+	}); err != nil {
+		if err := u.d.TxRollback(tx); err != nil {
+			return &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+	//  t_team_assign_priority
+	if err := u.user.DeleteAssignPriority(tx, &ddl.TeamAssignPriority{
+		TeamID: team.ID,
+	}); err != nil {
+		if err := u.d.TxRollback(tx); err != nil {
+			return &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+	// t_select_status
+	if err := u.user.DeleteSelectStatus(tx, &ddl.SelectStatus{
+		TeamID: team.ID,
+	}); err != nil {
+		if err := u.d.TxRollback(tx); err != nil {
+			return &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+	// t_select_status
+	if err := u.user.DeleteSelectStatus(tx, &ddl.SelectStatus{
+		TeamID: team.ID,
+	}); err != nil {
+		if err := u.d.TxRollback(tx); err != nil {
+			return &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+	// t_team_auto_assign_rule_association
+	if err := u.user.DeleteAutoAssignRule(tx, &ddl.TeamAutoAssignRule{
+		TeamID: team.ID,
+	}); err != nil {
+		if err := u.d.TxRollback(tx); err != nil {
+			return &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+	// t_team_event_each_interview
+	if err := u.user.DeleteEventEachInterviewAssociation(tx, &ddl.TeamEventEachInterview{
+		TeamID: team.ID,
+	}); err != nil {
+		if err := u.d.TxRollback(tx); err != nil {
+			return &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+	// t_team_event
+	if err := u.user.DeleteEventAssociation(tx, &ddl.TeamEvent{
 		TeamID: team.ID,
 	}); err != nil {
 		if err := u.d.TxRollback(tx); err != nil {

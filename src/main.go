@@ -23,6 +23,7 @@ func main() {
 	awsRepository := repository.NewAWSRepository()
 	googleRepository := repository.NewGoogleRepository(redis)
 	masterRepository := repository.NewMasterRepository(db)
+	manuscriptRepository := repository.NewManuscriptRepository(db)
 	userRepository := repository.NewUserRepository(db)
 	roleRepository := repository.NewRoleRepository(db)
 	companyRepository := repository.NewCompanyRepository(db)
@@ -68,6 +69,7 @@ func main() {
 		userRepository,
 		roleRepository,
 		applicantRepository,
+		manuscriptRepository,
 		masterRepository,
 		userValidator,
 		dbRepository,
