@@ -8,6 +8,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+// ハッシュ生成
 func GenerateHash(minLength, maxLength int) (*string, *string, error) {
 	chars := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 
@@ -35,4 +36,9 @@ func GenerateHash(minLength, maxLength int) (*string, *string, error) {
 	hash := string(buffer2)
 
 	return &str, &hash, nil
+}
+
+// 閏年判定
+func isLeapYear(year int) bool {
+	return year%4 == 0 && (year%100 != 0 || year%400 == 0)
 }

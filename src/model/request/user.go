@@ -128,7 +128,7 @@ type UpdateAssignMethod struct {
 	PossibleList []UpdateAssignMethodSub `json:"possible_list"`
 }
 type UpdateAssignMethodSub struct {
-	ddl.TeamAssignPossible
-	// ハッシュキー
-	HashKey string `json:"hash_key"`
+	ddl.TeamPerInterview
+	// ハッシュキーリスト
+	HashKeys []string `json:"hash_keys"`
 }

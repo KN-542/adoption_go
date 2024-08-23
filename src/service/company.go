@@ -208,7 +208,6 @@ func (c *CompanyService) Create(req *request.CreateCompany) (*response.CreateCom
 		},
 		Name:           "Initial team " + company.Name,
 		NumOfInterview: 3,
-		UserMin:        1,
 		RuleID:         static.ASSIGN_RULE_MANUAL,
 	})
 	if teamErr != nil {
@@ -237,14 +236,30 @@ func (c *CompanyService) Create(req *request.CreateCompany) (*response.CreateCom
 		}
 	}
 
-	// 面接毎参加可能者登録(全員参加可能)
+	// 面接毎設定登録 & 面接毎参加可能者登録(全員参加可能)
+	var perList []*ddl.TeamPerInterview
 	var possibleList []*ddl.TeamAssignPossible
 	for i := 1; i <= int(team.NumOfInterview); i++ {
+		perList = append(perList, &ddl.TeamPerInterview{
+			TeamID:         team.ID,
+			NumOfInterview: uint(i),
+			UserMin:        1,
+		})
 		possibleList = append(possibleList, &ddl.TeamAssignPossible{
 			TeamID:         team.ID,
 			UserID:         user.ID,
 			NumOfInterview: uint(i),
 		})
+	}
+	if err := c.user.InsertsPerInterview(tx, perList); err != nil {
+		if err := c.db.TxRollback(tx); err != nil {
+			return nil, &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+		return nil, &response.Error{
+			Status: http.StatusInternalServerError,
+		}
 	}
 	if err := c.user.InsertsAssignPossible(tx, possibleList); err != nil {
 		if err := c.db.TxRollback(tx); err != nil {

@@ -138,16 +138,20 @@ func (u *UserService) Create(req *request.CreateUser) (*response.CreateUser, *re
 		}
 	}
 
-	// チームのIDを取得
-	teams, teamsErr := u.user.GetTeamIDs(req.Teams)
+	// チームを取得
+	teams, teamsErr := u.user.GetTeamsByHashKeys(req.Teams)
 	if teamsErr != nil {
 		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
+	var ids []uint64
+	for _, team := range teams {
+		ids = append(ids, team.ID)
+	}
 
 	// 各チームの面接官割り振り優先順位取得
-	priorities, prioritiesErr := u.user.GetAssignPriorityTeams(teams)
+	priorities, prioritiesErr := u.user.GetAssignPriorityTeams(ids)
 	if prioritiesErr != nil {
 		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
@@ -157,7 +161,7 @@ func (u *UserService) Create(req *request.CreateUser) (*response.CreateUser, *re
 	// メールアドレス重複チェック
 	if loginType == uint64(static.LOGIN_TYPE_MANAGEMENT) {
 		// メールアドレス重複チェック_管理者
-		if err := u.user.EmailDuplCheckManagement(&req.User, teams); err != nil {
+		if err := u.user.EmailDuplCheckManagement(&req.User, ids); err != nil {
 			return nil, &response.Error{
 				Status: http.StatusConflict,
 				Code:   static.CODE_USER_EMAIL_DUPL,
@@ -236,7 +240,7 @@ func (u *UserService) Create(req *request.CreateUser) (*response.CreateUser, *re
 
 	// チーム紐づけ一括登録
 	var teamAssociations []*ddl.TeamAssociation
-	for _, id := range teams {
+	for _, id := range ids {
 		teamAssociations = append(teamAssociations, &ddl.TeamAssociation{
 			TeamID: id,
 			UserID: user.ID,
@@ -253,8 +257,32 @@ func (u *UserService) Create(req *request.CreateUser) (*response.CreateUser, *re
 		}
 	}
 
+	//  面接毎参加可能者登録(全員参加可能)
+	for _, team := range teams {
+		var possibleList []*ddl.TeamAssignPossible
+
+		for i := 1; i <= int(team.NumOfInterview); i++ {
+			possibleList = append(possibleList, &ddl.TeamAssignPossible{
+				TeamID:         team.ID,
+				UserID:         user.ID,
+				NumOfInterview: uint(i),
+			})
+		}
+
+		if err := u.user.InsertsAssignPossible(tx, possibleList); err != nil {
+			if err := u.d.TxRollback(tx); err != nil {
+				return nil, &response.Error{
+					Status: http.StatusInternalServerError,
+				}
+			}
+			return nil, &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+	}
+
 	// 面接割り振り優先順位登録
-	for _, id := range teams {
+	for _, id := range ids {
 		var count uint
 		for _, row := range priorities {
 			if row.TeamID == id {
@@ -580,6 +608,16 @@ func (u *UserService) GetOwnTeam(req *request.GetOwnTeam) (*response.GetOwnTeam,
 	}
 
 	// 面接毎参加可能者取得
+	perList, perListErr := u.user.GetPerInterview(&ddl.TeamPerInterview{
+		TeamID: teamID,
+	})
+	if perListErr != nil {
+		return nil, &response.Error{
+			Status: http.StatusBadRequest,
+		}
+	}
+
+	// 面接毎参加可能者取得
 	possibleList, possibleErr := u.user.GetAssignPossible(&ddl.TeamAssignPossible{
 		TeamID: teamID,
 	})
@@ -597,7 +635,6 @@ func (u *UserService) GetOwnTeam(req *request.GetOwnTeam) (*response.GetOwnTeam,
 				},
 				Name:           res.Name,
 				NumOfInterview: res.NumOfInterview,
-				UserMin:        res.UserMin,
 			},
 			RuleHash: res.RuleHash,
 			Users:    res.Users,
@@ -607,6 +644,7 @@ func (u *UserService) GetOwnTeam(req *request.GetOwnTeam) (*response.GetOwnTeam,
 			HashKey: autoRule.HashKey,
 		},
 		Priority:     priority,
+		PerList:      perList,
 		PossibleList: possibleList,
 	}, nil
 }
@@ -665,7 +703,6 @@ func (u *UserService) CreateTeam(req *request.CreateTeam) *response.Error {
 	// チーム登録
 	req.HashKey = string(static.PRE_TEAM) + "_" + *hashKey
 	req.NumOfInterview = 3
-	req.UserMin = 1
 	req.RuleID = static.ASSIGN_RULE_MANUAL
 	team, err := u.user.InsertTeam(tx, &req.Team)
 	if err != nil {
@@ -698,15 +735,31 @@ func (u *UserService) CreateTeam(req *request.CreateTeam) *response.Error {
 		}
 	}
 
-	// 面接毎参加可能者登録(全員参加可能)
+	// 面接毎設定登録 & 面接毎参加可能者登録(全員参加可能)
+	var perList []*ddl.TeamPerInterview
 	var possibleList []*ddl.TeamAssignPossible
 	for i := 1; i <= int(team.NumOfInterview); i++ {
+		perList = append(perList, &ddl.TeamPerInterview{
+			TeamID:         team.ID,
+			NumOfInterview: uint(i),
+			UserMin:        1,
+		})
 		for _, id := range ids {
 			possibleList = append(possibleList, &ddl.TeamAssignPossible{
 				TeamID:         team.ID,
 				UserID:         id,
 				NumOfInterview: uint(i),
 			})
+		}
+	}
+	if err := u.user.InsertsPerInterview(tx, perList); err != nil {
+		if err := u.d.TxRollback(tx); err != nil {
+			return &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+		return &response.Error{
+			Status: http.StatusInternalServerError,
 		}
 	}
 	if err := u.user.InsertsAssignPossible(tx, possibleList); err != nil {
@@ -1081,6 +1134,19 @@ func (u *UserService) DeleteTeam(req *request.DeleteTeam) *response.Error {
 	// 関連する紐づけ削除
 	// t_team_association
 	if err := u.user.DeleteTeamAssociation(tx, &ddl.TeamAssociation{
+		TeamID: team.ID,
+	}); err != nil {
+		if err := u.d.TxRollback(tx); err != nil {
+			return &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+	//  t_team_per_interview
+	if err := u.user.DeletePerInterview(tx, &ddl.TeamPerInterview{
 		TeamID: team.ID,
 	}); err != nil {
 		if err := u.d.TxRollback(tx); err != nil {
@@ -1850,22 +1916,27 @@ func (u *UserService) UpdateAssignMethod(req *request.UpdateAssignMethod) *respo
 		}
 	}
 
-	// 参加可能者ID取得
+	// 設定 ＆ 参加可能者ID取得
+	var perList []*ddl.TeamPerInterview
 	var possibleList []*ddl.TeamAssignPossible
 	for _, possible := range req.PossibleList {
-		newPossible := &ddl.TeamAssignPossible{
-			TeamID:         teamID,
+		perList = append(perList, &ddl.TeamPerInterview{
+			TeamID:         team.ID,
 			NumOfInterview: possible.NumOfInterview,
-		}
+			UserMin:        possible.UserMin,
+		})
 
 		for _, user := range team.Users {
-			if possible.HashKey == user.HashKey {
-				newPossible.UserID = user.ID
-				break
+			for _, hashKey := range possible.HashKeys {
+				if hashKey == user.HashKey {
+					possibleList = append(possibleList, &ddl.TeamAssignPossible{
+						TeamID:         teamID,
+						NumOfInterview: possible.NumOfInterview,
+						UserID:         user.ID,
+					})
+				}
 			}
 		}
-
-		possibleList = append(possibleList, newPossible)
 	}
 
 	tx, txErr := u.d.TxStart()
@@ -1880,8 +1951,7 @@ func (u *UserService) UpdateAssignMethod(req *request.UpdateAssignMethod) *respo
 		AbstractTransactionModel: ddl.AbstractTransactionModel{
 			HashKey: team.HashKey,
 		},
-		RuleID:  rule.ID,
-		UserMin: req.UserMin,
+		RuleID: rule.ID,
 	})
 	if updateTeamErr != nil {
 		if err := u.d.TxRollback(tx); err != nil {
@@ -1922,10 +1992,36 @@ func (u *UserService) UpdateAssignMethod(req *request.UpdateAssignMethod) *respo
 		}
 	}
 
+	// 面接毎設定削除
+	if err := u.user.DeletePerInterview(tx, &ddl.TeamPerInterview{
+		TeamID: team.ID,
+	}); err != nil {
+		if err := u.d.TxRollback(tx); err != nil {
+			return &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
 	// 面接参加可能者削除
 	if err := u.user.DeleteAssignPossible(tx, &ddl.TeamAssignPossible{
 		TeamID: team.ID,
 	}); err != nil {
+		if err := u.d.TxRollback(tx); err != nil {
+			return &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// 面接毎設定一括登録
+	if err := u.user.InsertsPerInterview(tx, perList); err != nil {
 		if err := u.d.TxRollback(tx); err != nil {
 			return &response.Error{
 				Status: http.StatusInternalServerError,

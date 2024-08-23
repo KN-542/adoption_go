@@ -30,7 +30,7 @@ type IApplicantRepository interface {
 	// 応募者ステータス削除_PK
 	DeleteStatusByPrimary(tx *gorm.DB, m *ddl.SelectStatus, ids []uint64) error
 	// 取得_メールアドレス
-	GetByEmail(m *ddl.Applicant) ([]entity.Applicant, error)
+	GetByEmail(m *ddl.Applicant) (*entity.Applicant, error)
 	// 取得_チームID
 	GetByTeamID(m *ddl.Applicant) ([]entity.Applicant, error)
 	// 応募者重複チェック_媒体側ID
@@ -106,18 +106,18 @@ func (a *ApplicantRepository) Search(m *dto.SearchApplicant) ([]*entity.SearchAp
 	var totalCount int64
 
 	query := a.db.Table("t_applicant").
-		Joins("LEFT JOIN t_select_status ON t_applicant.status = t_select_status.id").
-		Joins("LEFT JOIN m_site ON t_applicant.site_id = m_site.id").
-		Joins("LEFT JOIN t_applicant_schedule_association ON t_applicant_schedule_association.applicant_id = t_applicant.id").
-		Joins("LEFT JOIN t_schedule ON t_applicant_schedule_association.schedule_id = t_schedule.id").
-		Joins("LEFT JOIN t_applicant_resume_association ON t_applicant_resume_association.applicant_id = t_applicant.id").
-		Joins("LEFT JOIN t_applicant_curriculum_vitae_association ON t_applicant_curriculum_vitae_association.applicant_id = t_applicant.id").
-		Joins("LEFT JOIN t_applicant_url_association ON t_applicant_url_association.applicant_id = t_applicant.id").
+		Joins("left join t_select_status on t_applicant.status = t_select_status.id").
+		Joins("left join m_site on t_applicant.site_id = m_site.id").
+		Joins("left join t_applicant_schedule_association on t_applicant_schedule_association.applicant_id = t_applicant.id").
+		Joins("left join t_schedule on t_applicant_schedule_association.schedule_id = t_schedule.id").
+		Joins("left join t_applicant_resume_association on t_applicant_resume_association.applicant_id = t_applicant.id").
+		Joins("left join t_applicant_curriculum_vitae_association on t_applicant_curriculum_vitae_association.applicant_id = t_applicant.id").
+		Joins("left join t_applicant_url_association on t_applicant_url_association.applicant_id = t_applicant.id").
 		Where("t_applicant.team_id = ? AND t_applicant.company_id = ?", m.TeamID, m.CompanyID)
 
 	if len(m.Users) > 0 {
-		query = query.Joins("INNER JOIN t_applicant_user_association ON t_applicant_user_association.applicant_id = t_applicant.id").
-			Joins("INNER JOIN t_user ON t_applicant_user_association.user_id = t_user.id").
+		query = query.Joins("INNER JOIN t_applicant_user_association on t_applicant_user_association.applicant_id = t_applicant.id").
+			Joins("INNER JOIN t_user on t_applicant_user_association.user_id = t_user.id").
 			Where("t_user.hash_key IN ?", m.Users)
 	}
 
@@ -228,7 +228,7 @@ func (a *ApplicantRepository) Search(m *dto.SearchApplicant) ([]*entity.SearchAp
 
 		err := a.db.Table("t_applicant_user_association").
 			Select("t_applicant_user_association.applicant_id, t_user.id as user_id, t_user.hash_key, t_user.name").
-			Joins("INNER JOIN t_user ON t_applicant_user_association.user_id = t_user.id").
+			Joins("INNER JOIN t_user on t_applicant_user_association.user_id = t_user.id").
 			Where("t_applicant_user_association.applicant_id IN ?", applicantIDs).
 			Find(&userAssociations).Error
 
@@ -355,17 +355,17 @@ func (a *ApplicantRepository) CountByPrimaryKey(key *string) (*int64, error) {
 }
 
 // 取得_メールアドレス
-func (a *ApplicantRepository) GetByEmail(m *ddl.Applicant) ([]entity.Applicant, error) {
-	var l []entity.Applicant
+func (a *ApplicantRepository) GetByEmail(m *ddl.Applicant) (*entity.Applicant, error) {
+	var l entity.Applicant
 	if err := a.db.Where(&ddl.Applicant{
 		Email:  m.Email,
 		TeamID: m.TeamID,
-	}).Find(&l).Error; err != nil {
+	}).First(&l).Error; err != nil {
 		log.Printf("%v", err)
 		return nil, err
 	}
 
-	return l, nil
+	return &l, nil
 }
 
 // 取得_チームID

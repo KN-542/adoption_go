@@ -38,6 +38,7 @@ type GetOwnTeam struct {
 	Events       []entity.InterviewEventsByTeam `json:"events"`
 	AutoRule     entity.TeamAutoAssignRule      `json:"auto_rule"`
 	Priority     []entity.TeamAssignPriority    `json:"priority"`
+	PerList      []entity.TeamPerInterview      `json:"per_list"`
 	PossibleList []entity.TeamAssignPossible    `json:"possible_list"`
 }
 

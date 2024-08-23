@@ -51,6 +51,7 @@ func main() {
 			&ddl.TeamEventEachInterview{},
 			&ddl.TeamAutoAssignRule{},
 			&ddl.TeamAssignPriority{},
+			&ddl.TeamPerInterview{},
 			&ddl.TeamAssignPossible{},
 			&ddl.Schedule{},
 			&ddl.ScheduleAssociation{},
@@ -368,7 +369,6 @@ func main() {
 			"hash_key":         "ハッシュキー",
 			"name":             "チーム名",
 			"num_of_interview": "最大面接回数",
-			"user_min":         "最低面接人数",
 			"rule_id":          "ルールID",
 			"company_id":       "企業ID",
 			"created_at":       "登録日時",
@@ -455,6 +455,19 @@ func main() {
 			"priority": "優先順位",
 		}
 		if err := AddColumnComments(dbConn, "t_team_assign_priority", teamAssignPriority); err != nil {
+			log.Println(err)
+		}
+
+		// t_team_per_interview
+		if err := AddTableComment(dbConn, "t_team_per_interview", "面接毎設定"); err != nil {
+			log.Println(err)
+		}
+		teamPerInterview := map[string]string{
+			"team_id":          "チームID",
+			"num_of_interview": "面接回数",
+			"user_min":         "最低人数",
+		}
+		if err := AddColumnComments(dbConn, "t_team_per_interview", teamPerInterview); err != nil {
 			log.Println(err)
 		}
 
@@ -769,6 +782,7 @@ func main() {
 			&ddl.TeamEventEachInterview{},
 			&ddl.TeamAutoAssignRule{},
 			&ddl.TeamAssignPriority{},
+			&ddl.TeamPerInterview{},
 			&ddl.TeamAssignPossible{},
 			&ddl.Schedule{},
 			&ddl.ScheduleAssociation{},

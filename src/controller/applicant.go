@@ -38,6 +38,8 @@ type IApplicantController interface {
 	GetGoogleMeetUrl(e echo.Context) error
 	// 面接官割り振り
 	AssignUser(e echo.Context) error
+	// 面接官割り振り可能判定
+	CheckAssignableUser(e echo.Context) error
 }
 
 type ApplicantController struct {
@@ -522,4 +524,48 @@ func (c *ApplicantController) AssignUser(e echo.Context) error {
 		return e.JSON(err.Status, response.ErrorConvert(*err))
 	}
 	return e.JSON(http.StatusOK, "OK")
+}
+
+// 面接官割り振り可能判定
+func (c *ApplicantController) CheckAssignableUser(e echo.Context) error {
+	req := request.CheckAssignableUser{}
+	if err := e.Bind(&req); err != nil {
+		log.Printf("%v", err)
+		return e.JSON(http.StatusBadRequest, fmt.Errorf(static.MESSAGE_BAD_REQUEST))
+	}
+
+	// JWT検証
+	if err := JWTDecodeCommon(
+		c,
+		e,
+		req.UserHashKey,
+		JWT_TOKEN,
+		JWT_SECRET,
+		true,
+	); err != nil {
+		return err
+	}
+
+	// ロールチェック
+	exist, roleErr := c.role.Check(&request.CheckRole{
+		Abstract: request.Abstract{
+			UserHashKey: req.UserHashKey,
+		},
+		ID: static.ROLE_MANAGEMENT_APPLICANT_ASSIGN_USER,
+	})
+	if roleErr != nil {
+		return e.JSON(roleErr.Status, response.ErrorConvert(*roleErr))
+	}
+	if !exist {
+		err := &response.Error{
+			Status: http.StatusForbidden,
+		}
+		return e.JSON(err.Status, response.ErrorConvert(*err))
+	}
+
+	res, err := c.s.CheckAssignableUser(&req, false)
+	if err != nil {
+		return e.JSON(err.Status, response.ErrorConvert(*err))
+	}
+	return e.JSON(http.StatusOK, res)
 }

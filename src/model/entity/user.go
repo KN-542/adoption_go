@@ -46,6 +46,11 @@ type Schedule struct {
 	Users []*User `json:"users" gorm:"many2many:t_schedule_association;foreignKey:id;joinForeignKey:schedule_id;References:id;joinReferences:user_id"`
 }
 
+// Schedule
+type Schedule2 struct {
+	ddl.Schedule
+}
+
 // Team Association
 type TeamAssociation struct {
 	ddl.TeamAssociation
@@ -71,6 +76,11 @@ type TeamAssignPriority struct {
 	Name string `json:"name"`
 }
 
+// Team Assign Priority only ID
+type TeamAssignPriorityOnly struct {
+	ddl.TeamAssignPriority
+}
+
 // Team Assign Possible
 type TeamAssignPossible struct {
 	ddl.TeamAssignPossible
@@ -80,6 +90,11 @@ type TeamAssignPossible struct {
 	Name string `json:"name"`
 	// メールアドレス
 	Email string `json:"email"`
+}
+
+// Team Per Interview
+type TeamPerInterview struct {
+	ddl.TeamPerInterview
 }
 
 // ScheduleAssociation
@@ -99,6 +114,10 @@ type StatusEventsByTeam struct {
 	SelectStatusHashKey string `json:"select_status_hash_key"`
 	// ステータス名
 	StatusName string `json:"status_name"`
+}
+
+type TeamEventEachInterview struct {
+	ddl.TeamEventEachInterview
 }
 
 // チーム面接毎イベント

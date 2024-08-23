@@ -82,6 +82,7 @@ func NewRouter(
 	e.POST("/applicant/get_google_meet_url", applicant.GetGoogleMeetUrl)
 	e.POST("/applicant/reserve_table", applicant.ReserveTable)
 	e.POST("/applicant/assign_user", applicant.AssignUser)
+	e.POST("/applicant/check_assign_user", applicant.CheckAssignableUser)
 
 	// ロール
 	e.POST("/role/search_company", role.SearchByCompanyID)

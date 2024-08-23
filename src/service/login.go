@@ -623,20 +623,13 @@ func (l *LoginService) LoginApplicant(req *request.LoginApplicant) (*response.Lo
 	req.TeamID = team.ID
 
 	// ログイン認証
-	applicants, err := l.applicant.GetByEmail(&req.Applicant)
+	applicant, err := l.applicant.GetByEmail(&req.Applicant)
 	if err != nil {
-		return nil, &response.Error{
-			Status: http.StatusInternalServerError,
-		}
-	}
-	if len(applicants) == 0 {
 		return nil, &response.Error{
 			Status: http.StatusUnauthorized,
 			Code:   static.CODE_LOGIN_AUTH,
 		}
 	}
-
-	applicant := applicants[0]
 
 	// Redisに保存
 	ctx := context.Background()

@@ -39,6 +39,8 @@ type IApplicantValidator interface {
 	UpdateStatusSub2(a *request.UpdateStatusSub2) error
 	// 面接官割り振り
 	AssignUser(a *request.AssignUser) error
+	// 面接官割り振り可能判定
+	CheckAssignableUser(a *request.CheckAssignableUser) error
 }
 
 type ApplicantValidator struct{}
@@ -290,6 +292,23 @@ func (v *ApplicantValidator) AssignUser(a *request.AssignUser) error {
 		a,
 		validation.Field(
 			&a.HashKey,
+			validation.Required,
+		),
+		validation.Field(
+			&a.HashKeys,
+			validation.Required,
+			validation.Length(1, 0),
+			validation.Each(validation.Required),
+		),
+	)
+}
+
+// 面接官割り振り可能判定
+func (v *ApplicantValidator) CheckAssignableUser(a *request.CheckAssignableUser) error {
+	return validation.ValidateStruct(
+		a,
+		validation.Field(
+			&a.Start,
 			validation.Required,
 		),
 		validation.Field(

@@ -279,8 +279,11 @@ func (v *UserValidator) UpdateAssignMethod4(u *request.UpdateAssignMethodSub) er
 	return validation.ValidateStruct(
 		u,
 		validation.Field(
-			&u.HashKey,
+			&u.HashKeys,
 			validation.Required,
+			validation.Length(1, 0),
+			validation.Each(validation.Required),
+			UniqueValidator{},
 		),
 		validation.Field(
 			&u.NumOfInterview,

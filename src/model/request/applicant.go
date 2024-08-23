@@ -165,3 +165,12 @@ type AssignUser struct {
 	// ハッシュキーリスト
 	HashKeys []string `json:"hash_keys"`
 }
+
+// 面接官割り振り可能判定
+type CheckAssignableUser struct {
+	Abstract
+	// 開始時刻
+	Start time.Time `json:"start"`
+	// ハッシュキーリスト
+	HashKeys []string `json:"hash_keys"`
+}

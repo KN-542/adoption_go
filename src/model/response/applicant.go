@@ -58,3 +58,14 @@ type GetOauthURL struct {
 type GetGoogleMeetUrl struct {
 	Url string `json:"url"`
 }
+
+// 面接官割り振り可能判定
+type CheckAssignableUser struct {
+	List []CheckAssignableUserSub `json:"list"`
+}
+type CheckAssignableUserSub struct {
+	// ユーザー
+	User entity.User `json:"user"`
+	// 面接官予定重複フラグ
+	DuplFlg uint `json:"dupl_flg"`
+}

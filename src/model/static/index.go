@@ -40,6 +40,11 @@ const (
 	CODE_TEAM_USER_CANNOT_DELETE_SCHEDULE   uint = 2
 	CODE_TEAM_USER_CANNOT_DELETE_MANUSCRIPT uint = 3
 	CODE_TEAM_USER_CANNOT_DELETE_TEAM       uint = 4
+
+	/*
+		応募者
+	*/
+	CODE_APPLICANT_CANNOT_ASSIGN_USER uint = 1
 )
 
 // Response Body メッセージ

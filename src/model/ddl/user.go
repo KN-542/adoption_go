@@ -40,8 +40,6 @@ type Team struct {
 	Name string `json:"name" gorm:"not null;check:name <> '';type:varchar(30);index"`
 	// 最大面接回数
 	NumOfInterview uint `json:"num_of_interview" gorm:"check:num_of_interview >= 1 AND num_of_interview <= 30"`
-	// 最低面接人数
-	UserMin uint `json:"user_min" gorm:"check:user_min >= 1 AND user_min <= 6"`
 	// ルールID
 	RuleID uint `json:"rule_id"`
 	// ルール(外部キー)
@@ -129,6 +127,21 @@ type TeamAssignPriority struct {
 	Team Team `gorm:"foreignKey:team_id;references:id"`
 	// ユーザー(外部キー)
 	User User `gorm:"foreignKey:user_id;references:id"`
+}
+
+/*
+t_team_per_interview
+面接毎設定
+*/
+type TeamPerInterview struct {
+	// チームID
+	TeamID uint64 `json:"team_id" gorm:"primaryKey"`
+	// 面接回数
+	NumOfInterview uint `json:"num_of_interview" gorm:"primaryKey"`
+	// 最低人数
+	UserMin uint `json:"user_min" gorm:"check:user_min >= 1 AND user_min <= 6"`
+	// チーム(外部キー)
+	Team Team `gorm:"foreignKey:team_id;references:id"`
 }
 
 /*
@@ -221,6 +234,9 @@ func (t TeamAutoAssignRule) TableName() string {
 }
 func (t TeamAssignPriority) TableName() string {
 	return "t_team_assign_priority"
+}
+func (t TeamPerInterview) TableName() string {
+	return "t_team_per_interview"
 }
 func (t TeamAssignPossible) TableName() string {
 	return "t_team_assign_possible"

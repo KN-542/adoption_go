@@ -11,6 +11,7 @@ import (
 	"api/src/validator"
 	"context"
 	"log"
+	"math/rand"
 	"mime/multipart"
 	"net/http"
 	"strconv"
@@ -44,6 +45,8 @@ type IApplicantService interface {
 	UpdateStatus(req *request.UpdateStatus) *response.Error
 	// 面接官割り振り
 	AssignUser(req *request.AssignUser) *response.Error
+	// 面接官割り振り可能判定
+	CheckAssignableUser(req *request.CheckAssignableUser, domainFlg bool) (*response.CheckAssignableUser, *response.Error)
 }
 
 type ApplicantService struct {
@@ -467,6 +470,17 @@ func (s *ApplicantService) ReserveTable(req *request.ReserveTable) (*response.Re
 		}
 	}
 
+	// 面接設定取得
+	setting, settingError := s.u.GetPerInterviewByNumOfInterview(&ddl.TeamPerInterview{
+		TeamID:         applicant.TeamID,
+		NumOfInterview: applicant.NumOfInterview,
+	})
+	if settingError != nil {
+		return nil, &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
 	// 面接参加可能者取得
 	models, modelsErr := s.u.GetAssignPossibleSchedule(&ddl.TeamAssignPossible{
 		TeamID:         applicant.TeamID,
@@ -476,6 +490,24 @@ func (s *ApplicantService) ReserveTable(req *request.ReserveTable) (*response.Re
 		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
 		}
+	}
+
+	// 面接予定取得
+	var res entity.Schedule
+	if applicant.ScheduleID > 0 {
+		applicantSchedule, applicantScheduleErr := s.u.GetScheduleByPrimary(&ddl.Schedule{
+			AbstractTransactionModel: ddl.AbstractTransactionModel{
+				ID: applicant.ScheduleID,
+			},
+		})
+		if applicantScheduleErr != nil {
+			return nil, &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+		res.ID = applicantSchedule.ID
+		res.Start = applicantSchedule.Start
+		res.End = applicantSchedule.End
 	}
 
 	// 整形
@@ -575,6 +607,10 @@ func (s *ApplicantService) ReserveTable(req *request.ReserveTable) (*response.Re
 			} else {
 				var tempUsers []string
 				for _, schedule := range schedules {
+					if res.ID == schedule.ID {
+						continue
+					}
+
 					// 時刻が対象範囲の場合
 					if d.After(schedule.Start.Add(-1*time.Minute)) && d.Before(schedule.End.Add(1*time.Minute)) {
 						for _, user := range schedule.Users {
@@ -616,27 +652,10 @@ func (s *ApplicantService) ReserveTable(req *request.ReserveTable) (*response.Re
 				reserveTime = append(reserveTime, dto.ReserveTableSub{
 					Time:      d,
 					Users:     ableUsers,
-					IsReserve: len(ableUsers) > int(applicant.NumOfInterview),
+					IsReserve: len(ableUsers) >= int(setting.UserMin),
 				})
 			}
 		}
-	}
-
-	// 面接予定取得
-	var res entity.Schedule
-	if applicant.ScheduleID > 0 {
-		applicantSchedule, applicantScheduleErr := s.u.GetScheduleByPrimary(&ddl.Schedule{
-			AbstractTransactionModel: ddl.AbstractTransactionModel{
-				ID: applicant.ScheduleID,
-			},
-		})
-		if applicantScheduleErr != nil {
-			return nil, &response.Error{
-				Status: http.StatusInternalServerError,
-			}
-		}
-		res.Start = applicantSchedule.Start
-		res.End = applicantSchedule.End
 	}
 
 	return &response.ReserveTable{
@@ -644,8 +663,8 @@ func (s *ApplicantService) ReserveTable(req *request.ReserveTable) (*response.Re
 		Options:           reserveTime,
 		Schedule:          res.Start,
 		ScheduleHashKey:   res.HashKey,
-		IsResume:          applicant.NumOfInterview == 1 || applicant.ResumeExtension == "",
-		IsCurriculumVitae: applicant.NumOfInterview == 1 || applicant.CurriculumVitaeExtension == "",
+		IsResume:          setting.UserMin == 1 || applicant.ResumeExtension == "",
+		IsCurriculumVitae: setting.UserMin == 1 || applicant.CurriculumVitaeExtension == "",
 	}, nil
 }
 
@@ -790,6 +809,39 @@ func (s *ApplicantService) InsertDesiredAt(req *request.InsertDesiredAt) *respon
 		}
 	}
 
+	// チーム取得
+	team, teamErr := s.u.GetTeamByPrimary(&ddl.Team{
+		AbstractTransactionModel: ddl.AbstractTransactionModel{
+			ID: applicant.TeamID,
+		},
+	})
+	if teamErr != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// 面接設定取得
+	setting, settingError := s.u.GetPerInterviewByNumOfInterview(&ddl.TeamPerInterview{
+		TeamID:         applicant.TeamID,
+		NumOfInterview: applicant.NumOfInterview,
+	})
+	if settingError != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// 面接官取得
+	interviewers, interviewersError := s.u.GetUserAssociation(&ddl.ApplicantUserAssociation{
+		ApplicantID: applicant.ID,
+	})
+	if interviewersError != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
 	// イベント取得
 	events, eventsErr := s.u.SelectEventAssociation(&ddl.TeamEvent{
 		TeamID: applicant.TeamID,
@@ -800,6 +852,68 @@ func (s *ApplicantService) InsertDesiredAt(req *request.InsertDesiredAt) *respon
 		}
 	}
 
+	// ～次面接イベント取得
+	tEvent, tEventErr := s.u.GetEventEachInterviewAssociation(&ddl.TeamEventEachInterview{
+		TeamID:         applicant.TeamID,
+		NumOfInterview: applicant.NumOfInterview,
+	})
+	if tEventErr != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// 面接官自動割り振りルール取得
+	autoRules, autoRulesErr := s.u.GetAutoAssignRuleFind(&ddl.TeamAutoAssignRule{
+		TeamID: applicant.TeamID,
+	})
+	if autoRulesErr != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+	if len(autoRules) > 1 {
+		log.Printf("duplicate auto rule.")
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// 優先順位取得
+	priorities, prioritiesErr := s.u.GetAssignPriorityOnly(&ddl.TeamAssignPriority{
+		TeamID: team.ID,
+	})
+	if prioritiesErr != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// ユーザー取得_予定数順
+	usersDesc, usersDescErr := s.u.GetUsersSortedByScheduleCount(&ddl.Schedule{
+		TeamID: team.ID,
+	})
+	if usersDescErr != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// 面接官割り振り可能判定
+	var userHashKeys []string
+	for _, user := range team.Users {
+		userHashKeys = append(userHashKeys, user.HashKey)
+	}
+	service, serviceErr := s.CheckAssignableUser(&request.CheckAssignableUser{
+		Start:    req.DesiredAt,
+		HashKeys: userHashKeys,
+	}, true)
+	if serviceErr != nil {
+		return &response.Error{
+			Status: serviceErr.Status,
+		}
+	}
+
 	tx, txErr := s.d.TxStart()
 	if txErr != nil {
 		return &response.Error{
@@ -807,6 +921,7 @@ func (s *ApplicantService) InsertDesiredAt(req *request.InsertDesiredAt) *respon
 		}
 	}
 
+	var scheduleID uint64
 	if applicant.ScheduleID == 0 {
 		// ハッシュキー生成
 		_, hash, hashErr := GenerateHash(1, 25)
@@ -840,6 +955,7 @@ func (s *ApplicantService) InsertDesiredAt(req *request.InsertDesiredAt) *respon
 				Status: http.StatusInternalServerError,
 			}
 		}
+		scheduleID = *id
 
 		// 応募者紐づけ登録
 		if err := s.r.InsertApplicantScheduleAssociation(tx, &ddl.ApplicantScheduleAssociation{
@@ -943,9 +1059,31 @@ func (s *ApplicantService) InsertDesiredAt(req *request.InsertDesiredAt) *respon
 	}
 
 	// 応募者ステータス決定＆更新
-	if req.ResumeExtension != "" && req.CurriculumVitaeExtension != "" {
+	if tEvent.NumOfInterview > 1 {
+		if err := s.r.Update(tx, &ddl.Applicant{
+			AbstractTransactionModel: ddl.AbstractTransactionModel{
+				HashKey: applicant.HashKey,
+			},
+			Status: tEvent.StatusID,
+		}); err != nil {
+			if err := s.d.TxRollback(tx); err != nil {
+				return &response.Error{
+					Status: http.StatusInternalServerError,
+				}
+			}
+			return &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+	} else {
+		eventStatus := uint(0)
+		if req.ResumeExtension != "" && req.CurriculumVitaeExtension != "" {
+			eventStatus = uint(static.STATUS_EVENT_SUBMIT_DOCUMENTS)
+		} else {
+			eventStatus = uint(static.STATUS_EVENT_DECIDE_SCHEDULE)
+		}
 		for _, event := range events {
-			if event.EventID == static.STATUS_EVENT_SUBMIT_DOCUMENTS {
+			if event.EventID == eventStatus {
 				if err := s.r.Update(tx, &ddl.Applicant{
 					AbstractTransactionModel: ddl.AbstractTransactionModel{
 						HashKey: applicant.HashKey,
@@ -963,20 +1101,132 @@ func (s *ApplicantService) InsertDesiredAt(req *request.InsertDesiredAt) *respon
 				}
 			}
 		}
-	} else {
-		for _, event := range events {
-			if event.EventID == static.STATUS_EVENT_DECIDE_SCHEDULE {
-				if err := s.r.Update(tx, &ddl.Applicant{
-					Status: event.StatusID,
-				}); err != nil {
-					if err := s.d.TxRollback(tx); err != nil {
-						return &response.Error{
-							Status: http.StatusInternalServerError,
-						}
+	}
+
+	// 面接官割り振り
+	var users []entity.User
+	for _, s := range service.List {
+		if s.DuplFlg == static.DUPLICATION_SAFE {
+			users = append(users, s.User)
+		}
+	}
+	if len(users) < int(setting.UserMin) {
+		log.Printf("Not assignable.")
+		return &response.Error{
+			Status: http.StatusConflict,
+			Code:   static.CODE_APPLICANT_CANNOT_ASSIGN_USER,
+		}
+	}
+
+	if len(interviewers) == 0 && applicant.ScheduleID == 0 && len(autoRules) == 1 && team.RuleID == static.ASSIGN_RULE_AUTO {
+		autoRule := autoRules[0]
+		var applicantUsers []*ddl.ApplicantUserAssociation
+
+		// ランダム
+		if autoRule.RuleID == static.AUTO_ASSIGN_RULE_RANDOM {
+			rng := rand.New(rand.NewSource(time.Now().UnixNano()))
+
+			rng.Shuffle(len(users), func(i, j int) {
+				users[i], users[j] = users[j], users[i]
+			})
+
+			for _, user := range users[:int(setting.UserMin)] {
+				applicantUsers = append(applicantUsers, &ddl.ApplicantUserAssociation{
+					ApplicantID: applicant.ID,
+					UserID:      user.ID,
+				})
+			}
+		}
+
+		// 定められた優先順位に従う
+		if autoRule.RuleID == static.AUTO_ASSIGN_RULE_ASC && len(priorities) > 0 {
+			var filterPriorities []entity.TeamAssignPriorityOnly
+			for _, row := range priorities {
+				flg := false
+				for _, user := range users {
+					if user.ID == row.UserID {
+						flg = true
+						break
 					}
+				}
+
+				if flg {
+					filterPriorities = append(filterPriorities, *row)
+				}
+			}
+
+			count := 0
+			for _, row := range filterPriorities {
+				count++
+				applicantUsers = append(applicantUsers, &ddl.ApplicantUserAssociation{
+					ApplicantID: applicant.ID,
+					UserID:      row.UserID,
+				})
+				if count == int(setting.UserMin) {
+					break
+				}
+			}
+		}
+
+		// 予定の少ない順
+		if autoRule.RuleID == static.AUTO_ASSIGN_RULE_DESC_SCHEDULE {
+			var filterList []entity.User
+			for _, row := range usersDesc {
+				flg := false
+				for _, user := range users {
+					if user.ID == row.ID {
+						flg = true
+						break
+					}
+				}
+
+				if flg {
+					filterList = append(filterList, row)
+				}
+			}
+
+			count := 0
+			for _, row := range filterList {
+				count++
+				applicantUsers = append(applicantUsers, &ddl.ApplicantUserAssociation{
+					ApplicantID: applicant.ID,
+					UserID:      row.ID,
+				})
+				if count == int(setting.UserMin) {
+					break
+				}
+			}
+		}
+
+		if len(applicantUsers) > 0 {
+			// 応募者ユーザー紐づけ登録
+			if err := s.u.InsertsUserAssociation(tx, applicantUsers); err != nil {
+				if err := s.d.TxRollback(tx); err != nil {
 					return &response.Error{
 						Status: http.StatusInternalServerError,
 					}
+				}
+				return &response.Error{
+					Status: http.StatusInternalServerError,
+				}
+			}
+
+			// 予定ユーザー紐づけ登録
+			var list []*ddl.ScheduleAssociation
+			for _, row := range applicantUsers {
+				list = append(list, &ddl.ScheduleAssociation{
+					ScheduleID: scheduleID,
+					UserID:     row.UserID,
+				})
+			}
+			if err := s.u.InsertsScheduleAssociation(tx, list); err != nil {
+				if err := s.d.TxRollback(tx); err != nil {
+					return &response.Error{
+						Status: http.StatusInternalServerError,
+					}
+				}
+				return &response.Error{
+					Status: http.StatusInternalServerError,
 				}
 			}
 		}
@@ -1449,4 +1699,198 @@ func (s *ApplicantService) AssignUser(req *request.AssignUser) *response.Error {
 	}
 
 	return nil
+}
+
+// 面接官割り振り可能判定
+func (s *ApplicantService) CheckAssignableUser(req *request.CheckAssignableUser, domainFlg bool) (*response.CheckAssignableUser, *response.Error) {
+	// バリデーション
+	if err := s.v.CheckAssignableUser(req); err != nil {
+		log.Printf("%v", err)
+		return nil, &response.Error{
+			Status: http.StatusBadRequest,
+		}
+	}
+
+	// TZをAsia/Tokyoに
+	jst, jstErr := time.LoadLocation("Asia/Tokyo")
+	if jstErr != nil {
+		log.Printf("%v", jstErr)
+		return nil, &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// ユーザー取得
+	users, usersErr := s.u.GetByHashKeys(req.HashKeys)
+	if usersErr != nil {
+		return nil, &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	var list []response.CheckAssignableUserSub
+	for _, user := range users {
+		// ユーザー単位予定取得
+		models, modelsErr := s.u.GetScheduleByUser(&ddl.ScheduleAssociation{
+			UserID: user.ID,
+		})
+		if modelsErr != nil {
+			return nil, &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+
+		// 整形
+		var schedules []entity.Schedule
+		var schedulesJST []entity.Schedule
+
+		start := req.Start.In(jst)
+		end := start.Add(1 * time.Hour)
+
+		for _, model := range models {
+			model.Start = model.Start.In(jst)
+			model.End = model.End.In(jst)
+			schedulesJST = append(schedulesJST, entity.Schedule{
+				Schedule: model.Schedule,
+			})
+		}
+
+		for _, scheduleJST := range schedulesJST {
+			// なしの場合 (変更なし)
+			if scheduleJST.FreqID == uint(static.FREQ_NONE) {
+				if (end.After(scheduleJST.Start) || end.Equal(scheduleJST.Start)) &&
+					(start.Before(scheduleJST.End) || start.Equal(scheduleJST.End)) {
+					schedules = append(schedules, scheduleJST)
+				}
+			}
+
+			// 毎日の場合 (変更なし)
+			if scheduleJST.FreqID == uint(static.FREQ_DAILY) {
+				scheduleStart := time.Date(start.Year(), start.Month(), start.Day(), scheduleJST.Start.Hour(), scheduleJST.Start.Minute(), scheduleJST.Start.Second(), 0, jst)
+				scheduleEnd := time.Date(start.Year(), start.Month(), start.Day(), scheduleJST.End.Hour(), scheduleJST.End.Minute(), scheduleJST.End.Second(), 0, jst)
+
+				if scheduleEnd.Before(scheduleStart) {
+					scheduleEnd = scheduleEnd.Add(24 * time.Hour)
+				}
+
+				if (end.After(scheduleStart) || end.Equal(scheduleStart)) &&
+					(start.Before(scheduleEnd) || start.Equal(scheduleEnd)) {
+					schedules = append(schedules, scheduleJST)
+				}
+			}
+
+			// 毎週の場合 (変更なし)
+			if scheduleJST.FreqID == uint(static.FREQ_WEEKLY) {
+				if start.Weekday() == scheduleJST.Start.Weekday() {
+					scheduleStart := time.Date(start.Year(), start.Month(), start.Day(), scheduleJST.Start.Hour(), scheduleJST.Start.Minute(), scheduleJST.Start.Second(), 0, jst)
+					scheduleEnd := time.Date(start.Year(), start.Month(), start.Day(), scheduleJST.End.Hour(), scheduleJST.End.Minute(), scheduleJST.End.Second(), 0, jst)
+
+					if scheduleEnd.Before(scheduleStart) {
+						scheduleEnd = scheduleEnd.Add(24 * time.Hour)
+					}
+
+					if (end.After(scheduleStart) || end.Equal(scheduleStart)) &&
+						(start.Before(scheduleEnd) || start.Equal(scheduleEnd)) {
+						schedules = append(schedules, scheduleJST)
+					}
+				}
+			}
+
+			// 毎月の場合 (修正: 存在しない日付の場合は何もしない)
+			if scheduleJST.FreqID == uint(static.FREQ_MONTHLY) {
+				scheduleDay := scheduleJST.Start.Day()
+
+				if start.Day() == scheduleDay {
+					scheduleStart := time.Date(start.Year(), start.Month(), scheduleDay, scheduleJST.Start.Hour(), scheduleJST.Start.Minute(), scheduleJST.Start.Second(), 0, jst)
+					scheduleEnd := time.Date(start.Year(), start.Month(), scheduleDay, scheduleJST.End.Hour(), scheduleJST.End.Minute(), scheduleJST.End.Second(), 0, jst)
+
+					// 存在しない日付の場合は無視
+					if scheduleStart.Month() == start.Month() {
+						if scheduleEnd.Before(scheduleStart) {
+							scheduleEnd = scheduleEnd.Add(24 * time.Hour)
+						}
+
+						if (end.After(scheduleStart) || end.Equal(scheduleStart)) &&
+							(start.Before(scheduleEnd) || start.Equal(scheduleEnd)) {
+							schedules = append(schedules, scheduleJST)
+						}
+					}
+				}
+			}
+
+			// 毎年の場合 (修正: 2/29のみ特別処理、その他の存在しない日付は考慮しない)
+			if scheduleJST.FreqID == uint(static.FREQ_YEARLY) {
+				scheduleMonth := scheduleJST.Start.Month()
+				scheduleDay := scheduleJST.Start.Day()
+
+				// 2月29日の特別処理
+				if scheduleMonth == time.February && scheduleDay == 29 {
+					if !isLeapYear(start.Year()) {
+						scheduleDay = 1
+						scheduleMonth = time.March
+					}
+				}
+
+				if start.Month() == scheduleMonth && start.Day() == scheduleDay {
+					scheduleStart := time.Date(start.Year(), scheduleMonth, scheduleDay, scheduleJST.Start.Hour(), scheduleJST.Start.Minute(), scheduleJST.Start.Second(), 0, jst)
+					scheduleEnd := time.Date(start.Year(), scheduleMonth, scheduleDay, scheduleJST.End.Hour(), scheduleJST.End.Minute(), scheduleJST.End.Second(), 0, jst)
+
+					if scheduleEnd.Before(scheduleStart) {
+						scheduleEnd = scheduleEnd.Add(24 * time.Hour)
+					}
+
+					if (end.After(scheduleStart) || end.Equal(scheduleStart)) &&
+						(start.Before(scheduleEnd) || start.Equal(scheduleEnd)) {
+						schedules = append(schedules, scheduleJST)
+					}
+				}
+			}
+		}
+
+		flg := false
+		id := uint64(0)
+		if domainFlg {
+			id = user.ID
+		}
+		resUser := entity.User{
+			User: ddl.User{
+				AbstractTransactionModel: ddl.AbstractTransactionModel{
+					ID:      id,
+					HashKey: user.HashKey,
+				},
+				Name:  user.Name,
+				Email: user.Email,
+			},
+		}
+
+		// 重複リスト作成
+		for _, schedule := range schedules {
+			if schedule.InterviewFlg == uint(static.USER_INTERVIEW) {
+				list = append(list, response.CheckAssignableUserSub{
+					User:    resUser,
+					DuplFlg: static.DUPLICATION_OUT,
+				})
+			}
+			flg = true
+			break
+		}
+
+		if !flg && len(schedules) > 0 {
+			list = append(list, response.CheckAssignableUserSub{
+				User:    resUser,
+				DuplFlg: static.DUPLICATION_WARNING,
+			})
+		}
+
+		if !flg && len(schedules) == 0 {
+			list = append(list, response.CheckAssignableUserSub{
+				User:    resUser,
+				DuplFlg: static.DUPLICATION_SAFE,
+			})
+		}
+	}
+
+	return &response.CheckAssignableUser{
+		List: list,
+	}, nil
 }
