@@ -22,12 +22,23 @@ type User struct {
 	RoleID uint64 `json:"role_id" gorm:"index"`
 	// ユーザー種別
 	UserType uint `json:"user_type" gorm:"index"`
-	// リフレッシュトークン
-	RefreshToken string `json:"refresh_token" gorm:"type:text"`
 	// ロール(外部キー)
 	Role CustomRole `gorm:"foreignKey:role_id;references:id"`
 	// ログイン種別(外部キー)
 	LoginType LoginType `gorm:"foreignKey:user_type;references:id"`
+}
+
+/*
+t_user_refresh_token_association
+リフレッシュトークン紐づけ
+*/
+type UserRefreshTokenAssociation struct {
+	// ユーザーID
+	UserID uint64 `json:"user_id" gorm:"primaryKey"`
+	// リフレッシュトークン
+	RefreshToken string `json:"refresh_token" gorm:"type:text"`
+	// ユーザー(外部キー)
+	User User `gorm:"foreignKey:user_id;references:id"`
 }
 
 /*
@@ -216,6 +227,9 @@ type ScheduleAssociation struct {
 
 func (t User) TableName() string {
 	return "t_user"
+}
+func (t UserRefreshTokenAssociation) TableName() string {
+	return "t_user_refresh_token_association"
 }
 func (t Team) TableName() string {
 	return "t_team"

@@ -53,3 +53,8 @@ type ApplicantStatus struct {
 type ApplicantStatusList struct {
 	List []*ddl.SelectStatus
 }
+
+// Google Meet URL
+type ApplicantURLAssociation struct {
+	ddl.ApplicantURLAssociation
+}

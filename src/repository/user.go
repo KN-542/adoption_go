@@ -42,7 +42,7 @@ type IUserRepository interface {
 	// チーム削除
 	DeleteTeam(tx *gorm.DB, m *ddl.Team) error
 	// チーム検索_同一企業
-	SearchTeamByCompany(m *ddl.Team) ([]entity.SearchTeam, error)
+	SearchTeamByCompany(m *dto.SearchTeamByCompany) ([]entity.SearchTeam, error)
 	// 予定登録
 	InsertSchedule(tx *gorm.DB, m *ddl.Schedule) (*uint64, error)
 	// 予定一括登録
@@ -63,6 +63,12 @@ type IUserRepository interface {
 	DeleteSchedule(tx *gorm.DB, m *ddl.Schedule) error
 	// 予定一括削除
 	DeletesSchedule(tx *gorm.DB, m []uint64) error
+	// リフレッシュトークン紐づけ登録
+	InsertUserRefreshTokenAssociation(tx *gorm.DB, m *ddl.UserRefreshTokenAssociation) error
+	// リフレッシュトークン紐づけ取得
+	GetUserRefreshTokenAssociation(m *ddl.UserRefreshTokenAssociation) (*entity.UserRefreshTokenAssociation, error)
+	// リフレッシュトークン紐づけ取得_ハッシュキー
+	GetUserRefreshTokenAssociationByHashKey(m *ddl.User) ([]entity.UserRefreshTokenAssociation, error)
 	// チーム紐づけ登録
 	InsertTeamAssociation(tx *gorm.DB, m *ddl.TeamAssociation) error
 	// チーム紐づけ一括登録
@@ -285,11 +291,10 @@ func (u *UserRepository) GetByPrimary(m *ddl.User) (*entity.User, error) {
 // 更新
 func (u *UserRepository) Update(tx *gorm.DB, m *ddl.User) error {
 	user := ddl.User{
-		Name:         m.Name,
-		Email:        m.Email,
-		Password:     m.Password,
-		RoleID:       m.RoleID,
-		RefreshToken: m.RefreshToken,
+		Name:     m.Name,
+		Email:    m.Email,
+		Password: m.Password,
+		RoleID:   m.RoleID,
 		AbstractTransactionModel: ddl.AbstractTransactionModel{
 			UpdatedAt: time.Now(),
 		},
@@ -451,12 +456,15 @@ func (u *UserRepository) DeleteTeam(tx *gorm.DB, m *ddl.Team) error {
 }
 
 // チーム検索_同一企業
-func (u *UserRepository) SearchTeamByCompany(m *ddl.Team) ([]entity.SearchTeam, error) {
+func (u *UserRepository) SearchTeamByCompany(m *dto.SearchTeamByCompany) ([]entity.SearchTeam, error) {
 	var l []entity.SearchTeam
 
 	if err := u.db.Model(&entity.SearchTeam{}).
-		Select("hash_key, name").
-		Where("company_id = ?", m.CompanyID).
+		Select("t_team.hash_key, t_team.name").
+		Joins("inner join t_team_association on t_team_association.team_id = t_team.id").
+		Joins("inner join t_user on t_user.id = t_team_association.user_id").
+		Where("t_team.company_id = ?", m.CompanyID).
+		Where("t_user.hash_key = ?", m.UserHashKey).
 		Find(&l).Error; err != nil {
 		log.Printf("%v", err)
 		return nil, err
@@ -671,6 +679,46 @@ func (u *UserRepository) DeletesSchedule(tx *gorm.DB, m []uint64) error {
 		return err
 	}
 	return nil
+}
+
+// リフレッシュトークン紐づけ登録
+func (u *UserRepository) InsertUserRefreshTokenAssociation(tx *gorm.DB, m *ddl.UserRefreshTokenAssociation) error {
+	if err := tx.Create(m).Error; err != nil {
+		log.Printf("%v", err)
+		return err
+	}
+	return nil
+}
+
+// リフレッシュトークン紐づけ取得
+func (u *UserRepository) GetUserRefreshTokenAssociation(m *ddl.UserRefreshTokenAssociation) (*entity.UserRefreshTokenAssociation, error) {
+	var res entity.UserRefreshTokenAssociation
+
+	if err := u.db.Model(&ddl.UserRefreshTokenAssociation{}).Where(
+		&ddl.UserRefreshTokenAssociation{
+			UserID: m.UserID,
+		},
+	).First(&res).Error; err != nil {
+		log.Printf("%v", err)
+		return nil, err
+	}
+
+	return &res, nil
+}
+
+// リフレッシュトークン紐づけ取得_ハッシュキー
+func (u *UserRepository) GetUserRefreshTokenAssociationByHashKey(m *ddl.User) ([]entity.UserRefreshTokenAssociation, error) {
+	var res []entity.UserRefreshTokenAssociation
+
+	if err := u.db.Model(&ddl.UserRefreshTokenAssociation{}).
+		Joins("left join t_user on t_user.id = t_user_refresh_token_association.user_id").
+		Where("t_user.hash_key = ?", m.HashKey).
+		Find(&res).Error; err != nil {
+		log.Printf("%v", err)
+		return nil, err
+	}
+
+	return res, nil
 }
 
 // チーム紐づけ登録

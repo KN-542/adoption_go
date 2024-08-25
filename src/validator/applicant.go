@@ -218,10 +218,6 @@ func (v *ApplicantValidator) GetOauthURL(a *request.GetOauthURL) error {
 func (v *ApplicantValidator) GetGoogleMeetUrl(a *request.GetGoogleMeetUrl) error {
 	return validation.ValidateStruct(
 		a,
-		validation.Field(
-			&a.Code,
-			validation.Required,
-		),
 	)
 }
 

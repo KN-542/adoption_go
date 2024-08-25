@@ -100,6 +100,9 @@ type GetOauthURL struct {
 // GoogleMeetUrl発行
 type GetGoogleMeetUrl struct {
 	Abstract
+	// リフレッシュトークン
+	RefreshToken string `json:"refresh_token"`
+	// 認証コード
 	Code string `json:"code"`
 }
 

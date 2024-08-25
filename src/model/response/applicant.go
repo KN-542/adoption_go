@@ -51,7 +51,10 @@ type GetApplicant struct {
 
 // 認証URL作成
 type GetOauthURL struct {
-	Url string `json:"url"`
+	// 認証URL
+	AuthURL string `json:"auth_url"`
+	// Google Meet URL
+	GoogleMeetURL string `json:"google_meet_url"`
 }
 
 // GoogleMeetUrl発行

@@ -21,6 +21,11 @@ type SearchUser struct {
 	RoleName string `json:"role_name"`
 }
 
+// User Refresh Token Association
+type UserRefreshTokenAssociation struct {
+	ddl.UserRefreshTokenAssociation
+}
+
 // Team
 type Team struct {
 	ddl.Team

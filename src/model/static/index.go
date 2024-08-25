@@ -44,7 +44,11 @@ const (
 	/*
 		応募者
 	*/
+	// 面接希望日登録
 	CODE_APPLICANT_CANNOT_ASSIGN_USER uint = 1
+	// 面接官割り振り
+	CODE_APPLICANT_SCHEDULE_DOES_NOT_EXIST uint = 1
+	CODE_APPLICANT_SHORTAGE_USER_MIN       uint = 2
 )
 
 // Response Body メッセージ

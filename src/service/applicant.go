@@ -762,29 +762,79 @@ func (s *ApplicantService) GetOauthURL(req *request.GetOauthURL) (*response.GetO
 		}
 	}
 
-	ctx := context.Background()
-	if err := s.redis.Set(
-		ctx,
-		req.UserHashKey,
-		static.REDIS_APPLICANT_HASH_KEY,
-		&req.Applicant.HashKey,
-		24*time.Hour,
-	); err != nil {
+	// Google Meet URL取得
+	associations, associationsErr := s.r.GetApplicantURLAssociation(&ddl.Applicant{
+		AbstractTransactionModel: ddl.AbstractTransactionModel{
+			HashKey: req.HashKey,
+		},
+	})
+	if associationsErr != nil {
 		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
+	if len(associations) == 1 {
+		return &response.GetOauthURL{
+			GoogleMeetURL: associations[0].URL,
+		}, nil
+	} else {
+		// リフレッシュトークン紐づけ取得
+		var refreshToken string
+		tokenAssociations, tokenAssociationsErr := s.u.GetUserRefreshTokenAssociationByHashKey(&ddl.User{
+			AbstractTransactionModel: ddl.AbstractTransactionModel{
+				HashKey: req.UserHashKey,
+			},
+		})
+		if tokenAssociationsErr != nil {
+			return nil, &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+		if len(tokenAssociations) != 1 {
+			refreshToken = ""
+		} else {
+			refreshToken = tokenAssociations[0].RefreshToken
+		}
 
-	res, err := s.g.GetOauthURL()
-	if err != nil {
-		return nil, &response.Error{
-			Status: http.StatusInternalServerError,
-			Error:  err,
+		ctx := context.Background()
+		if err := s.redis.Set(
+			ctx,
+			req.UserHashKey,
+			static.REDIS_APPLICANT_HASH_KEY,
+			&req.HashKey,
+			24*time.Hour,
+		); err != nil {
+			return nil, &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+
+		if refreshToken == "" {
+			res, resErr := s.g.GetOauthURL()
+			if resErr != nil {
+				return nil, &response.Error{
+					Status: http.StatusInternalServerError,
+				}
+			}
+			return &response.GetOauthURL{
+				AuthURL: *res,
+			}, nil
+		} else {
+			service, serviceErr := s.GetGoogleMeetUrl(&request.GetGoogleMeetUrl{
+				Abstract:     req.Abstract,
+				RefreshToken: refreshToken,
+			})
+			if serviceErr != nil {
+				return nil, &response.Error{
+					Status: serviceErr.Status,
+				}
+			}
+
+			return &response.GetOauthURL{
+				GoogleMeetURL: service.Url,
+			}, nil
 		}
 	}
-	return &response.GetOauthURL{
-		Url: *res,
-	}, nil
 }
 
 // 面接希望日登録
@@ -1296,10 +1346,10 @@ func (s *ApplicantService) GetGoogleMeetUrl(req *request.GetGoogleMeetUrl) (*res
 		}
 	}
 
-	// アクセストークン取得
-	accessToken, accessTokenErr := s.g.GetAccessToken(&user.RefreshToken, &req.Code)
-	if accessTokenErr != nil {
-		log.Printf("%v", accessTokenErr)
+	// トークン取得
+	token, tokenErr := s.g.GetAccessToken(&req.RefreshToken, &req.Code)
+	if tokenErr != nil {
+		log.Printf("%v", tokenErr)
 		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
 		}
@@ -1307,7 +1357,7 @@ func (s *ApplicantService) GetGoogleMeetUrl(req *request.GetGoogleMeetUrl) (*res
 
 	// Google Meet Url 発行
 	googleMeetUrl, googleMeetUrlErr := s.g.GetGoogleMeetUrl(
-		accessToken,
+		token,
 		user.Name,
 		schedule.Start,
 		schedule.End,
@@ -1338,6 +1388,23 @@ func (s *ApplicantService) GetGoogleMeetUrl(req *request.GetGoogleMeetUrl) (*res
 		}
 		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
+		}
+	}
+
+	if req.RefreshToken == "" {
+		// リフレッシュトークン格納
+		if err := s.u.InsertUserRefreshTokenAssociation(tx, &ddl.UserRefreshTokenAssociation{
+			UserID:       user.ID,
+			RefreshToken: token.RefreshToken,
+		}); err != nil {
+			if err := s.d.TxRollback(tx); err != nil {
+				return nil, &response.Error{
+					Status: http.StatusInternalServerError,
+				}
+			}
+			return nil, &response.Error{
+				Status: http.StatusInternalServerError,
+			}
 		}
 	}
 
@@ -1613,6 +1680,26 @@ func (s *ApplicantService) AssignUser(req *request.AssignUser) *response.Error {
 		}
 	}
 
+	if applicant.ScheduleID == 0 {
+		log.Printf("Schedule does not exist.")
+		return &response.Error{
+			Status: http.StatusBadRequest,
+			Code:   static.CODE_APPLICANT_SCHEDULE_DOES_NOT_EXIST,
+		}
+	}
+
+	// 予定取得
+	schedule, scheduleErr := s.u.GetScheduleByPrimary(&ddl.Schedule{
+		AbstractTransactionModel: ddl.AbstractTransactionModel{
+			ID: applicant.ScheduleID,
+		},
+	})
+	if scheduleErr != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
 	// チーム取得
 	team, teamErr := s.u.GetTeamByPrimary(&ddl.Team{
 		AbstractTransactionModel: ddl.AbstractTransactionModel{
@@ -1620,6 +1707,17 @@ func (s *ApplicantService) AssignUser(req *request.AssignUser) *response.Error {
 		},
 	})
 	if teamErr != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// 面接設定取得
+	setting, settingError := s.u.GetPerInterviewByNumOfInterview(&ddl.TeamPerInterview{
+		TeamID:         applicant.TeamID,
+		NumOfInterview: applicant.NumOfInterview,
+	})
+	if settingError != nil {
 		return &response.Error{
 			Status: http.StatusInternalServerError,
 		}
@@ -1646,7 +1744,7 @@ func (s *ApplicantService) AssignUser(req *request.AssignUser) *response.Error {
 		}
 	}
 
-	// 面接可能判定
+	// 面接可能判定1
 	var users []*ddl.ApplicantUserAssociation
 	for _, user := range req.HashKeys {
 		for _, user2 := range ableUsers {
@@ -1656,6 +1754,37 @@ func (s *ApplicantService) AssignUser(req *request.AssignUser) *response.Error {
 					UserID:      user2.ID,
 				})
 			}
+		}
+	}
+
+	// 面接可能判定2
+	service, serviceErr := s.CheckAssignableUser(&request.CheckAssignableUser{
+		Start:    schedule.Start,
+		HashKeys: req.HashKeys,
+	}, true)
+	if serviceErr != nil {
+		return &response.Error{
+			Status: serviceErr.Status,
+		}
+	}
+
+	var users2 []*ddl.ApplicantUserAssociation
+	for _, s := range service.List {
+		if s.DuplFlg != static.DUPLICATION_SAFE {
+			continue
+		}
+		for _, user := range users {
+			if s.User.ID == user.UserID {
+				users2 = append(users2, user)
+			}
+		}
+	}
+
+	if len(users2) < int(setting.UserMin) {
+		log.Printf("Shortage user min.")
+		return &response.Error{
+			Status: http.StatusBadRequest,
+			Code:   static.CODE_APPLICANT_SHORTAGE_USER_MIN,
 		}
 	}
 
@@ -1681,7 +1810,7 @@ func (s *ApplicantService) AssignUser(req *request.AssignUser) *response.Error {
 	}
 
 	// 面接官割り振り登録
-	if err := s.u.InsertsUserAssociation(tx, users); err != nil {
+	if err := s.u.InsertsUserAssociation(tx, users2); err != nil {
 		if err := s.d.TxRollback(tx); err != nil {
 			return &response.Error{
 				Status: http.StatusInternalServerError,
@@ -1864,8 +1993,8 @@ func (s *ApplicantService) CheckAssignableUser(req *request.CheckAssignableUser,
 		}
 
 		// 重複リスト作成
-		for _, schedule := range schedules {
-			if schedule.InterviewFlg == uint(static.USER_INTERVIEW) {
+		for _, s := range schedules {
+			if s.InterviewFlg == uint(static.USER_INTERVIEW) {
 				list = append(list, response.CheckAssignableUserSub{
 					User:    resUser,
 					DuplFlg: static.DUPLICATION_OUT,

@@ -44,6 +44,7 @@ func main() {
 			&ddl.CustomRole{},
 			&ddl.RoleAssociation{},
 			&ddl.User{},
+			&ddl.UserRefreshTokenAssociation{},
 			&ddl.Team{},
 			&ddl.TeamAssociation{},
 			&ddl.SelectStatus{},
@@ -351,12 +352,23 @@ func main() {
 			"init_password": "初回パスワード(ハッシュ化)",
 			"role_id":       "ロールID",
 			"user_type":     "ユーザー種別",
-			"refresh_token": "リフレッシュトークン",
 			"company_id":    "企業ID",
 			"created_at":    "登録日時",
 			"updated_at":    "更新日時",
 		}
 		if err := AddColumnComments(dbConn, "t_user", user); err != nil {
+			log.Println(err)
+		}
+
+		// t_user_refresh_token_association
+		if err := AddTableComment(dbConn, "t_user_refresh_token_association", "リフレッシュトークン紐づけ"); err != nil {
+			log.Println(err)
+		}
+		userRefreshTokenAssociation := map[string]string{
+			"user_id":       "ユーザーID",
+			"refresh_token": "リフレッシュトークン",
+		}
+		if err := AddColumnComments(dbConn, "t_user_refresh_token_association", userRefreshTokenAssociation); err != nil {
 			log.Println(err)
 		}
 
@@ -775,6 +787,7 @@ func main() {
 			&ddl.CustomRole{},
 			&ddl.RoleAssociation{},
 			&ddl.User{},
+			&ddl.UserRefreshTokenAssociation{},
 			&ddl.Team{},
 			&ddl.TeamAssociation{},
 			&ddl.SelectStatus{},

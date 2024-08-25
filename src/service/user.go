@@ -1294,9 +1294,14 @@ func (u *UserService) SearchTeamByCompany(req *request.SearchTeamByCompany) (*re
 	}
 
 	// 検索
-	team, err := u.user.SearchTeamByCompany(&ddl.Team{
-		AbstractTransactionModel: ddl.AbstractTransactionModel{
-			CompanyID: companyID,
+	team, err := u.user.SearchTeamByCompany(&dto.SearchTeamByCompany{
+		Team: ddl.Team{
+			AbstractTransactionModel: ddl.AbstractTransactionModel{
+				CompanyID: companyID,
+			},
+		},
+		Abstract: request.Abstract{
+			UserHashKey: req.HashKey,
 		},
 	})
 	if err != nil {

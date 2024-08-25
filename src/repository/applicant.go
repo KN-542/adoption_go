@@ -51,6 +51,8 @@ type IApplicantRepository interface {
 	DeleteApplicantCurriculumVitaeAssociation(tx *gorm.DB, m *ddl.ApplicantCurriculumVitaeAssociation) error
 	// Google Meet URL登録
 	InsertApplicantURLAssociation(tx *gorm.DB, m *ddl.ApplicantURLAssociation) error
+	// Google Meet URL取得
+	GetApplicantURLAssociation(m *ddl.Applicant) ([]entity.ApplicantURLAssociation, error)
 }
 
 type ApplicantRepository struct {
@@ -506,4 +508,18 @@ func (a *ApplicantRepository) InsertApplicantURLAssociation(tx *gorm.DB, m *ddl.
 		return err
 	}
 	return nil
+}
+
+// Google Meet URL取得
+func (a *ApplicantRepository) GetApplicantURLAssociation(m *ddl.Applicant) ([]entity.ApplicantURLAssociation, error) {
+	var l []entity.ApplicantURLAssociation
+	if err := a.db.Model(&ddl.ApplicantURLAssociation{}).
+		Joins("left join t_applicant on t_applicant.id = t_applicant_url_association.applicant_id").
+		Where("t_applicant.hash_key = ?", m.HashKey).
+		Find(&l).Error; err != nil {
+		log.Printf("%v", err)
+		return nil, err
+	}
+
+	return l, nil
 }
