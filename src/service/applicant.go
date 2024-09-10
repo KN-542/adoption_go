@@ -47,11 +47,17 @@ type IApplicantService interface {
 	AssignUser(req *request.AssignUser) *response.Error
 	// 面接官割り振り可能判定
 	CheckAssignableUser(req *request.CheckAssignableUser, domainFlg bool) (*response.CheckAssignableUser, *response.Error)
+	// 種別登録
+	CreateApplicantType(req *request.CreateApplicantType) *response.Error
+	// 種別一覧
+	ListApplicantType(req *request.ListApplicantType) (*response.ListApplicantType, *response.Error)
 }
 
 type ApplicantService struct {
 	r     repository.IApplicantRepository
 	u     repository.IUserRepository
+	t     repository.ITeamRepository
+	s     repository.IScheduleRepository
 	m     repository.IMasterRepository
 	a     repository.IAWSRepository
 	g     repository.IGoogleRepository
@@ -64,6 +70,8 @@ type ApplicantService struct {
 func NewApplicantService(
 	r repository.IApplicantRepository,
 	u repository.IUserRepository,
+	t repository.ITeamRepository,
+	s repository.IScheduleRepository,
 	m repository.IMasterRepository,
 	a repository.IAWSRepository,
 	g repository.IGoogleRepository,
@@ -72,7 +80,7 @@ func NewApplicantService(
 	d repository.IDBRepository,
 	o repository.IOuterIFRepository,
 ) IApplicantService {
-	return &ApplicantService{r, u, m, a, g, redis, v, d, o}
+	return &ApplicantService{r, u, t, s, m, a, g, redis, v, d, o}
 }
 
 // 検索
@@ -87,7 +95,6 @@ func (s *ApplicantService) Search(req *request.SearchApplicant) (*response.Searc
 
 	// Redisから取得
 	ctx := context.Background()
-
 	team, teamErr := s.redis.Get(ctx, req.UserHashKey, static.REDIS_USER_TEAM_ID)
 	if teamErr != nil {
 		return nil, &response.Error{
@@ -359,6 +366,15 @@ func (s *ApplicantService) Download(req *request.ApplicantDownload) (*response.A
 		}
 	}
 
+	// コミットID生成
+	commitID, _, hashErr := GenerateHash(16, 28)
+	if hashErr != nil {
+		log.Printf("%v", hashErr)
+		return nil, &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
 	tx, txErr := s.d.TxStart()
 	if txErr != nil {
 		return nil, &response.Error{
@@ -388,7 +404,7 @@ func (s *ApplicantService) Download(req *request.ApplicantDownload) (*response.A
 			// 構造体生成
 			applicant := &ddl.Applicant{
 				AbstractTransactionModel: ddl.AbstractTransactionModel{
-					HashKey:   *hash,
+					HashKey:   static.PRE_APPLICANT + "_" + *hash,
 					CompanyID: companyID,
 				},
 				OuterID:        row.OuterID,
@@ -398,6 +414,7 @@ func (s *ApplicantService) Download(req *request.ApplicantDownload) (*response.A
 				Email:          row.Email,
 				Tel:            row.Tel,
 				Age:            uint(row.Age),
+				CommitID:       *commitID,
 				TeamID:         teamID,
 				NumOfInterview: 1,
 			}
@@ -471,7 +488,7 @@ func (s *ApplicantService) ReserveTable(req *request.ReserveTable) (*response.Re
 	}
 
 	// 面接設定取得
-	setting, settingError := s.u.GetPerInterviewByNumOfInterview(&ddl.TeamPerInterview{
+	setting, settingError := s.t.GetPerInterviewByNumOfInterview(&ddl.TeamPerInterview{
 		TeamID:         applicant.TeamID,
 		NumOfInterview: applicant.NumOfInterview,
 	})
@@ -482,7 +499,7 @@ func (s *ApplicantService) ReserveTable(req *request.ReserveTable) (*response.Re
 	}
 
 	// 面接参加可能者取得
-	models, modelsErr := s.u.GetAssignPossibleSchedule(&ddl.TeamAssignPossible{
+	models, modelsErr := s.t.GetAssignPossibleSchedule(&ddl.TeamAssignPossible{
 		TeamID:         applicant.TeamID,
 		NumOfInterview: applicant.NumOfInterview,
 	})
@@ -495,7 +512,7 @@ func (s *ApplicantService) ReserveTable(req *request.ReserveTable) (*response.Re
 	// 面接予定取得
 	var res entity.Schedule
 	if applicant.ScheduleID > 0 {
-		applicantSchedule, applicantScheduleErr := s.u.GetScheduleByPrimary(&ddl.Schedule{
+		applicantSchedule, applicantScheduleErr := s.s.GetByPrimary(&ddl.Schedule{
 			AbstractTransactionModel: ddl.AbstractTransactionModel{
 				ID: applicant.ScheduleID,
 			},
@@ -860,7 +877,7 @@ func (s *ApplicantService) InsertDesiredAt(req *request.InsertDesiredAt) *respon
 	}
 
 	// チーム取得
-	team, teamErr := s.u.GetTeamByPrimary(&ddl.Team{
+	team, teamErr := s.t.GetByPrimary(&ddl.Team{
 		AbstractTransactionModel: ddl.AbstractTransactionModel{
 			ID: applicant.TeamID,
 		},
@@ -872,7 +889,7 @@ func (s *ApplicantService) InsertDesiredAt(req *request.InsertDesiredAt) *respon
 	}
 
 	// 面接設定取得
-	setting, settingError := s.u.GetPerInterviewByNumOfInterview(&ddl.TeamPerInterview{
+	setting, settingError := s.t.GetPerInterviewByNumOfInterview(&ddl.TeamPerInterview{
 		TeamID:         applicant.TeamID,
 		NumOfInterview: applicant.NumOfInterview,
 	})
@@ -883,7 +900,7 @@ func (s *ApplicantService) InsertDesiredAt(req *request.InsertDesiredAt) *respon
 	}
 
 	// 面接官取得
-	interviewers, interviewersError := s.u.GetUserAssociation(&ddl.ApplicantUserAssociation{
+	interviewers, interviewersError := s.r.GetUserAssociation(&ddl.ApplicantUserAssociation{
 		ApplicantID: applicant.ID,
 	})
 	if interviewersError != nil {
@@ -893,7 +910,7 @@ func (s *ApplicantService) InsertDesiredAt(req *request.InsertDesiredAt) *respon
 	}
 
 	// イベント取得
-	events, eventsErr := s.u.SelectEventAssociation(&ddl.TeamEvent{
+	events, eventsErr := s.t.SelectEventAssociation(&ddl.TeamEvent{
 		TeamID: applicant.TeamID,
 	})
 	if eventsErr != nil {
@@ -903,7 +920,7 @@ func (s *ApplicantService) InsertDesiredAt(req *request.InsertDesiredAt) *respon
 	}
 
 	// ～次面接イベント取得
-	tEvent, tEventErr := s.u.GetEventEachInterviewAssociation(&ddl.TeamEventEachInterview{
+	tEvent, tEventErr := s.t.GetEventEachInterviewAssociation(&ddl.TeamEventEachInterview{
 		TeamID:         applicant.TeamID,
 		NumOfInterview: applicant.NumOfInterview,
 	})
@@ -914,7 +931,7 @@ func (s *ApplicantService) InsertDesiredAt(req *request.InsertDesiredAt) *respon
 	}
 
 	// 面接官自動割り振りルール取得
-	autoRules, autoRulesErr := s.u.GetAutoAssignRuleFind(&ddl.TeamAutoAssignRule{
+	autoRules, autoRulesErr := s.t.GetAutoAssignRuleFind(&ddl.TeamAutoAssignRule{
 		TeamID: applicant.TeamID,
 	})
 	if autoRulesErr != nil {
@@ -930,7 +947,7 @@ func (s *ApplicantService) InsertDesiredAt(req *request.InsertDesiredAt) *respon
 	}
 
 	// 優先順位取得
-	priorities, prioritiesErr := s.u.GetAssignPriorityOnly(&ddl.TeamAssignPriority{
+	priorities, prioritiesErr := s.t.GetAssignPriorityOnly(&ddl.TeamAssignPriority{
 		TeamID: team.ID,
 	})
 	if prioritiesErr != nil {
@@ -983,7 +1000,7 @@ func (s *ApplicantService) InsertDesiredAt(req *request.InsertDesiredAt) *respon
 		}
 
 		// 予定登録
-		id, scheduleErr := s.u.InsertSchedule(tx, &ddl.Schedule{
+		id, scheduleErr := s.s.Insert(tx, &ddl.Schedule{
 			AbstractTransactionModel: ddl.AbstractTransactionModel{
 				HashKey:   static.PRE_SCHEDULE + "_" + *hash,
 				CompanyID: applicant.CompanyID,
@@ -1023,7 +1040,7 @@ func (s *ApplicantService) InsertDesiredAt(req *request.InsertDesiredAt) *respon
 		}
 	} else {
 		// 予定更新
-		if err := s.u.UpdateScheduleByPrimary(tx, &ddl.Schedule{
+		if err := s.s.UpdateByPrimary(tx, &ddl.Schedule{
 			AbstractTransactionModel: ddl.AbstractTransactionModel{
 				ID: applicant.ScheduleID,
 			},
@@ -1250,7 +1267,7 @@ func (s *ApplicantService) InsertDesiredAt(req *request.InsertDesiredAt) *respon
 
 		if len(applicantUsers) > 0 {
 			// 応募者ユーザー紐づけ登録
-			if err := s.u.InsertsUserAssociation(tx, applicantUsers); err != nil {
+			if err := s.r.InsertsUserAssociation(tx, applicantUsers); err != nil {
 				if err := s.d.TxRollback(tx); err != nil {
 					return &response.Error{
 						Status: http.StatusInternalServerError,
@@ -1269,7 +1286,7 @@ func (s *ApplicantService) InsertDesiredAt(req *request.InsertDesiredAt) *respon
 					UserID:     row.UserID,
 				})
 			}
-			if err := s.u.InsertsScheduleAssociation(tx, list); err != nil {
+			if err := s.s.InsertsScheduleAssociation(tx, list); err != nil {
 				if err := s.d.TxRollback(tx); err != nil {
 					return &response.Error{
 						Status: http.StatusInternalServerError,
@@ -1323,7 +1340,7 @@ func (s *ApplicantService) GetGoogleMeetUrl(req *request.GetGoogleMeetUrl) (*res
 	}
 
 	// 予定取得
-	schedule, scheduleErr := s.u.GetScheduleByPrimary(&ddl.Schedule{
+	schedule, scheduleErr := s.s.GetByPrimary(&ddl.Schedule{
 		AbstractTransactionModel: ddl.AbstractTransactionModel{
 			ID: applicant.ScheduleID,
 		},
@@ -1528,7 +1545,7 @@ func (s *ApplicantService) UpdateStatus(req *request.UpdateStatus) *response.Err
 			StatusName: row,
 		})
 	}
-	ids, idsErr := s.u.InsertsSelectStatus(tx, status)
+	ids, idsErr := s.t.InsertsSelectStatus(tx, status)
 	if idsErr != nil {
 		if err := s.d.TxRollback(tx); err != nil {
 			return &response.Error{
@@ -1560,7 +1577,7 @@ func (s *ApplicantService) UpdateStatus(req *request.UpdateStatus) *response.Err
 	}
 
 	// イベントを一度全削除
-	if err := s.u.DeleteEventAssociation(tx, &ddl.TeamEvent{
+	if err := s.t.DeleteEventAssociation(tx, &ddl.TeamEvent{
 		TeamID: teamID,
 	}); err != nil {
 		if err := s.d.TxRollback(tx); err != nil {
@@ -1583,7 +1600,7 @@ func (s *ApplicantService) UpdateStatus(req *request.UpdateStatus) *response.Err
 				StatusID: ids.List[row.Status].ID,
 			})
 		}
-		if err := s.u.InsertsEventAssociation(tx, eventsDDL); err != nil {
+		if err := s.t.InsertsEventAssociation(tx, eventsDDL); err != nil {
 			if err := s.d.TxRollback(tx); err != nil {
 				return &response.Error{
 					Status: http.StatusInternalServerError,
@@ -1596,7 +1613,7 @@ func (s *ApplicantService) UpdateStatus(req *request.UpdateStatus) *response.Err
 	}
 
 	// 面接毎イベントを一度全削除
-	if err := s.u.DeleteEventEachInterviewAssociation(tx, &ddl.TeamEventEachInterview{
+	if err := s.t.DeleteEventEachInterviewAssociation(tx, &ddl.TeamEventEachInterview{
 		TeamID: teamID,
 	}); err != nil {
 		if err := s.d.TxRollback(tx); err != nil {
@@ -1619,7 +1636,7 @@ func (s *ApplicantService) UpdateStatus(req *request.UpdateStatus) *response.Err
 				StatusID:       ids.List[row.Status].ID,
 			})
 		}
-		if err := s.u.InsertsEventEachInterviewAssociation(tx, eventsDDL); err != nil {
+		if err := s.t.InsertsEventEachInterviewAssociation(tx, eventsDDL); err != nil {
 			if err := s.d.TxRollback(tx); err != nil {
 				return &response.Error{
 					Status: http.StatusInternalServerError,
@@ -1689,7 +1706,7 @@ func (s *ApplicantService) AssignUser(req *request.AssignUser) *response.Error {
 	}
 
 	// 予定取得
-	schedule, scheduleErr := s.u.GetScheduleByPrimary(&ddl.Schedule{
+	schedule, scheduleErr := s.s.GetByPrimary(&ddl.Schedule{
 		AbstractTransactionModel: ddl.AbstractTransactionModel{
 			ID: applicant.ScheduleID,
 		},
@@ -1701,7 +1718,7 @@ func (s *ApplicantService) AssignUser(req *request.AssignUser) *response.Error {
 	}
 
 	// チーム取得
-	team, teamErr := s.u.GetTeamByPrimary(&ddl.Team{
+	team, teamErr := s.t.GetByPrimary(&ddl.Team{
 		AbstractTransactionModel: ddl.AbstractTransactionModel{
 			ID: applicant.TeamID,
 		},
@@ -1713,7 +1730,7 @@ func (s *ApplicantService) AssignUser(req *request.AssignUser) *response.Error {
 	}
 
 	// 面接設定取得
-	setting, settingError := s.u.GetPerInterviewByNumOfInterview(&ddl.TeamPerInterview{
+	setting, settingError := s.t.GetPerInterviewByNumOfInterview(&ddl.TeamPerInterview{
 		TeamID:         applicant.TeamID,
 		NumOfInterview: applicant.NumOfInterview,
 	})
@@ -1724,7 +1741,7 @@ func (s *ApplicantService) AssignUser(req *request.AssignUser) *response.Error {
 	}
 
 	// 面接可能ユーザー取得
-	ableTempUsers, ableTempUsersErr := s.u.GetAssignPossibleByNumOfInterview(&ddl.TeamAssignPossible{
+	ableTempUsers, ableTempUsersErr := s.t.GetAssignPossibleByNumOfInterview(&ddl.TeamAssignPossible{
 		TeamID:         applicant.TeamID,
 		NumOfInterview: applicant.NumOfInterview,
 	})
@@ -1796,7 +1813,7 @@ func (s *ApplicantService) AssignUser(req *request.AssignUser) *response.Error {
 	}
 
 	// 面接官割り振り削除
-	if err := s.u.DeleteUserAssociation(tx, &ddl.ApplicantUserAssociation{
+	if err := s.r.DeleteUserAssociation(tx, &ddl.ApplicantUserAssociation{
 		ApplicantID: applicant.ID,
 	}); err != nil {
 		if err := s.d.TxRollback(tx); err != nil {
@@ -1810,7 +1827,7 @@ func (s *ApplicantService) AssignUser(req *request.AssignUser) *response.Error {
 	}
 
 	// 面接官割り振り登録
-	if err := s.u.InsertsUserAssociation(tx, users2); err != nil {
+	if err := s.r.InsertsUserAssociation(tx, users2); err != nil {
 		if err := s.d.TxRollback(tx); err != nil {
 			return &response.Error{
 				Status: http.StatusInternalServerError,
@@ -1860,7 +1877,7 @@ func (s *ApplicantService) CheckAssignableUser(req *request.CheckAssignableUser,
 	var list []response.CheckAssignableUserSub
 	for _, user := range users {
 		// ユーザー単位予定取得
-		models, modelsErr := s.u.GetScheduleByUser(&ddl.ScheduleAssociation{
+		models, modelsErr := s.s.GetScheduleByUser(&ddl.ScheduleAssociation{
 			UserID: user.ID,
 		})
 		if modelsErr != nil {
@@ -2021,5 +2038,145 @@ func (s *ApplicantService) CheckAssignableUser(req *request.CheckAssignableUser,
 
 	return &response.CheckAssignableUser{
 		List: list,
+	}, nil
+}
+
+// 種別登録
+func (s *ApplicantService) CreateApplicantType(req *request.CreateApplicantType) *response.Error {
+	// バリデーション
+	if err := s.v.CreateApplicantType(req); err != nil {
+		log.Printf("%v", err)
+		return &response.Error{
+			Status: http.StatusBadRequest,
+		}
+	}
+
+	// チーム、企業取得
+	ctx := context.Background()
+	team, teamErr := s.redis.Get(ctx, req.UserHashKey, static.REDIS_USER_TEAM_ID)
+	if teamErr != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+	teamID, teamIDErr := strconv.ParseUint(*team, 10, 64)
+	if teamIDErr != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+	company, companyErr := s.redis.Get(ctx, req.UserHashKey, static.REDIS_USER_COMPANY_ID)
+	if companyErr != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+	companyID, companyParseErr := strconv.ParseUint(*company, 10, 64)
+	if companyParseErr != nil {
+		log.Printf("%v", companyParseErr)
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// 書類提出ルール取得
+	documentRule, documentRuleErr := s.m.SelectDocumentRuleByHash(&ddl.DocumentRule{
+		AbstractMasterModel: ddl.AbstractMasterModel{
+			HashKey: req.RuleHash,
+		},
+	})
+	if documentRuleErr != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// 種別取得
+	occupation, occupationErr := s.m.SelectOccupationByHash(&ddl.Occupation{
+		AbstractMasterModel: ddl.AbstractMasterModel{
+			HashKey: req.OccupationHash,
+		},
+	})
+	if occupationErr != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	tx, txErr := s.d.TxStart()
+	if txErr != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// ハッシュキー生成
+	_, hash, hashErr := GenerateHash(1, 25)
+	if hashErr != nil {
+		log.Printf("%v", hashErr)
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// 登録
+	if err := s.r.InsertType(tx, &ddl.ApplicantType{
+		AbstractTransactionModel: ddl.AbstractTransactionModel{
+			HashKey:   static.PRE_APPLICANT_TYPE + "_" + *hash,
+			CompanyID: companyID,
+		},
+		TeamID:       teamID,
+		RuleID:       documentRule.ID,
+		OccupationID: occupation.ID,
+		Name:         req.Name,
+	}); err != nil {
+		if err := s.d.TxRollback(tx); err != nil {
+			return &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	if err := s.d.TxCommit(tx); err != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	return nil
+}
+
+// 種別一覧
+func (s *ApplicantService) ListApplicantType(req *request.ListApplicantType) (*response.ListApplicantType, *response.Error) {
+	// チーム取得
+	ctx := context.Background()
+	team, teamErr := s.redis.Get(ctx, req.UserHashKey, static.REDIS_USER_TEAM_ID)
+	if teamErr != nil {
+		return nil, &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+	teamID, teamIDErr := strconv.ParseUint(*team, 10, 64)
+	if teamIDErr != nil {
+		return nil, &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// 種別一覧
+	res, err := s.r.ListType(&ddl.ApplicantType{
+		TeamID: teamID,
+	})
+	if err != nil {
+		return nil, &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	return &response.ListApplicantType{
+		List: res,
 	}, nil
 }

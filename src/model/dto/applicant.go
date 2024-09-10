@@ -5,6 +5,7 @@ import (
 	"time"
 )
 
+// 検索
 type SearchApplicant struct {
 	request.SearchApplicant
 	// ユーザー

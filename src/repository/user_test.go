@@ -34,7 +34,6 @@ func TestUserRepository_Insert(t *testing.T) {
 				Password:     "root",
 				InitPassword: "root",
 				RoleID:       1,
-				RefreshToken: "token",
 			}},
 			false,
 		},
@@ -233,7 +232,6 @@ func TestUserRepository_Get(t *testing.T) {
 				Password:     "root",
 				InitPassword: "root",
 				RoleID:       1,
-				RefreshToken: "token",
 			},
 			false,
 		},
@@ -256,7 +254,6 @@ func TestUserRepository_Get(t *testing.T) {
 				Password:     "root",
 				InitPassword: "root",
 				RoleID:       1,
-				RefreshToken: "token",
 			},
 			true,
 		},
@@ -305,7 +302,6 @@ func TestUserRepository_Get(t *testing.T) {
 				got.Password == tt.want.Password &&
 				got.InitPassword == tt.want.InitPassword &&
 				got.RoleID == tt.want.RoleID &&
-				got.RefreshToken == tt.want.RefreshToken &&
 				got.CreatedAt.Sub(tt.want.CreatedAt) < time.Second &&
 				got.UpdatedAt.Sub(tt.want.UpdatedAt) < time.Second)) {
 				tx2 := u.db.Begin()
@@ -474,16 +470,16 @@ func TestUserRepository_SearchTeam(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			u := &UserRepository{
+			u := &TeamRepository{
 				db: tt.fields.db,
 			}
-			got, err := u.SearchTeam(tt.args.m)
+			got, err := u.Search(tt.args.m)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("UserRepository.SearchTeam() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("TeamRepository.SearchTeam() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("UserRepository.SearchTeam() = %v, want %v", got, tt.want)
+				t.Errorf("TeamRepository.SearchTeam() = %v, want %v", got, tt.want)
 			}
 		})
 	}
@@ -507,12 +503,12 @@ func TestUserRepository_InsertTeam(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			u := &UserRepository{
+			u := &TeamRepository{
 				db: tt.fields.db,
 			}
-			_, err := u.InsertTeam(tt.args.tx, tt.args.m)
+			_, err := u.Insert(tt.args.tx, tt.args.m)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("UserRepository.InsertTeam() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("TeamRepository.Insert() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}
@@ -536,11 +532,11 @@ func TestUserRepository_InsertSchedule(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			u := &UserRepository{
+			u := &ScheduleRepository{
 				db: tt.fields.db,
 			}
-			if _, err := u.InsertSchedule(tt.args.tx, tt.args.m); (err != nil) != tt.wantErr {
-				t.Errorf("UserRepository.InsertSchedule() error = %v, wantErr %v", err, tt.wantErr)
+			if _, err := u.Insert(tt.args.tx, tt.args.m); (err != nil) != tt.wantErr {
+				t.Errorf("ScheduleRepository.Insert() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}
@@ -564,16 +560,16 @@ func TestUserRepository_SearchSchedule(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			u := &UserRepository{
+			u := &ScheduleRepository{
 				db: tt.fields.db,
 			}
-			got, err := u.SearchSchedule(tt.args.m)
+			got, err := u.Search(tt.args.m)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("UserRepository.SearchSchedule() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("ScheduleRepository.Search() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("UserRepository.SearchSchedule() = %v, want %v", got, tt.want)
+				t.Errorf("ScheduleRepository.Search() = %v, want %v", got, tt.want)
 			}
 		})
 	}
@@ -597,11 +593,11 @@ func TestUserRepository_DeleteSchedule(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			u := &UserRepository{
+			u := &ScheduleRepository{
 				db: tt.fields.db,
 			}
-			if err := u.DeleteSchedule(tt.args.tx, tt.args.m); (err != nil) != tt.wantErr {
-				t.Errorf("UserRepository.DeleteSchedule() error = %v, wantErr %v", err, tt.wantErr)
+			if err := u.Delete(tt.args.tx, tt.args.m); (err != nil) != tt.wantErr {
+				t.Errorf("ScheduleRepository.Delete() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}

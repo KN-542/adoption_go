@@ -72,3 +72,8 @@ type CheckAssignableUserSub struct {
 	// 面接官予定重複フラグ
 	DuplFlg uint `json:"dupl_flg"`
 }
+
+// 応募者種別一覧
+type ListApplicantType struct {
+	List []entity.ApplicantType `json:"list"`
+}

@@ -203,6 +203,30 @@ type AutoAssignRule struct {
 	AdditionalConfiguration uint `json:"additional_configuration"`
 }
 
+/*
+m_document_rule
+書類提出ルールマスタ
+*/
+type DocumentRule struct {
+	AbstractMasterModel
+	// ルール_日本語
+	RuleJa string `json:"rule_ja" gorm:"text"`
+	// ルール_英語
+	RuleEn string `json:"rule_en" gorm:"text"`
+}
+
+/*
+m_occupation
+職種マスタ
+*/
+type Occupation struct {
+	AbstractMasterModel
+	// 職種名_日本語
+	NameJa string `json:"name_ja" gorm:"text"`
+	// 職種名_英語
+	NameEn string `json:"name_en" gorm:"text"`
+}
+
 func (m LoginType) TableName() string {
 	return "m_login_type"
 }
@@ -247,6 +271,12 @@ func (m AssignRule) TableName() string {
 }
 func (m AutoAssignRule) TableName() string {
 	return "m_auto_assign_rule"
+}
+func (m DocumentRule) TableName() string {
+	return "m_document_rule"
+}
+func (m Occupation) TableName() string {
+	return "m_occupation"
 }
 
 type Sites struct {

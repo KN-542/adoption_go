@@ -18,6 +18,19 @@ type Applicant struct {
 	GoogleMeetURL string `json:"google_meet_url"`
 }
 
+// 応募者種別
+type ApplicantType struct {
+	ddl.ApplicantType
+	// 書類提出ルール_日本語
+	RuleJa string `json:"rule_ja"`
+	// 書類提出ルール_英語
+	RuleEn string `json:"rule_en"`
+	// 職種名_日本語
+	NameJa string `json:"name_ja"`
+	// 職種名_英語
+	NameEn string `json:"name_en"`
+}
+
 // 応募者ユーザー紐づけ
 type ApplicantUserAssociation struct {
 	ddl.ApplicantUserAssociation
@@ -40,6 +53,8 @@ type SearchApplicant struct {
 	CurriculumVitaeExtension string `json:"curriculum_vitae_extension"`
 	// Google Meet URL
 	GoogleMeetURL string `json:"google_meet_url"`
+	// 原稿内容
+	Content string `json:"content"`
 	// 担当面接官
 	Users []*ddl.User `json:"users" gorm:"many2many:t_applicant_user_association;foreignKey:id;joinForeignKey:applicant_id;References:id;joinReferences:user_id"`
 }

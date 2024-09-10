@@ -22,58 +22,23 @@ type GetUser struct {
 	entity.User
 }
 
-// チーム検索
-type SearchTeam struct {
-	List []entity.SearchTeam `json:"list"`
-}
-
-// チーム取得
-type GetTeam struct {
-	entity.Team
-}
-
-// チーム取得
-type GetOwnTeam struct {
-	Team         entity.Team                    `json:"team"`
-	Events       []entity.InterviewEventsByTeam `json:"events"`
-	AutoRule     entity.TeamAutoAssignRule      `json:"auto_rule"`
-	Priority     []entity.TeamAssignPriority    `json:"priority"`
-	PerList      []entity.TeamPerInterview      `json:"per_list"`
-	PossibleList []entity.TeamAssignPossible    `json:"possible_list"`
-}
-
-// チーム検索_同一企業
-type SearchTeamByCompany struct {
-	List []entity.SearchTeam `json:"list"`
-}
-
-// 予定登録種別一覧
-type SearchScheduleType struct {
-	List []entity.ScheduleFreqStatus `json:"list"`
-}
-
-// 予定登録
-type CreateSchedule struct {
-	HashKey string `json:"hash_key"`
-}
-
-// 予定検索
-type SearchSchedule struct {
-	List []entity.Schedule `json:"list"`
-}
-
 // ステータスイベントマスタ一覧
 type ListStatusEvent struct {
 	List []entity.SelectStatusEvent `json:"list"`
-}
-
-// チーム毎ステータスイベント取得
-type StatusEventsByTeam struct {
-	List []entity.StatusEventsByTeam `json:"list"`
 }
 
 // アサイン関連マスタ取得
 type AssignMaster struct {
 	Rule     []entity.AssignRule     `json:"rule"`
 	AutoRule []entity.AutoAssignRule `json:"auto_rule"`
+}
+
+// 書類提出ルールマスタ取得
+type DocumentRule struct {
+	List []entity.DocumentRule `json:"list"`
+}
+
+// 職種マスタ取得
+type Occupation struct {
+	List []entity.Occupation `json:"list"`
 }

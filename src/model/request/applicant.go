@@ -11,10 +11,14 @@ type SearchApplicant struct {
 	ddl.Applicant
 	// ページ
 	Page int `json:"page"`
+	// ページサイズ
+	PageSize int `json:"page_size"`
 	// サイト一覧
 	Sites []string `json:"sites"`
 	// 応募者ステータス
 	ApplicantStatusList []string `json:"applicant_status_list"`
+	// 原稿一覧
+	Manuscripts []string `json:"manuscripts"`
 	// 履歴書フラグ
 	ResumeFlg uint `json:"resume_flg"`
 	// 職務経歴書フラグ
@@ -176,4 +180,20 @@ type CheckAssignableUser struct {
 	Start time.Time `json:"start"`
 	// ハッシュキーリスト
 	HashKeys []string `json:"hash_keys"`
+}
+
+// 種別登録
+type CreateApplicantType struct {
+	Abstract
+	// 種別名
+	Name string `json:"name"`
+	// 書類提出ルールハッシュ
+	RuleHash string `json:"rule_hash"`
+	// 職種ハッシュ
+	OccupationHash string `json:"occupation_hash"`
+}
+
+// 種別一覧
+type ListApplicantType struct {
+	Abstract
 }

@@ -30,6 +30,7 @@ type CommonService struct {
 	master repository.IMasterRepository
 	role   repository.IRoleRepository
 	user   repository.IUserRepository
+	team   repository.ITeamRepository
 	v      validator.ICommonValidator
 	redis  repository.IRedisRepository
 }
@@ -38,10 +39,11 @@ func NewCommonService(
 	master repository.IMasterRepository,
 	role repository.IRoleRepository,
 	user repository.IUserRepository,
+	team repository.ITeamRepository,
 	v validator.ICommonValidator,
 	redis repository.IRedisRepository,
 ) ICommonService {
-	return &CommonService{master, role, user, v, redis}
+	return &CommonService{master, role, user, team, v, redis}
 }
 
 // サイドバー表示
@@ -241,7 +243,7 @@ func (c *CommonService) Teams(req *request.TeamsBelong) (*response.TeamsBelong, 
 	}
 
 	// 所属チーム一覧
-	teams, teamsErr := c.user.ListBelongTeam(&ddl.TeamAssociation{
+	teams, teamsErr := c.team.ListBelongTeam(&ddl.TeamAssociation{
 		UserID: user.ID,
 	})
 	if teamsErr != nil {
@@ -264,7 +266,7 @@ func (c *CommonService) ChangeTeam(req *request.ChangeTeam) *response.Error {
 	}
 
 	// チーム取得
-	team, teamErr := c.user.GetTeam(&ddl.Team{
+	team, teamErr := c.team.Get(&ddl.Team{
 		AbstractTransactionModel: ddl.AbstractTransactionModel{
 			HashKey: req.HashKey,
 		},

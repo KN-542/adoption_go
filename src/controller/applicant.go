@@ -40,6 +40,10 @@ type IApplicantController interface {
 	AssignUser(e echo.Context) error
 	// 面接官割り振り可能判定
 	CheckAssignableUser(e echo.Context) error
+	// 種別登録
+	CreateApplicantType(e echo.Context) error
+	// 種別一覧
+	ListApplicantType(e echo.Context) error
 }
 
 type ApplicantController struct {
@@ -564,6 +568,93 @@ func (c *ApplicantController) CheckAssignableUser(e echo.Context) error {
 	}
 
 	res, err := c.s.CheckAssignableUser(&req, false)
+	if err != nil {
+		return e.JSON(err.Status, response.ErrorConvert(*err))
+	}
+	return e.JSON(http.StatusOK, res)
+}
+
+// 種別登録
+func (c *ApplicantController) CreateApplicantType(e echo.Context) error {
+	req := request.CreateApplicantType{}
+	if err := e.Bind(&req); err != nil {
+		log.Printf("%v", err)
+		return e.JSON(http.StatusBadRequest, fmt.Errorf(static.MESSAGE_BAD_REQUEST))
+	}
+
+	// JWT検証
+	if err := JWTDecodeCommon(
+		c,
+		e,
+		req.UserHashKey,
+		JWT_TOKEN,
+		JWT_SECRET,
+		true,
+	); err != nil {
+		return err
+	}
+
+	// ロールチェック
+	exist, roleErr := c.role.Check(&request.CheckRole{
+		Abstract: request.Abstract{
+			UserHashKey: req.UserHashKey,
+		},
+		ID: static.ROLE_MANAGEMENT_SETTING_TEAM,
+	})
+	if roleErr != nil {
+		return e.JSON(roleErr.Status, response.ErrorConvert(*roleErr))
+	}
+	if !exist {
+		err := &response.Error{
+			Status: http.StatusForbidden,
+		}
+		return e.JSON(err.Status, response.ErrorConvert(*err))
+	}
+
+	if err := c.s.CreateApplicantType(&req); err != nil {
+		return e.JSON(err.Status, response.ErrorConvert(*err))
+	}
+	return e.JSON(http.StatusOK, "OK")
+}
+
+// 種別一覧
+func (c *ApplicantController) ListApplicantType(e echo.Context) error {
+	req := request.ListApplicantType{}
+	if err := e.Bind(&req); err != nil {
+		log.Printf("%v", err)
+		return e.JSON(http.StatusBadRequest, fmt.Errorf(static.MESSAGE_BAD_REQUEST))
+	}
+
+	// JWT検証
+	if err := JWTDecodeCommon(
+		c,
+		e,
+		req.UserHashKey,
+		JWT_TOKEN,
+		JWT_SECRET,
+		true,
+	); err != nil {
+		return err
+	}
+
+	// ロールチェック
+	exist, roleErr := c.role.Check(&request.CheckRole{
+		Abstract: request.Abstract{
+			UserHashKey: req.UserHashKey,
+		},
+		ID: static.ROLE_MANAGEMENT_SETTING_TEAM,
+	})
+	if roleErr != nil {
+		return e.JSON(roleErr.Status, response.ErrorConvert(*roleErr))
+	}
+	if !exist {
+		err := &response.Error{
+			Status: http.StatusForbidden,
+		}
+		return e.JSON(err.Status, response.ErrorConvert(*err))
+	}
+
+	res, err := c.s.ListApplicantType(&req)
 	if err != nil {
 		return e.JSON(err.Status, response.ErrorConvert(*err))
 	}

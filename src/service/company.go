@@ -24,6 +24,7 @@ type CompanyService struct {
 	master  repository.IMasterRepository
 	role    repository.IRoleRepository
 	user    repository.IUserRepository
+	team    repository.ITeamRepository
 	v       validator.ICompanyValidator
 	db      repository.IDBRepository
 }
@@ -33,10 +34,11 @@ func NewCompanyService(
 	master repository.IMasterRepository,
 	role repository.IRoleRepository,
 	user repository.IUserRepository,
+	team repository.ITeamRepository,
 	v validator.ICompanyValidator,
 	db repository.IDBRepository,
 ) ICompanyService {
-	return &CompanyService{company, master, role, user, v, db}
+	return &CompanyService{company, master, role, user, team, v, db}
 }
 
 // 登録
@@ -54,6 +56,16 @@ func (c *CompanyService) Create(req *request.CreateCompany) (*response.CreateCom
 		return nil, &response.Error{
 			Status: http.StatusConflict,
 			Code:   static.CODE_COMPANY_NAME_DUPL,
+		}
+	}
+
+	// メールアドレス重複チェック
+	if err := c.user.EmailDuplCheck(&ddl.User{
+		Email: req.Email,
+	}); err != nil {
+		return nil, &response.Error{
+			Status: http.StatusConflict,
+			Code:   static.CODE_COMPANY_EMAIL_DUPL,
 		}
 	}
 
@@ -201,7 +213,7 @@ func (c *CompanyService) Create(req *request.CreateCompany) (*response.CreateCom
 	}
 
 	// チーム登録
-	team, teamErr := c.user.InsertTeam(tx, &ddl.Team{
+	team, teamErr := c.team.Insert(tx, &ddl.Team{
 		AbstractTransactionModel: ddl.AbstractTransactionModel{
 			HashKey:   string(static.PRE_TEAM) + "_" + *teamHash,
 			CompanyID: company.ID,
@@ -222,7 +234,7 @@ func (c *CompanyService) Create(req *request.CreateCompany) (*response.CreateCom
 	}
 
 	// チーム紐づけ登録
-	if err := c.user.InsertTeamAssociation(tx, &ddl.TeamAssociation{
+	if err := c.team.InsertTeamAssociation(tx, &ddl.TeamAssociation{
 		TeamID: team.ID,
 		UserID: user.ID,
 	}); err != nil {
@@ -251,7 +263,7 @@ func (c *CompanyService) Create(req *request.CreateCompany) (*response.CreateCom
 			NumOfInterview: uint(i),
 		})
 	}
-	if err := c.user.InsertsPerInterview(tx, perList); err != nil {
+	if err := c.team.InsertsPerInterview(tx, perList); err != nil {
 		if err := c.db.TxRollback(tx); err != nil {
 			return nil, &response.Error{
 				Status: http.StatusInternalServerError,
@@ -261,7 +273,7 @@ func (c *CompanyService) Create(req *request.CreateCompany) (*response.CreateCom
 			Status: http.StatusInternalServerError,
 		}
 	}
-	if err := c.user.InsertsAssignPossible(tx, possibleList); err != nil {
+	if err := c.team.InsertsAssignPossible(tx, possibleList); err != nil {
 		if err := c.db.TxRollback(tx); err != nil {
 			return nil, &response.Error{
 				Status: http.StatusInternalServerError,
@@ -289,7 +301,7 @@ func (c *CompanyService) Create(req *request.CreateCompany) (*response.CreateCom
 	}
 
 	// 選考状況登録
-	if err := c.user.InsertSelectStatus(tx, &ddl.SelectStatus{
+	if err := c.team.InsertSelectStatus(tx, &ddl.SelectStatus{
 		AbstractTransactionModel: ddl.AbstractTransactionModel{
 			HashKey:   string(static.PRE_SELECT_STATUS) + "_" + *selectHash,
 			CompanyID: company.ID,
@@ -306,7 +318,7 @@ func (c *CompanyService) Create(req *request.CreateCompany) (*response.CreateCom
 			Status: http.StatusInternalServerError,
 		}
 	}
-	if err := c.user.InsertSelectStatus(tx, &ddl.SelectStatus{
+	if err := c.team.InsertSelectStatus(tx, &ddl.SelectStatus{
 		AbstractTransactionModel: ddl.AbstractTransactionModel{
 			HashKey:   string(static.PRE_SELECT_STATUS) + "_" + *selectHash2,
 			CompanyID: company.ID,

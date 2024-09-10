@@ -12,8 +12,11 @@ func NewRouter(
 	common controller.ICommonController,
 	login controller.ILoginController,
 	user controller.IUserController,
+	team controller.ITeamController,
+	schedule controller.IScheduleController,
 	company controller.ICompanyController,
 	applicant controller.IApplicantController,
+	manuscript controller.IManuscriptController,
 	role controller.IRoleController,
 ) *echo.Echo {
 	e := echo.New()
@@ -53,17 +56,21 @@ func NewRouter(
 	e.POST("/user/search_company", user.SearchByCompany)
 	e.POST("/user/search", user.Search)
 	e.POST("/user/create", user.Create)
-	e.POST("/user/create_team", user.CreateTeam)
-	e.POST("/user/update_team", user.UpdateTeam)
-	e.POST("/user/delete_team", user.DeleteTeam)
-	e.POST("/user/search_team", user.SearchTeam)
-	e.POST("/user/search_team_company", user.SearchTeamByCompany)
-	e.POST("/user/get_team", user.GetTeam)
-	e.POST("/user/schedule_type", user.SearchScheduleType)
-	e.POST("/user/create_schedule", user.InsertSchedules)
-	e.POST("/user/update_schedule", user.UpdateSchedule)
-	e.POST("/user/schedules", user.SearchSchedule)
-	e.POST("/user/delete_schedule", user.DeleteSchedule)
+
+	// チーム
+	e.POST("/team/create", team.Create)
+	e.POST("/team/update", team.Update)
+	e.POST("/team/delete", team.Delete)
+	e.POST("/team/search", team.Search)
+	e.POST("/team/search_company", team.SearchByCompany)
+	e.POST("/team/get_team", team.Get)
+
+	// 予定
+	e.POST("/schedule/type", schedule.SearchScheduleType)
+	e.POST("/schedule/create", schedule.Insert)
+	e.POST("/schedule/update", schedule.Update)
+	e.POST("/schedule/search", schedule.Search)
+	e.POST("/schedule/delete", schedule.Delete)
 
 	// 企業
 	e.POST("/company/create", company.Create)
@@ -87,14 +94,22 @@ func NewRouter(
 	// ロール
 	e.POST("/role/search_company", role.SearchByCompanyID)
 
+	// 原稿
+	e.POST("/manuscript/search", manuscript.Search)
+	e.POST("/manuscript/create", manuscript.Create)
+
 	// 設定
-	e.POST("/setting/get_team", user.GetOwnTeam)
-	e.POST("/setting/update_team", user.UpdateBasicTeam)
+	e.POST("/setting/get_team", team.GetOwn)
+	e.POST("/setting/update_team", team.UpdateBasic)
 	e.POST("/setting/team", user.UpdateStatus)
 	e.POST("/setting/status_events", user.ListStatusEvent)
-	e.POST("/setting/status_events_of_team", user.StatusEventsByTeam)
+	e.POST("/setting/status_events_of_team", team.StatusEvents)
 	e.POST("/setting/assign_masters", user.AssignMaster)
 	e.POST("/setting/update_assign", user.UpdateAssignMethod)
+	e.POST("/setting/document_rules", user.DocumentRuleMaster)
+	e.POST("/setting/occupations", user.OccupationMaster)
+	e.POST("/setting/create_applicant_type", applicant.CreateApplicantType)
+	e.POST("/setting/applicant_types", applicant.ListApplicantType)
 
 	return e
 }

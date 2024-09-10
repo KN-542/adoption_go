@@ -41,6 +41,8 @@ type IApplicantValidator interface {
 	AssignUser(a *request.AssignUser) error
 	// 面接官割り振り可能判定
 	CheckAssignableUser(a *request.CheckAssignableUser) error
+	// 種別登録
+	CreateApplicantType(a *request.CreateApplicantType) error
 }
 
 type ApplicantValidator struct{}
@@ -312,6 +314,26 @@ func (v *ApplicantValidator) CheckAssignableUser(a *request.CheckAssignableUser)
 			validation.Required,
 			validation.Length(1, 0),
 			validation.Each(validation.Required),
+		),
+	)
+}
+
+// 種別登録
+func (v *ApplicantValidator) CreateApplicantType(a *request.CreateApplicantType) error {
+	return validation.ValidateStruct(
+		a,
+		validation.Field(
+			&a.Name,
+			validation.Required,
+			validation.Length(1, 40),
+		),
+		validation.Field(
+			&a.RuleHash,
+			validation.Required,
+		),
+		validation.Field(
+			&a.OccupationHash,
+			validation.Required,
 		),
 	)
 }

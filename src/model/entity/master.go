@@ -26,3 +26,13 @@ type AssignRule struct {
 type AutoAssignRule struct {
 	ddl.AutoAssignRule
 }
+
+// m_document_rule
+type DocumentRule struct {
+	ddl.DocumentRule
+}
+
+// m_occupation
+type Occupation struct {
+	ddl.Occupation
+}

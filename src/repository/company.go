@@ -61,7 +61,7 @@ func (r *CompanyRepository) Search(m *ddl.Company) ([]entity.Company, error) {
 // 企業名重複確認
 func (r *CompanyRepository) IsDuplName(m *ddl.Company) error {
 	var count int64
-	if err := r.db.Model(&ddl.User{}).Where(&ddl.Company{
+	if err := r.db.Model(&ddl.Company{}).Where(&ddl.Company{
 		Name: m.Name,
 	}).Count(&count).Error; err != nil {
 		log.Printf("%v", err)

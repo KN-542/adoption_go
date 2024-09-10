@@ -25,6 +25,8 @@ t_history_of_upload_applicant
 type HistoryOfUploadApplicant struct {
 	// 履歴ID
 	HistoryID uint64 `json:"history_id" gorm:"primaryKey;AUTO_INCREMENT"`
+	// コミットID
+	CommitID string `json:"commit_id" gorm:"not null;unique;check:commit_id <> '';type:text;index"`
 	// アップロードcsv
 	CSV string `json:"csv" gorm:"not null;check:csv <> '';type:text"`
 	// 操作ログ(外部キー)

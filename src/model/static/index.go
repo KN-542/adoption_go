@@ -26,7 +26,8 @@ const (
 		company
 	*/
 	// 登録
-	CODE_COMPANY_NAME_DUPL uint = 1
+	CODE_COMPANY_NAME_DUPL  uint = 1
+	CODE_COMPANY_EMAIL_DUPL uint = 2
 
 	/*
 		ユーザー
@@ -49,6 +50,12 @@ const (
 	// 面接官割り振り
 	CODE_APPLICANT_SCHEDULE_DOES_NOT_EXIST uint = 1
 	CODE_APPLICANT_SHORTAGE_USER_MIN       uint = 2
+
+	/*
+		原稿
+	*/
+	// 原稿登録
+	CODE_MANUSCRIPT_DUPLICATE_CONTENT uint = 1
 )
 
 // Response Body メッセージ

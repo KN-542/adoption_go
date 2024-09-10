@@ -33,11 +33,26 @@ type ManuscriptSiteAssociation struct {
 	// 原稿ID
 	ManuscriptID uint64 `json:"manuscript_id" gorm:"primaryKey"`
 	// サイトID
-	SiteID uint64 `json:"site_id" gorm:"primaryKey"`
+	SiteID uint `json:"site_id" gorm:"primaryKey"`
 	// 原稿(外部キー)
 	Manuscript Manuscript `gorm:"foreignKey:manuscript_id;references:id"`
 	// サイト(外部キー)
 	Site Site `gorm:"foreignKey:site_id;references:id"`
+}
+
+/*
+t_manuscript_applicant_association
+原稿応募者紐づけ
+*/
+type ManuscriptApplicantAssociation struct {
+	// 原稿ID
+	ManuscriptID uint64 `json:"manuscript_id" gorm:"primaryKey"`
+	// 応募者ID
+	ApplicantID uint64 `json:"applicant_id" gorm:"primaryKey"`
+	// 原稿(外部キー)
+	Manuscript Manuscript `gorm:"foreignKey:manuscript_id;references:id"`
+	// 応募者(外部キー)
+	Applicant Applicant `gorm:"foreignKey:applicant_id;references:id"`
 }
 
 func (t Manuscript) TableName() string {
@@ -48,4 +63,7 @@ func (t ManuscriptTeamAssociation) TableName() string {
 }
 func (t ManuscriptSiteAssociation) TableName() string {
 	return "t_manuscript_site_association"
+}
+func (t ManuscriptApplicantAssociation) TableName() string {
+	return "t_manuscript_applicant_association"
 }

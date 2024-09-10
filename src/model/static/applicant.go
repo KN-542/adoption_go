@@ -12,3 +12,6 @@ const (
 	DUPLICATION_WARNING uint = 2
 	DUPLICATION_SAFE    uint = 3
 )
+
+// 応募者種別最大数
+const APPLICANT_TYPE_SIZE int = 25

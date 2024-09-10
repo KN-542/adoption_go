@@ -20,6 +20,8 @@ type Applicant struct {
 	Tel string `json:"tel" gorm:"type:varchar(20);check:tel ~ '^[0-9]{0,20}$'"`
 	// 年齢
 	Age uint `json:"age" gorm:"check:(age >= 18 AND age <= 100) OR age = 0;index"`
+	// コミットID
+	CommitID string `json:"commit_id" gorm:"not null;check:commit_id <> '';type:text;index"`
 	// 面接回数
 	NumOfInterview uint `json:"num_of_interview"`
 	// チームID
@@ -45,6 +47,28 @@ type ApplicantUserAssociation struct {
 	Applicant Applicant `gorm:"foreignKey:applicant_id;references:id"`
 	// ユーザー(外部キー)
 	User User `gorm:"foreignKey:user_id;references:id"`
+}
+
+/*
+t_applicant_type
+応募者種別
+*/
+type ApplicantType struct {
+	AbstractTransactionModel
+	// チームID
+	TeamID uint64 `json:"team_id"`
+	// 書類提出ルールID
+	RuleID uint `json:"rule_id"`
+	// 職種ID
+	OccupationID uint `json:"occupation_id"`
+	// 種別名
+	Name string `json:"name" gorm:"not null;type:varchar(40)"`
+	// チーム(外部キー)
+	Team Team `gorm:"foreignKey:team_id;references:id"`
+	// 書類提出ルール(外部キー)
+	DocumentRule DocumentRule `gorm:"foreignKey:rule_id;references:id"`
+	// 職種(外部キー)
+	Occupation Occupation `gorm:"foreignKey:occupation_id;references:id"`
 }
 
 /*
@@ -106,6 +130,9 @@ func (t Applicant) TableName() string {
 }
 func (t ApplicantUserAssociation) TableName() string {
 	return "t_applicant_user_association"
+}
+func (t ApplicantType) TableName() string {
+	return "t_applicant_type"
 }
 func (t ApplicantScheduleAssociation) TableName() string {
 	return "t_applicant_schedule_association"

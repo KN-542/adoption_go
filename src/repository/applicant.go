@@ -23,6 +23,10 @@ type IApplicantRepository interface {
 	Search(m *dto.SearchApplicant) ([]*entity.SearchApplicant, int64, error)
 	// 取得
 	Get(m *ddl.Applicant) (*entity.Applicant, error)
+	// 種別登録
+	InsertType(tx *gorm.DB, m *ddl.ApplicantType) error
+	// 種別一覧
+	ListType(m *ddl.ApplicantType) ([]entity.ApplicantType, error)
 	// 応募者ステータス一覧
 	ListStatus(m *ddl.SelectStatus) ([]entity.ApplicantStatus, error)
 	// 応募者ステータス削除
@@ -53,6 +57,12 @@ type IApplicantRepository interface {
 	InsertApplicantURLAssociation(tx *gorm.DB, m *ddl.ApplicantURLAssociation) error
 	// Google Meet URL取得
 	GetApplicantURLAssociation(m *ddl.Applicant) ([]entity.ApplicantURLAssociation, error)
+	// ユーザー紐づけ一括登録
+	InsertsUserAssociation(tx *gorm.DB, m []*ddl.ApplicantUserAssociation) error
+	// ユーザー紐づけ取得_ユーザー
+	GetUserAssociation(m *ddl.ApplicantUserAssociation) ([]entity.ApplicantUserAssociation, error)
+	// ユーザー紐づけ削除
+	DeleteUserAssociation(tx *gorm.DB, m *ddl.ApplicantUserAssociation) error
 }
 
 type ApplicantRepository struct {
@@ -108,28 +118,73 @@ func (a *ApplicantRepository) Search(m *dto.SearchApplicant) ([]*entity.SearchAp
 	var totalCount int64
 
 	query := a.db.Table("t_applicant").
-		Joins("left join t_select_status on t_applicant.status = t_select_status.id").
-		Joins("left join m_site on t_applicant.site_id = m_site.id").
-		Joins("left join t_applicant_schedule_association on t_applicant_schedule_association.applicant_id = t_applicant.id").
-		Joins("left join t_schedule on t_applicant_schedule_association.schedule_id = t_schedule.id").
-		Joins("left join t_applicant_resume_association on t_applicant_resume_association.applicant_id = t_applicant.id").
-		Joins("left join t_applicant_curriculum_vitae_association on t_applicant_curriculum_vitae_association.applicant_id = t_applicant.id").
-		Joins("left join t_applicant_url_association on t_applicant_url_association.applicant_id = t_applicant.id").
+		Joins(`
+			LEFT JOIN
+				t_select_status
+			ON
+				t_applicant.status = t_select_status.id
+		`).
+		Joins("LEFT JOIN m_site ON t_applicant.site_id = m_site.id").
+		Joins(`
+			LEFT JOIN
+				t_applicant_schedule_association
+			ON
+				t_applicant_schedule_association.applicant_id = t_applicant.id
+		`).
+		Joins(`
+			LEFT JOIN
+				t_schedule
+			ON
+				t_applicant_schedule_association.schedule_id = t_schedule.id
+		`).
+		Joins(`
+			LEFT JOIN
+				t_applicant_resume_association
+			ON
+				t_applicant_resume_association.applicant_id = t_applicant.id
+		`).
+		Joins(`
+			LEFT JOIN
+				t_applicant_curriculum_vitae_association
+			ON
+				t_applicant_curriculum_vitae_association.applicant_id = t_applicant.id
+		`).
+		Joins(`
+			LEFT JOIN
+				t_applicant_url_association
+			ON
+				t_applicant_url_association.applicant_id = t_applicant.id
+		`).
+		Joins(`
+			LEFT JOIN
+				t_manuscript_applicant_association
+			ON
+				t_manuscript_applicant_association.applicant_id = t_applicant.id
+		`).
+		Joins(`
+			LEFT JOIN
+				t_manuscript
+			ON
+				t_manuscript_applicant_association.manuscript_id = t_manuscript.id
+		`).
 		Where("t_applicant.team_id = ? AND t_applicant.company_id = ?", m.TeamID, m.CompanyID)
 
 	if len(m.Users) > 0 {
-		query = query.Joins("INNER JOIN t_applicant_user_association on t_applicant_user_association.applicant_id = t_applicant.id").
-			Joins("INNER JOIN t_user on t_applicant_user_association.user_id = t_user.id").
+		query = query.Joins("INNER JOIN t_applicant_user_association ON t_applicant_user_association.applicant_id = t_applicant.id").
+			Joins("INNER JOIN t_user ON t_applicant_user_association.user_id = t_user.id").
 			Where("t_user.hash_key IN ?", m.Users)
 	}
 
-	// Apply search conditions
 	if len(m.Sites) > 0 {
 		query = query.Where("m_site.hash_key IN ?", m.Sites)
 	}
 
 	if len(m.ApplicantStatusList) > 0 {
 		query = query.Where("t_select_status.hash_key IN ?", m.ApplicantStatusList)
+	}
+
+	if len(m.Manuscripts) > 0 {
+		query = query.Where("t_manuscript.hash_key IN ?", m.Manuscripts)
 	}
 
 	if m.ResumeFlg == uint(static.DOCUMENT_EXIST) {
@@ -149,6 +204,9 @@ func (a *ApplicantRepository) Search(m *dto.SearchApplicant) ([]*entity.SearchAp
 	}
 	if m.Email != "" {
 		query = query.Where("t_applicant.email LIKE ?", "%"+m.Email+"%")
+	}
+	if m.CommitID != "" {
+		query = query.Where("t_applicant.commit_id LIKE ?", "%"+m.CommitID+"%")
 	}
 
 	if !m.InterviewerDateFrom.IsZero() && !m.InterviewerDateTo.IsZero() {
@@ -176,42 +234,37 @@ func (a *ApplicantRepository) Search(m *dto.SearchApplicant) ([]*entity.SearchAp
 	}
 
 	if err := query.Count(&totalCount).Error; err != nil {
-		log.Printf("Error counting total records: %v", err)
+		log.Printf("%v", err)
 		return nil, 0, err
 	}
 
-	pageSize := 30
-	offset := (m.Page - 1) * pageSize
+	offset := (m.Page - 1) * m.PageSize
 	err := query.Select(`
-		t_applicant.id,
 		t_applicant.hash_key,
 		t_applicant.outer_id,
 		t_applicant.site_id,
 		t_applicant.status,
 		t_applicant.name,
 		t_applicant.email,
-		t_applicant.tel,
 		t_applicant.age,
-		t_applicant.num_of_interview,
-		t_applicant.team_id,
+		t_applicant.commit_id,
 		t_applicant.created_at,
-		t_applicant.updated_at,
-		t_applicant.company_id,
 		t_select_status.status_name,
 		m_site.site_name,
 		t_schedule.hash_key as schedule_hash_key,
 		t_schedule.start,
 		t_applicant_resume_association.extension as resume_extension,
 		t_applicant_curriculum_vitae_association.extension as curriculum_vitae_extension,
-		t_applicant_url_association.url as google_meet_url
+		t_applicant_url_association.url as google_meet_url,
+		t_manuscript.content as content
 	`).
 		Offset(offset).
-		Limit(pageSize).
+		Limit(m.PageSize).
 		Find(&applicants).
 		Error
 
 	if err != nil {
-		log.Printf("Error fetching records: %v", err)
+		log.Printf("%v", err)
 		return nil, 0, err
 	}
 
@@ -230,12 +283,12 @@ func (a *ApplicantRepository) Search(m *dto.SearchApplicant) ([]*entity.SearchAp
 
 		err := a.db.Table("t_applicant_user_association").
 			Select("t_applicant_user_association.applicant_id, t_user.id as user_id, t_user.hash_key, t_user.name").
-			Joins("INNER JOIN t_user on t_applicant_user_association.user_id = t_user.id").
+			Joins("INNER JOIN t_user ON t_applicant_user_association.user_id = t_user.id").
 			Where("t_applicant_user_association.applicant_id IN ?", applicantIDs).
 			Find(&userAssociations).Error
 
 		if err != nil {
-			log.Printf("Error fetching associated users: %v", err)
+			log.Printf("%v", err)
 			return nil, 0, err
 		}
 
@@ -271,27 +324,27 @@ func (a *ApplicantRepository) Get(m *ddl.Applicant) (*entity.Applicant, error) {
 			t_applicant_url_association.url as google_meet_url
 		`).
 		Joins(`
-			left join
+			LEFT JOIN
 				t_applicant_schedule_association
-			on
+			ON
 				t_applicant_schedule_association.applicant_id = t_applicant.id
 		`).
 		Joins(`
-			left join
+			LEFT JOIN
 				t_applicant_resume_association
-			on
+			ON
 				t_applicant_resume_association.applicant_id = t_applicant.id
 		`).
 		Joins(`
-			left join
+			LEFT JOIN
 				t_applicant_curriculum_vitae_association
-			on
+			ON
 				t_applicant_curriculum_vitae_association.applicant_id = t_applicant.id
 		`).
 		Joins(`
-			left join
+			LEFT JOIN
 				t_applicant_url_association
-			on
+			ON
 				t_applicant_url_association.applicant_id = t_applicant.id
 		`).
 		Where(
@@ -306,6 +359,51 @@ func (a *ApplicantRepository) Get(m *ddl.Applicant) (*entity.Applicant, error) {
 	}
 
 	return &res, nil
+}
+
+// 種別登録
+func (a *ApplicantRepository) InsertType(tx *gorm.DB, m *ddl.ApplicantType) error {
+	if err := tx.Create(m).Error; err != nil {
+		log.Printf("%v", err)
+		return err
+	}
+	return nil
+}
+
+// 種別一覧
+func (a *ApplicantRepository) ListType(m *ddl.ApplicantType) ([]entity.ApplicantType, error) {
+	var res []entity.ApplicantType
+
+	if err := a.db.Table("t_applicant_type").Select(`
+			t_applicant_type.hash_key,
+			t_applicant_type.name,
+			m_document_rule.rule_ja as rule_ja,
+			m_document_rule.rule_en as rule_en,
+			m_occupation.name_ja as name_ja,
+			m_occupation.name_en as name_en
+		`).
+		Joins(`
+			LEFT JOIN
+				m_document_rule
+			ON
+				m_document_rule.id = t_applicant_type.rule_id
+		`).
+		Joins(`
+			LEFT JOIN
+				m_occupation
+			ON
+				m_occupation.id = t_applicant_type.occupation_id
+		`).
+		Where(
+			&ddl.ApplicantType{
+				TeamID: m.TeamID,
+			},
+		).Limit(static.APPLICANT_TYPE_SIZE).Find(&res).Error; err != nil {
+		log.Printf("%v", err)
+		return nil, err
+	}
+
+	return res, nil
 }
 
 // 応募者ステータス一覧
@@ -405,7 +503,7 @@ func (a *ApplicantRepository) GetDesiredAt(m *ddl.Applicant) (*ddl.Schedule, err
 	var l ddl.Schedule
 	if err := a.db.Model(&ddl.Schedule{}).
 		Select("t_schedule.start, t_schedule.end").
-		Joins("left join t_applicant on t_applicant.schedule_id = t_schedule.id").
+		Joins("LEFT JOIN t_applicant ON t_applicant.schedule_id = t_schedule.id").
 		Where(
 			&ddl.Applicant{
 				AbstractTransactionModel: ddl.AbstractTransactionModel{
@@ -514,7 +612,7 @@ func (a *ApplicantRepository) InsertApplicantURLAssociation(tx *gorm.DB, m *ddl.
 func (a *ApplicantRepository) GetApplicantURLAssociation(m *ddl.Applicant) ([]entity.ApplicantURLAssociation, error) {
 	var l []entity.ApplicantURLAssociation
 	if err := a.db.Model(&ddl.ApplicantURLAssociation{}).
-		Joins("left join t_applicant on t_applicant.id = t_applicant_url_association.applicant_id").
+		Joins("LEFT JOIN t_applicant ON t_applicant.id = t_applicant_url_association.applicant_id").
 		Where("t_applicant.hash_key = ?", m.HashKey).
 		Find(&l).Error; err != nil {
 		log.Printf("%v", err)
@@ -522,4 +620,40 @@ func (a *ApplicantRepository) GetApplicantURLAssociation(m *ddl.Applicant) ([]en
 	}
 
 	return l, nil
+}
+
+// ユーザー紐づけ一括登録
+func (u *ApplicantRepository) InsertsUserAssociation(tx *gorm.DB, m []*ddl.ApplicantUserAssociation) error {
+	if err := tx.Create(m).Error; err != nil {
+		log.Printf("%v", err)
+		return err
+	}
+	return nil
+}
+
+// ユーザー紐づけ取得
+func (u *ApplicantRepository) GetUserAssociation(m *ddl.ApplicantUserAssociation) ([]entity.ApplicantUserAssociation, error) {
+	var res []entity.ApplicantUserAssociation
+
+	query := u.db.Table("t_applicant_user_association").
+		Where(&ddl.ApplicantUserAssociation{
+			ApplicantID: m.ApplicantID,
+		})
+
+	if err := query.Find(&res).Error; err != nil {
+		log.Printf("%v", err)
+		return nil, err
+	}
+	return res, nil
+}
+
+// ユーザー紐づけ削除
+func (u *ApplicantRepository) DeleteUserAssociation(tx *gorm.DB, m *ddl.ApplicantUserAssociation) error {
+	if err := tx.Where(&ddl.ApplicantUserAssociation{
+		ApplicantID: m.ApplicantID,
+	}).Delete(&ddl.ApplicantUserAssociation{}).Error; err != nil {
+		log.Printf("%v", err)
+		return err
+	}
+	return nil
 }

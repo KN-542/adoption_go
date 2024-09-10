@@ -57,6 +57,7 @@ type ILoginService interface {
 
 type LoginService struct {
 	login     repository.IUserRepository
+	team      repository.ITeamRepository
 	applicant repository.IApplicantRepository
 	redis     repository.IRedisRepository
 	v         validator.ILoginValidator
@@ -66,13 +67,14 @@ type LoginService struct {
 
 func NewLoginService(
 	login repository.IUserRepository,
+	team repository.ITeamRepository,
 	applicant repository.IApplicantRepository,
 	redis repository.IRedisRepository,
 	v validator.ILoginValidator,
 	v_0 validator.IUserValidator,
 	d repository.IDBRepository,
 ) ILoginService {
-	return &LoginService{login, applicant, redis, v, v_0, d}
+	return &LoginService{login, team, applicant, redis, v, v_0, d}
 }
 
 // ログイン認証
@@ -112,7 +114,7 @@ func (l *LoginService) Login(req *request.Login) (*response.Login, *response.Err
 	}
 
 	// チーム一覧取得
-	teams, teamErr := l.login.ListTeamAssociation(&ddl.TeamAssociation{UserID: user.ID})
+	teams, teamErr := l.team.ListTeamAssociation(&ddl.TeamAssociation{UserID: user.ID})
 	if teamErr != nil {
 		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
@@ -584,7 +586,7 @@ func (l *LoginService) ConfirmTeamApplicant(req *request.ConfirmTeamApplicant) *
 	}
 
 	// チーム取得
-	_, err := l.login.GetTeam(&ddl.Team{
+	_, err := l.team.Get(&ddl.Team{
 		AbstractTransactionModel: ddl.AbstractTransactionModel{
 			HashKey: req.HashKey,
 		},
@@ -610,7 +612,7 @@ func (l *LoginService) LoginApplicant(req *request.LoginApplicant) (*response.Lo
 	}
 
 	// チーム取得
-	team, teamErr := l.login.GetTeam(&ddl.Team{
+	team, teamErr := l.team.Get(&ddl.Team{
 		AbstractTransactionModel: ddl.AbstractTransactionModel{
 			HashKey: req.TeamHashKey,
 		},

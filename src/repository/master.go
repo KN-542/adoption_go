@@ -23,6 +23,8 @@ type IMasterRepository interface {
 	ListSite() ([]entity.Site, error)
 	// select by hash key
 	SelectSite(m *ddl.Site) (*entity.Site, error)
+	// select by hash keys
+	SelectSiteIDs(m []string) ([]uint, error)
 	/*
 		m_role
 	*/
@@ -83,6 +85,24 @@ type IMasterRepository interface {
 	ListAutoAssignRule() ([]entity.AutoAssignRule, error)
 	// select by hash key
 	SelectAutoAssignRule(m *ddl.AutoAssignRule) (*entity.AutoAssignRule, error)
+	/*
+		m_document_rule
+	*/
+	// insert
+	InsertDocumentRule(tx *gorm.DB, m *ddl.DocumentRule) error
+	// select by hash
+	SelectDocumentRuleByHash(m *ddl.DocumentRule) (*entity.DocumentRule, error)
+	// list
+	ListDocumentRule() ([]entity.DocumentRule, error)
+	/*
+		m_occupation
+	*/
+	// insert
+	InsertOccupation(tx *gorm.DB, m *ddl.Occupation) error
+	// select by hash
+	SelectOccupationByHash(m *ddl.Occupation) (*entity.Occupation, error)
+	// list
+	ListOccupation() ([]entity.Occupation, error)
 }
 
 type MasterRepository struct {
@@ -141,6 +161,25 @@ func (r *MasterRepository) SelectSite(m *ddl.Site) (*entity.Site, error) {
 	return &res, nil
 }
 
+// select by hash keys
+func (r *MasterRepository) SelectSiteIDs(m []string) ([]uint, error) {
+	var res []entity.Site
+	if err := r.db.Model(&ddl.Site{}).
+		Select("id").
+		Where("hash_key IN ?", m).
+		Find(&res).Error; err != nil {
+		log.Printf("%v", err)
+		return nil, err
+	}
+
+	var IDs []uint
+	for _, row := range res {
+		IDs = append(IDs, row.ID)
+	}
+
+	return IDs, nil
+}
+
 /*
 	m_role
 */
@@ -190,8 +229,8 @@ func (r *MasterRepository) ListSidebar(roles []ddl.Role, loginType *ddl.LoginTyp
 			m_sidebar.name_en,
 			m_sidebar.path
 		`).
-		Joins("left join m_login_type on m_sidebar.func_type = m_login_type.id").
-		Joins("left join m_sidebar_role_association on m_sidebar.id = m_sidebar_role_association.sidebar_id").
+		Joins("LEFT JOIN m_login_type ON m_sidebar.func_type = m_login_type.id").
+		Joins("LEFT JOIN m_sidebar_role_association ON m_sidebar.id = m_sidebar_role_association.sidebar_id").
 		Where("m_sidebar.func_type = ?", loginType.ID)
 
 	if len(roles) > 0 {
@@ -363,4 +402,76 @@ func (r *MasterRepository) SelectAutoAssignRule(m *ddl.AutoAssignRule) (*entity.
 		return nil, err
 	}
 	return &res, nil
+}
+
+/*
+	m_document_rule
+*/
+// insert
+func (r *MasterRepository) InsertDocumentRule(tx *gorm.DB, m *ddl.DocumentRule) error {
+	if err := tx.Create(m).Error; err != nil {
+		log.Printf("%v", err)
+		return err
+	}
+	return nil
+}
+
+// select by hash
+func (r *MasterRepository) SelectDocumentRuleByHash(m *ddl.DocumentRule) (*entity.DocumentRule, error) {
+	var res entity.DocumentRule
+	if err := r.db.Model(&ddl.DocumentRule{}).Where(&ddl.DocumentRule{
+		AbstractMasterModel: ddl.AbstractMasterModel{
+			HashKey: m.HashKey,
+		},
+	}).First(&res).Error; err != nil {
+		log.Printf("%v", err)
+		return nil, err
+	}
+	return &res, nil
+}
+
+// list
+func (r *MasterRepository) ListDocumentRule() ([]entity.DocumentRule, error) {
+	var res []entity.DocumentRule
+	if err := r.db.Find(&res).Error; err != nil {
+		log.Printf("%v", err)
+		return nil, err
+	}
+	return res, nil
+}
+
+/*
+	m_occupation
+*/
+// insert
+func (r *MasterRepository) InsertOccupation(tx *gorm.DB, m *ddl.Occupation) error {
+	if err := tx.Create(m).Error; err != nil {
+		log.Printf("%v", err)
+		return err
+	}
+	return nil
+}
+
+// select by hash
+func (r *MasterRepository) SelectOccupationByHash(m *ddl.Occupation) (*entity.Occupation, error) {
+	var res entity.Occupation
+	if err := r.db.Model(&ddl.Occupation{}).Where(&ddl.Occupation{
+		AbstractMasterModel: ddl.AbstractMasterModel{
+			HashKey: m.HashKey,
+		},
+	}).First(&res).Error; err != nil {
+		log.Printf("%v", err)
+		return nil, err
+	}
+	return &res, nil
+}
+
+// list
+func (r *MasterRepository) ListOccupation() ([]entity.Occupation, error) {
+	var res []entity.Occupation
+	if err := r.db.Find(&res).Error; err != nil {
+		log.Printf("%v", err)
+		return nil, err
+	}
+	return res, nil
 }

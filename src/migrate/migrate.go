@@ -39,6 +39,8 @@ func main() {
 			&ddl.SelectStatusEvent{},
 			&ddl.AssignRule{},
 			&ddl.AutoAssignRule{},
+			&ddl.DocumentRule{},
+			&ddl.Occupation{},
 			// t
 			&ddl.Company{},
 			&ddl.CustomRole{},
@@ -58,6 +60,7 @@ func main() {
 			&ddl.ScheduleAssociation{},
 			&ddl.Applicant{},
 			&ddl.ApplicantUserAssociation{},
+			&ddl.ApplicantType{},
 			&ddl.ApplicantScheduleAssociation{},
 			&ddl.ApplicantResumeAssociation{},
 			&ddl.ApplicantCurriculumVitaeAssociation{},
@@ -65,6 +68,7 @@ func main() {
 			&ddl.Manuscript{},
 			&ddl.ManuscriptTeamAssociation{},
 			&ddl.ManuscriptSiteAssociation{},
+			&ddl.ManuscriptApplicantAssociation{},
 			&ddl.MailTemplate{},
 			&ddl.Variable{},
 			&ddl.MailPreview{},
@@ -289,6 +293,34 @@ func main() {
 			"additional_configuration": "追加設定必要性",
 		}
 		if err := AddColumnComments(dbConn, "m_auto_assign_rule", mAutoAssignRule); err != nil {
+			log.Println(err)
+		}
+
+		// m_document_rule
+		if err := AddTableComment(dbConn, "m_document_rule", "書類提出ルールマスタ"); err != nil {
+			log.Println(err)
+		}
+		mDocumentRule := map[string]string{
+			"id":       "ID",
+			"hash_key": "ハッシュキー",
+			"rule_ja":  "ルール_日本語",
+			"rule_en":  "ルール_英語",
+		}
+		if err := AddColumnComments(dbConn, "m_document_rule", mDocumentRule); err != nil {
+			log.Println(err)
+		}
+
+		// m_occupation
+		if err := AddTableComment(dbConn, "m_occupation", "職種マスタ"); err != nil {
+			log.Println(err)
+		}
+		mOccupation := map[string]string{
+			"id":       "ID",
+			"hash_key": "ハッシュキー",
+			"name_ja":  "職種名_日本語",
+			"name_en":  "職種名_英語",
+		}
+		if err := AddColumnComments(dbConn, "m_occupation", mOccupation); err != nil {
 			log.Println(err)
 		}
 
@@ -563,6 +595,25 @@ func main() {
 			log.Println(err)
 		}
 
+		// t_applicant_type
+		if err := AddTableComment(dbConn, "t_applicant_type", "応募者種別"); err != nil {
+			log.Println(err)
+		}
+		applicantType := map[string]string{
+			"id":            "ID",
+			"hash_key":      "ハッシュキー",
+			"name":          "種別名",
+			"team_id":       "チームID",
+			"rule_id":       "書類提出ルールID",
+			"occupation_id": "職種ID",
+			"company_id":    "企業ID",
+			"created_at":    "登録日時",
+			"updated_at":    "更新日時",
+		}
+		if err := AddColumnComments(dbConn, "t_applicant_type", applicantType); err != nil {
+			log.Println(err)
+		}
+
 		// t_applicant_schedule_association
 		if err := AddTableComment(dbConn, "t_applicant_schedule_association", "応募者面接予定紐づけ"); err != nil {
 			log.Println(err)
@@ -636,6 +687,18 @@ func main() {
 			"team_id":       "チームID",
 		}
 		if err := AddColumnComments(dbConn, "t_manuscript_team_association", manuscriptTeamAssociation); err != nil {
+			log.Println(err)
+		}
+
+		// t_manuscript_applicant_association
+		if err := AddTableComment(dbConn, "t_manuscript_applicant_association", "原稿応募者紐づけ"); err != nil {
+			log.Println(err)
+		}
+		manuscriptApplicantAssociation := map[string]string{
+			"manuscript_id": "原稿ID",
+			"applicant_id":  "応募者ID",
+		}
+		if err := AddColumnComments(dbConn, "t_manuscript_applicant_association", manuscriptApplicantAssociation); err != nil {
 			log.Println(err)
 		}
 
@@ -753,6 +816,7 @@ func main() {
 		}
 		historyOfUploadApplicant := map[string]string{
 			"history_id": "履歴ID",
+			"commit_id":  "コミットID",
 			"csv":        "アップロードcsv",
 		}
 		if err := AddColumnComments(dbConn, "t_history_of_upload_applicant", historyOfUploadApplicant); err != nil {
@@ -782,6 +846,8 @@ func main() {
 			&ddl.SelectStatusEvent{},
 			&ddl.AssignRule{},
 			&ddl.AutoAssignRule{},
+			&ddl.DocumentRule{},
+			&ddl.Occupation{},
 			// t
 			&ddl.Company{},
 			&ddl.CustomRole{},
@@ -801,6 +867,7 @@ func main() {
 			&ddl.ScheduleAssociation{},
 			&ddl.Applicant{},
 			&ddl.ApplicantUserAssociation{},
+			&ddl.ApplicantType{},
 			&ddl.ApplicantScheduleAssociation{},
 			&ddl.ApplicantResumeAssociation{},
 			&ddl.ApplicantCurriculumVitaeAssociation{},
@@ -808,6 +875,7 @@ func main() {
 			&ddl.Manuscript{},
 			&ddl.ManuscriptTeamAssociation{},
 			&ddl.ManuscriptSiteAssociation{},
+			&ddl.ManuscriptApplicantAssociation{},
 			&ddl.MailTemplate{},
 			&ddl.Variable{},
 			&ddl.MailPreview{},
@@ -1021,6 +1089,127 @@ func CreateData(db *gorm.DB) {
 		_, hash, _ := service.GenerateHash(1, 25)
 		row.HashKey = "m_auto_assign_rule" + "_" + *hash
 		if err := master.InsertAutoAssignRule(tx, row); err != nil {
+			if err := tx.Rollback().Error; err != nil {
+				log.Printf("%v", err)
+				return
+			}
+			return
+		}
+	}
+
+	// m_document_rule
+	documentRules := []*ddl.DocumentRule{
+		{
+			AbstractMasterModel: ddl.AbstractMasterModel{
+				ID: static.DOCUMENT_RULE_REPUDIATE,
+			},
+			RuleJa: "提出、確認不要",
+			RuleEn: "Submission and confirmation not required",
+		},
+		{
+			AbstractMasterModel: ddl.AbstractMasterModel{
+				ID: static.DOCUMENT_RULE_REPUDIATE_CONFIRM,
+			},
+			RuleJa: "提出不要、確認必須",
+			RuleEn: "Submission not required and confirmation required",
+		},
+		{
+			AbstractMasterModel: ddl.AbstractMasterModel{
+				ID: static.DOCUMENT_RULE_REQUIRED_CONFIRM,
+			},
+			RuleJa: "提出、確認必須",
+			RuleEn: "Submission and confirmation required",
+		},
+	}
+	for _, row := range documentRules {
+		_, hash, _ := service.GenerateHash(1, 25)
+		row.HashKey = "m_document_rule" + "_" + *hash
+		if err := master.InsertDocumentRule(tx, row); err != nil {
+			if err := tx.Rollback().Error; err != nil {
+				log.Printf("%v", err)
+				return
+			}
+			return
+		}
+	}
+
+	// m_occupation
+	occupations := []*ddl.Occupation{
+		{
+			AbstractMasterModel: ddl.AbstractMasterModel{
+				ID: static.OCCUPATION_ENGINEER,
+			},
+			NameJa: "エンジニア",
+			NameEn: "Engineer",
+		},
+		{
+			AbstractMasterModel: ddl.AbstractMasterModel{
+				ID: static.OCCUPATION_PROJECT_MANAGER,
+			},
+			NameJa: "プロジェクトマネージャー",
+			NameEn: "Project Manager",
+		},
+		{
+			AbstractMasterModel: ddl.AbstractMasterModel{
+				ID: static.OCCUPATION_DESIGNER,
+			},
+			NameJa: "デザイナー",
+			NameEn: "Designer",
+		},
+		{
+			AbstractMasterModel: ddl.AbstractMasterModel{
+				ID: static.OCCUPATION_ACCOUNTANT,
+			},
+			NameJa: "会計士",
+			NameEn: "Accountant",
+		},
+		{
+			AbstractMasterModel: ddl.AbstractMasterModel{
+				ID: static.OCCUPATION_HR_MANAGER,
+			},
+			NameJa: "人事マネージャー",
+			NameEn: "HR Manager",
+		},
+		{
+			AbstractMasterModel: ddl.AbstractMasterModel{
+				ID: static.OCCUPATION_CONSULTANT,
+			},
+			NameJa: "コンサルタント",
+			NameEn: "Consultant",
+		},
+		{
+			AbstractMasterModel: ddl.AbstractMasterModel{
+				ID: static.OCCUPATION_SALES_REPRESENTATIVE,
+			},
+			NameJa: "営業担当",
+			NameEn: "Sales Representative",
+		},
+		{
+			AbstractMasterModel: ddl.AbstractMasterModel{
+				ID: static.OCCUPATION_MARKETING_SPECIALIST,
+			},
+			NameJa: "マーケティングスペシャリスト",
+			NameEn: "Marketing Specialist",
+		},
+		{
+			AbstractMasterModel: ddl.AbstractMasterModel{
+				ID: static.OCCUPATION_CUSTOMER_SUPPORT,
+			},
+			NameJa: "カスタマーサポート",
+			NameEn: "Customer Support",
+		},
+		{
+			AbstractMasterModel: ddl.AbstractMasterModel{
+				ID: static.OCCUPATION_CEO,
+			},
+			NameJa: "最高経営責任者",
+			NameEn: "CEO",
+		},
+	}
+	for _, row := range occupations {
+		_, hash, _ := service.GenerateHash(1, 25)
+		row.HashKey = "m_occupation" + "_" + *hash
+		if err := master.InsertOccupation(tx, row); err != nil {
 			if err := tx.Rollback().Error; err != nil {
 				log.Printf("%v", err)
 				return
@@ -1400,6 +1589,47 @@ func CreateData(db *gorm.DB) {
 			NameEn:   "ManagementApplicantAssignUser",
 			RoleType: uint(static.LOGIN_TYPE_MANAGEMENT),
 		},
+		// management_原稿関連
+		{
+			AbstractMasterModel: ddl.AbstractMasterModel{
+				ID: uint(static.ROLE_MANAGEMENT_MANUSCRIPT_CREATE),
+			},
+			NameJa:   "管理者原稿作成",
+			NameEn:   "ManagementManuscriptCreate",
+			RoleType: uint(static.LOGIN_TYPE_MANAGEMENT),
+		},
+		{
+			AbstractMasterModel: ddl.AbstractMasterModel{
+				ID: uint(static.ROLE_MANAGEMENT_MANUSCRIPT_READ),
+			},
+			NameJa:   "管理者原稿閲覧",
+			NameEn:   "ManagementManuscriptRead",
+			RoleType: uint(static.LOGIN_TYPE_MANAGEMENT),
+		},
+		{
+			AbstractMasterModel: ddl.AbstractMasterModel{
+				ID: uint(static.ROLE_MANAGEMENT_MANUSCRIPT_DETAIL_READ),
+			},
+			NameJa:   "管理者原稿詳細閲覧",
+			NameEn:   "ManagementManuscriptDetailRead",
+			RoleType: uint(static.LOGIN_TYPE_MANAGEMENT),
+		},
+		{
+			AbstractMasterModel: ddl.AbstractMasterModel{
+				ID: uint(static.ROLE_MANAGEMENT_MANUSCRIPT_EDIT),
+			},
+			NameJa:   "管理者原稿編集",
+			NameEn:   "ManagementManuscriptEdit",
+			RoleType: uint(static.LOGIN_TYPE_MANAGEMENT),
+		},
+		{
+			AbstractMasterModel: ddl.AbstractMasterModel{
+				ID: uint(static.ROLE_MANAGEMENT_MANUSCRIPT_DELETE),
+			},
+			NameJa:   "管理者原稿削除",
+			NameEn:   "ManagementManuscriptDelete",
+			RoleType: uint(static.LOGIN_TYPE_MANAGEMENT),
+		},
 		// management_メール関連
 		{
 			AbstractMasterModel: ddl.AbstractMasterModel{
@@ -1619,6 +1849,15 @@ func CreateData(db *gorm.DB) {
 			NameJa:   "ロール",
 			NameEn:   "Roles",
 			Path:     "/management/role",
+			FuncType: uint(static.LOGIN_TYPE_MANAGEMENT),
+		},
+		{
+			AbstractMasterModel: ddl.AbstractMasterModel{
+				ID: uint(static.SIDEBAR_MANAGEMENT_MANUSCRIPT),
+			},
+			NameJa:   "原稿",
+			NameEn:   "Manuscript",
+			Path:     "/management/manuscript",
 			FuncType: uint(static.LOGIN_TYPE_MANAGEMENT),
 		},
 		{
@@ -1860,6 +2099,27 @@ func CreateData(db *gorm.DB) {
 		{
 			SidebarID: uint(static.SIDEBAR_MANAGEMENT_APPLICANT),
 			RoleID:    uint(static.ROLE_MANAGEMENT_APPLICANT_ASSIGN_USER),
+		},
+		// management_原稿関連
+		{
+			SidebarID: uint(static.SIDEBAR_MANAGEMENT_MANUSCRIPT),
+			RoleID:    uint(static.ROLE_MANAGEMENT_MANUSCRIPT_CREATE),
+		},
+		{
+			SidebarID: uint(static.SIDEBAR_MANAGEMENT_MANUSCRIPT),
+			RoleID:    uint(static.ROLE_MANAGEMENT_MANUSCRIPT_READ),
+		},
+		{
+			SidebarID: uint(static.SIDEBAR_MANAGEMENT_MANUSCRIPT),
+			RoleID:    uint(static.ROLE_MANAGEMENT_MANUSCRIPT_DETAIL_READ),
+		},
+		{
+			SidebarID: uint(static.SIDEBAR_MANAGEMENT_MANUSCRIPT),
+			RoleID:    uint(static.ROLE_MANAGEMENT_MANUSCRIPT_EDIT),
+		},
+		{
+			SidebarID: uint(static.SIDEBAR_MANAGEMENT_MANUSCRIPT),
+			RoleID:    uint(static.ROLE_MANAGEMENT_MANUSCRIPT_DELETE),
 		},
 		// management_メール関連
 		{
