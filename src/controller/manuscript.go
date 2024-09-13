@@ -17,6 +17,8 @@ type IManuscriptController interface {
 	Search(e echo.Context) error
 	// 登録
 	Create(e echo.Context) error
+	// 検索_同一チーム
+	SearchManuscriptByTeam(e echo.Context) error
 }
 
 type ManuscriptController struct {
@@ -124,4 +126,49 @@ func (c *ManuscriptController) Create(e echo.Context) error {
 	}
 
 	return e.JSON(http.StatusOK, "OK")
+}
+
+// 検索_同一チーム
+func (c *ManuscriptController) SearchManuscriptByTeam(e echo.Context) error {
+	req := request.SearchManuscriptByTeam{}
+	if err := e.Bind(&req); err != nil {
+		log.Printf("%v", err)
+		return e.JSON(http.StatusBadRequest, fmt.Errorf(static.MESSAGE_BAD_REQUEST))
+	}
+
+	// JWT検証
+	if err := JWTDecodeCommon(
+		c,
+		e,
+		req.UserHashKey,
+		JWT_TOKEN,
+		JWT_SECRET,
+		true,
+	); err != nil {
+		return err
+	}
+
+	// ロールチェック
+	exist, roleErr := c.role.Check(&request.CheckRole{
+		Abstract: request.Abstract{
+			UserHashKey: req.UserHashKey,
+		},
+		ID: static.ROLE_MANAGEMENT_APPLICANT_READ,
+	})
+	if roleErr != nil {
+		return e.JSON(roleErr.Status, response.ErrorConvert(*roleErr))
+	}
+	if !exist {
+		err := &response.Error{
+			Status: http.StatusNoContent,
+		}
+		return e.JSON(err.Status, response.ErrorConvert(*err))
+	}
+
+	res, sErr := c.s.SearchManuscriptByTeam(&req)
+	if sErr != nil {
+		return e.JSON(sErr.Status, response.ErrorConvert(*sErr))
+	}
+
+	return e.JSON(http.StatusOK, res)
 }

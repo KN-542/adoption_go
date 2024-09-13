@@ -148,6 +148,7 @@ func (s *ApplicantService) Search(req *request.SearchApplicant) (*response.Searc
 			filteredUsers = append(filteredUsers, u)
 		}
 		applicant.Users = filteredUsers
+		applicant.ID = 0
 		res = append(res, *applicant)
 	}
 
@@ -1838,6 +1839,39 @@ func (s *ApplicantService) AssignUser(req *request.AssignUser) *response.Error {
 		}
 	}
 
+	// 予定紐づけ削除
+	if err := s.s.DeleteScheduleAssociation(tx, &ddl.ScheduleAssociation{
+		ScheduleID: applicant.ScheduleID,
+	}); err != nil {
+		if err := s.d.TxRollback(tx); err != nil {
+			return &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// 面接官割り振り登録
+	var schedules []*ddl.ScheduleAssociation
+	for _, row := range users2 {
+		schedules = append(schedules, &ddl.ScheduleAssociation{
+			ScheduleID: applicant.ScheduleID,
+			UserID:     row.UserID,
+		})
+	}
+	if err := s.s.InsertsScheduleAssociation(tx, schedules); err != nil {
+		if err := s.d.TxRollback(tx); err != nil {
+			return &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
 	if err := s.d.TxCommit(tx); err != nil {
 		return &response.Error{
 			Status: http.StatusInternalServerError,
@@ -1877,8 +1911,11 @@ func (s *ApplicantService) CheckAssignableUser(req *request.CheckAssignableUser,
 	var list []response.CheckAssignableUserSub
 	for _, user := range users {
 		// ユーザー単位予定取得
-		models, modelsErr := s.s.GetScheduleByUser(&ddl.ScheduleAssociation{
-			UserID: user.ID,
+		models, modelsErr := s.s.GetScheduleByUser(&dto.GetScheduleByUser{
+			ScheduleAssociation: ddl.ScheduleAssociation{
+				UserID: user.ID,
+			},
+			RemoveScheduleHashKeys: req.RemoveScheduleHashKeys,
 		})
 		if modelsErr != nil {
 			return nil, &response.Error{
@@ -1942,7 +1979,7 @@ func (s *ApplicantService) CheckAssignableUser(req *request.CheckAssignableUser,
 				}
 			}
 
-			// 毎月の場合 (修正: 存在しない日付の場合は何もしない)
+			// 毎月の場合 (存在しない日付の場合は何もしない)
 			if scheduleJST.FreqID == uint(static.FREQ_MONTHLY) {
 				scheduleDay := scheduleJST.Start.Day()
 

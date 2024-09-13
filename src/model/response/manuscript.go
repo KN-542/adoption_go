@@ -8,3 +8,8 @@ type SearchManuscript struct {
 	// 総数
 	Num uint64 `json:"num"`
 }
+
+// 検索_同一チーム
+type SearchManuscriptByTeam struct {
+	List []entity.Manuscript `json:"list"`
+}

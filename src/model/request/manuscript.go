@@ -21,3 +21,8 @@ type CreateManuscript struct {
 	// 使用可能サイト
 	Sites []string `json:"sites"`
 }
+
+// 検索_同一チーム
+type SearchManuscriptByTeam struct {
+	Abstract
+}

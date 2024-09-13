@@ -2,6 +2,7 @@ package repository
 
 import (
 	"api/src/model/ddl"
+	"api/src/model/dto"
 	"api/src/model/entity"
 	"log"
 	"time"
@@ -39,7 +40,7 @@ type IScheduleRepository interface {
 	// 予定毎ユーザー紐づけ取得
 	SearchScheduleUserAssociation(m *ddl.ScheduleAssociation) ([]entity.ScheduleAssociation, error)
 	// ユーザー単位予定取得
-	GetScheduleByUser(m *ddl.ScheduleAssociation) ([]entity.Schedule2, error)
+	GetScheduleByUser(m *dto.GetScheduleByUser) ([]entity.Schedule2, error)
 	// 予定紐づけ削除
 	DeleteScheduleAssociation(tx *gorm.DB, m *ddl.ScheduleAssociation) error
 }
@@ -269,7 +270,7 @@ func (u *ScheduleRepository) SearchScheduleUserAssociation(m *ddl.ScheduleAssoci
 }
 
 // ユーザー単位予定取得
-func (u *ScheduleRepository) GetScheduleByUser(m *ddl.ScheduleAssociation) ([]entity.Schedule2, error) {
+func (u *ScheduleRepository) GetScheduleByUser(m *dto.GetScheduleByUser) ([]entity.Schedule2, error) {
 	var res []entity.Schedule2
 	if err := u.db.Table("t_schedule").
 		Select(`
@@ -284,7 +285,9 @@ func (u *ScheduleRepository) GetScheduleByUser(m *ddl.ScheduleAssociation) ([]en
 			ON
 				t_schedule_association.schedule_id = t_schedule.id
 		`).
-		Where("t_schedule_association.user_id = ?", m.UserID).Find(&res).Error; err != nil {
+		Where("t_schedule_association.user_id = ?", m.UserID).
+		Where("t_schedule.hash_key NOT IN ?", m.RemoveScheduleHashKeys).
+		Find(&res).Error; err != nil {
 		log.Printf("%v", err)
 		return nil, err
 	}

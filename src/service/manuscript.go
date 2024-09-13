@@ -20,6 +20,8 @@ type IManuscriptService interface {
 	Search(req *request.SearchManuscript) (*response.SearchManuscript, *response.Error)
 	// 登録
 	Create(req *request.CreateManuscript) *response.Error
+	// 検索_同一チーム
+	SearchManuscriptByTeam(req *request.SearchManuscriptByTeam) (*response.SearchManuscriptByTeam, *response.Error)
 }
 
 type ManuscriptService struct {
@@ -238,4 +240,36 @@ func (s *ManuscriptService) Create(req *request.CreateManuscript) *response.Erro
 	}
 
 	return nil
+}
+
+// 検索_同一チーム
+func (s *ManuscriptService) SearchManuscriptByTeam(req *request.SearchManuscriptByTeam) (*response.SearchManuscriptByTeam, *response.Error) {
+	// チームID取得
+	ctx := context.Background()
+	team, teamErr := s.redis.Get(ctx, req.UserHashKey, static.REDIS_USER_TEAM_ID)
+	if teamErr != nil {
+		return nil, &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+	teamID, teamIDErr := strconv.ParseUint(*team, 10, 64)
+	if teamIDErr != nil {
+		return nil, &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// 検索
+	res, err := s.manuscript.SearchByTeam(&ddl.ManuscriptTeamAssociation{
+		TeamID: teamID,
+	})
+	if err != nil {
+		return nil, &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	return &response.SearchManuscriptByTeam{
+		List: res,
+	}, nil
 }

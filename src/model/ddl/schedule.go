@@ -17,7 +17,7 @@ type Schedule struct {
 	// 面接フラグ
 	InterviewFlg uint `json:"interview_flg"`
 	// 開始時刻
-	Start time.Time `json:"start" gorm:"not null"`
+	Start time.Time `json:"start" gorm:"not null;index"`
 	// 終了時刻
 	End time.Time `json:"end" gorm:"not null"`
 	// チームID

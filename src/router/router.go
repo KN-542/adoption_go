@@ -90,12 +90,14 @@ func NewRouter(
 	e.POST("/applicant/reserve_table", applicant.ReserveTable)
 	e.POST("/applicant/assign_user", applicant.AssignUser)
 	e.POST("/applicant/check_assign_user", applicant.CheckAssignableUser)
+	e.POST("/applicant/types", applicant.ListApplicantTypeByTeam)
 
 	// ロール
 	e.POST("/role/search_company", role.SearchByCompanyID)
 
 	// 原稿
 	e.POST("/manuscript/search", manuscript.Search)
+	e.POST("/manuscript/search_by_team", manuscript.SearchManuscriptByTeam)
 	e.POST("/manuscript/create", manuscript.Create)
 
 	// 設定

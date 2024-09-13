@@ -55,6 +55,8 @@ type SearchApplicant struct {
 	GoogleMeetURL string `json:"google_meet_url"`
 	// 原稿内容
 	Content string `json:"content"`
+	// 種別
+	Type string `json:"type"`
 	// 担当面接官
 	Users []*ddl.User `json:"users" gorm:"many2many:t_applicant_user_association;foreignKey:id;joinForeignKey:applicant_id;References:id;joinReferences:user_id"`
 }

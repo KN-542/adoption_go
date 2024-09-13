@@ -19,6 +19,8 @@ type SearchApplicant struct {
 	ApplicantStatusList []string `json:"applicant_status_list"`
 	// 原稿一覧
 	Manuscripts []string `json:"manuscripts"`
+	// 種別一覧
+	Types []string `json:"types"`
 	// 履歴書フラグ
 	ResumeFlg uint `json:"resume_flg"`
 	// 職務経歴書フラグ
@@ -180,6 +182,8 @@ type CheckAssignableUser struct {
 	Start time.Time `json:"start"`
 	// ハッシュキーリスト
 	HashKeys []string `json:"hash_keys"`
+	// 除外予定ハッシュリスト
+	RemoveScheduleHashKeys []string `json:"remove_schedule_hash_keys"`
 }
 
 // 種別登録

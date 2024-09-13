@@ -61,6 +61,7 @@ func main() {
 			&ddl.Applicant{},
 			&ddl.ApplicantUserAssociation{},
 			&ddl.ApplicantType{},
+			&ddl.ApplicantTypeAssociation{},
 			&ddl.ApplicantScheduleAssociation{},
 			&ddl.ApplicantResumeAssociation{},
 			&ddl.ApplicantCurriculumVitaeAssociation{},
@@ -614,6 +615,18 @@ func main() {
 			log.Println(err)
 		}
 
+		// t_applicant_type_association
+		if err := AddTableComment(dbConn, "t_applicant_type_association", "応募者種別紐づけ"); err != nil {
+			log.Println(err)
+		}
+		applicantTypeAssociation := map[string]string{
+			"applicant_id": "応募者ID",
+			"type_id":      "種別ID",
+		}
+		if err := AddColumnComments(dbConn, "t_applicant_type_association", applicantTypeAssociation); err != nil {
+			log.Println(err)
+		}
+
 		// t_applicant_schedule_association
 		if err := AddTableComment(dbConn, "t_applicant_schedule_association", "応募者面接予定紐づけ"); err != nil {
 			log.Println(err)
@@ -868,6 +881,7 @@ func main() {
 			&ddl.Applicant{},
 			&ddl.ApplicantUserAssociation{},
 			&ddl.ApplicantType{},
+			&ddl.ApplicantTypeAssociation{},
 			&ddl.ApplicantScheduleAssociation{},
 			&ddl.ApplicantResumeAssociation{},
 			&ddl.ApplicantCurriculumVitaeAssociation{},

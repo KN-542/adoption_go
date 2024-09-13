@@ -119,12 +119,12 @@ func (a *ApplicantRepository) Search(m *dto.SearchApplicant) ([]*entity.SearchAp
 
 	query := a.db.Table("t_applicant").
 		Joins(`
-			LEFT JOIN
+			INNER JOIN
 				t_select_status
 			ON
 				t_applicant.status = t_select_status.id
 		`).
-		Joins("LEFT JOIN m_site ON t_applicant.site_id = m_site.id").
+		Joins("INNER JOIN m_site ON t_applicant.site_id = m_site.id").
 		Joins(`
 			LEFT JOIN
 				t_applicant_schedule_association
@@ -167,6 +167,18 @@ func (a *ApplicantRepository) Search(m *dto.SearchApplicant) ([]*entity.SearchAp
 			ON
 				t_manuscript_applicant_association.manuscript_id = t_manuscript.id
 		`).
+		Joins(`
+			LEFT JOIN
+				t_applicant_type_association
+			ON
+				t_applicant_type_association.applicant_id = t_applicant.id
+		`).
+		Joins(`
+			LEFT JOIN
+				t_applicant_type
+			ON
+				t_applicant_type_association.type_id = t_applicant_type.id
+		`).
 		Where("t_applicant.team_id = ? AND t_applicant.company_id = ?", m.TeamID, m.CompanyID)
 
 	if len(m.Users) > 0 {
@@ -187,6 +199,10 @@ func (a *ApplicantRepository) Search(m *dto.SearchApplicant) ([]*entity.SearchAp
 		query = query.Where("t_manuscript.hash_key IN ?", m.Manuscripts)
 	}
 
+	if len(m.Types) > 0 {
+		query = query.Where("t_applicant_type.hash_key IN ?", m.Types)
+	}
+
 	if m.ResumeFlg == uint(static.DOCUMENT_EXIST) {
 		query = query.Where("t_applicant_resume_association.applicant_id IS NOT NULL")
 	} else if m.ResumeFlg == uint(static.DOCUMENT_NOT_EXIST) {
@@ -204,6 +220,9 @@ func (a *ApplicantRepository) Search(m *dto.SearchApplicant) ([]*entity.SearchAp
 	}
 	if m.Email != "" {
 		query = query.Where("t_applicant.email LIKE ?", "%"+m.Email+"%")
+	}
+	if m.OuterID != "" {
+		query = query.Where("t_applicant.outer_id LIKE ?", "%"+m.OuterID+"%")
 	}
 	if m.CommitID != "" {
 		query = query.Where("t_applicant.commit_id LIKE ?", "%"+m.CommitID+"%")
@@ -239,7 +258,9 @@ func (a *ApplicantRepository) Search(m *dto.SearchApplicant) ([]*entity.SearchAp
 	}
 
 	offset := (m.Page - 1) * m.PageSize
-	err := query.Select(`
+
+	if err := query.Select(`
+		t_applicant.id,
 		t_applicant.hash_key,
 		t_applicant.outer_id,
 		t_applicant.site_id,
@@ -256,14 +277,13 @@ func (a *ApplicantRepository) Search(m *dto.SearchApplicant) ([]*entity.SearchAp
 		t_applicant_resume_association.extension as resume_extension,
 		t_applicant_curriculum_vitae_association.extension as curriculum_vitae_extension,
 		t_applicant_url_association.url as google_meet_url,
-		t_manuscript.content as content
+		t_manuscript.content as content,
+		t_applicant_type.name as type
 	`).
 		Offset(offset).
 		Limit(m.PageSize).
 		Find(&applicants).
-		Error
-
-	if err != nil {
+		Error; err != nil {
 		log.Printf("%v", err)
 		return nil, 0, err
 	}
@@ -281,13 +301,11 @@ func (a *ApplicantRepository) Search(m *dto.SearchApplicant) ([]*entity.SearchAp
 			Name        string
 		}
 
-		err := a.db.Table("t_applicant_user_association").
+		if err := a.db.Table("t_applicant_user_association").
 			Select("t_applicant_user_association.applicant_id, t_user.id as user_id, t_user.hash_key, t_user.name").
 			Joins("INNER JOIN t_user ON t_applicant_user_association.user_id = t_user.id").
 			Where("t_applicant_user_association.applicant_id IN ?", applicantIDs).
-			Find(&userAssociations).Error
-
-		if err != nil {
+			Find(&userAssociations).Error; err != nil {
 			log.Printf("%v", err)
 			return nil, 0, err
 		}

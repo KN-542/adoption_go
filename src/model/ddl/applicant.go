@@ -72,6 +72,21 @@ type ApplicantType struct {
 }
 
 /*
+t_applicant_type_association
+応募者種別紐づけ
+*/
+type ApplicantTypeAssociation struct {
+	// 応募者ID
+	ApplicantID uint64 `json:"applicant_id" gorm:"primaryKey;index"`
+	// 種別ID
+	TypeID uint64 `json:"type_id" gorm:"index"`
+	// 応募者(外部キー)
+	Applicant Applicant `gorm:"foreignKey:applicant_id;references:id"`
+	// 種別(外部キー)
+	Type ApplicantType `gorm:"foreignKey:type_id;references:id"`
+}
+
+/*
 t_applicant_schedule_association
 応募者面接予定紐づけ
 */
@@ -133,6 +148,9 @@ func (t ApplicantUserAssociation) TableName() string {
 }
 func (t ApplicantType) TableName() string {
 	return "t_applicant_type"
+}
+func (t ApplicantTypeAssociation) TableName() string {
+	return "t_applicant_type_association"
 }
 func (t ApplicantScheduleAssociation) TableName() string {
 	return "t_applicant_schedule_association"

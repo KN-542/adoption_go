@@ -18,6 +18,8 @@ type IManuscriptRepository interface {
 	InsertSiteAssociation(tx *gorm.DB, m []*ddl.ManuscriptSiteAssociation) error
 	// 検索
 	Search(m *dto.SearchManuscript) ([]*entity.SearchManuscript, int64, error)
+	// 検索_同一チーム
+	SearchByTeam(m *ddl.ManuscriptTeamAssociation) ([]entity.Manuscript, error)
 	// 紐づけ取得
 	GetAssociationByTeamID(m *ddl.ManuscriptTeamAssociation) ([]entity.ManuscriptTeamAssociation, error)
 	// 内容重複チェック
@@ -159,6 +161,30 @@ func (s *ManuscriptRepository) Search(m *dto.SearchManuscript) ([]*entity.Search
 	}
 
 	return res, count, nil
+}
+
+// 検索_同一チーム
+func (s *ManuscriptRepository) SearchByTeam(m *ddl.ManuscriptTeamAssociation) ([]entity.Manuscript, error) {
+	var res []entity.Manuscript
+
+	query := s.db.Table("t_manuscript").
+		Select(`
+			t_manuscript.hash_key,
+			t_manuscript.content
+		`).
+		Joins(`
+			LEFT JOIN
+				t_manuscript_team_association
+			ON
+				t_manuscript_team_association.manuscript_id = t_manuscript.id
+		`).
+		Where("t_manuscript_team_association.team_id = ?", m.TeamID)
+
+	if err := query.Find(&res).Error; err != nil {
+		log.Printf("%v", err)
+		return nil, err
+	}
+	return res, nil
 }
 
 // 紐づけ取得
