@@ -63,7 +63,7 @@ func NewRouter(
 	e.POST("/team/delete", team.Delete)
 	e.POST("/team/search", team.Search)
 	e.POST("/team/search_company", team.SearchByCompany)
-	e.POST("/team/get_team", team.Get)
+	e.POST("/team/get", team.Get)
 
 	// 予定
 	e.POST("/schedule/type", schedule.SearchScheduleType)
