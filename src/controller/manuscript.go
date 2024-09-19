@@ -17,6 +17,8 @@ type IManuscriptController interface {
 	Search(e echo.Context) error
 	// 登録
 	Create(e echo.Context) error
+	// 応募者紐づけ登録
+	CreateApplicantAssociation(e echo.Context) error
 	// 検索_同一チーム
 	SearchManuscriptByTeam(e echo.Context) error
 }
@@ -122,6 +124,50 @@ func (c *ManuscriptController) Create(e echo.Context) error {
 	}
 
 	if err := c.s.Create(&req); err != nil {
+		return e.JSON(err.Status, response.ErrorConvert(*err))
+	}
+
+	return e.JSON(http.StatusOK, "OK")
+}
+
+// 応募者紐づけ登録
+func (c *ManuscriptController) CreateApplicantAssociation(e echo.Context) error {
+	req := request.CreateApplicantAssociation{}
+	if err := e.Bind(&req); err != nil {
+		log.Printf("%v", err)
+		return e.JSON(http.StatusBadRequest, fmt.Errorf(static.MESSAGE_BAD_REQUEST))
+	}
+
+	// JWT検証
+	if err := JWTDecodeCommon(
+		c,
+		e,
+		req.UserHashKey,
+		JWT_TOKEN,
+		JWT_SECRET,
+		true,
+	); err != nil {
+		return err
+	}
+
+	// ロールチェック
+	exist, roleErr := c.role.Check(&request.CheckRole{
+		Abstract: request.Abstract{
+			UserHashKey: req.UserHashKey,
+		},
+		ID: static.ROLE_MANAGEMENT_APPLICANT_SETTING_MANUSCRIPT,
+	})
+	if roleErr != nil {
+		return e.JSON(roleErr.Status, response.ErrorConvert(*roleErr))
+	}
+	if !exist {
+		err := &response.Error{
+			Status: http.StatusForbidden,
+		}
+		return e.JSON(err.Status, response.ErrorConvert(*err))
+	}
+
+	if err := c.s.CreateApplicantAssociation(&req); err != nil {
 		return e.JSON(err.Status, response.ErrorConvert(*err))
 	}
 

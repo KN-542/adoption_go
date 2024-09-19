@@ -197,7 +197,25 @@ type CreateApplicantType struct {
 	OccupationHash string `json:"occupation_hash"`
 }
 
+// 応募者種別紐づけ登録
+type CreateApplicantTypeAssociation struct {
+	Abstract
+	// ハッシュキー
+	TypeHash string `json:"type_hash"`
+	// 応募者
+	Applicants []string `json:"applicants"`
+}
+
 // 種別一覧
 type ListApplicantType struct {
 	Abstract
+}
+
+// ステータス更新
+type UpdateSelectStatus struct {
+	Abstract
+	// ハッシュキー
+	StatusHash string `json:"status_hash"`
+	// 応募者
+	Applicants []string `json:"applicants"`
 }

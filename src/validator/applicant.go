@@ -43,6 +43,10 @@ type IApplicantValidator interface {
 	CheckAssignableUser(a *request.CheckAssignableUser) error
 	// 種別登録
 	CreateApplicantType(a *request.CreateApplicantType) error
+	// 応募者種別紐づけ登録
+	CreateApplicantTypeAssociation(a *request.CreateApplicantTypeAssociation) error
+	// ステータス更新
+	UpdateSelectStatus(a *request.UpdateSelectStatus) error
 }
 
 type ApplicantValidator struct{}
@@ -334,6 +338,42 @@ func (v *ApplicantValidator) CreateApplicantType(a *request.CreateApplicantType)
 		validation.Field(
 			&a.OccupationHash,
 			validation.Required,
+		),
+	)
+}
+
+// 応募者種別紐づけ登録
+func (v *ApplicantValidator) CreateApplicantTypeAssociation(a *request.CreateApplicantTypeAssociation) error {
+	return validation.ValidateStruct(
+		a,
+		validation.Field(
+			&a.TypeHash,
+			validation.Required,
+		),
+		validation.Field(
+			&a.Applicants,
+			validation.Required,
+			validation.Length(1, 0),
+			validation.Each(validation.Required),
+			UniqueValidator{},
+		),
+	)
+}
+
+// ステータス更新
+func (v *ApplicantValidator) UpdateSelectStatus(a *request.UpdateSelectStatus) error {
+	return validation.ValidateStruct(
+		a,
+		validation.Field(
+			&a.StatusHash,
+			validation.Required,
+		),
+		validation.Field(
+			&a.Applicants,
+			validation.Required,
+			validation.Length(1, 0),
+			validation.Each(validation.Required),
+			UniqueValidator{},
 		),
 	)
 }

@@ -51,6 +51,10 @@ type IApplicantService interface {
 	CreateApplicantType(req *request.CreateApplicantType) *response.Error
 	// 種別一覧
 	ListApplicantType(req *request.ListApplicantType) (*response.ListApplicantType, *response.Error)
+	// 応募者種別紐づけ登録
+	CreateApplicantTypeAssociation(req *request.CreateApplicantTypeAssociation) *response.Error
+	// ステータス更新
+	UpdateSelectStatus(req *request.UpdateSelectStatus) *response.Error
 }
 
 type ApplicantService struct {
@@ -1654,7 +1658,7 @@ func (s *ApplicantService) UpdateStatus(req *request.UpdateStatus) *response.Err
 	for _, row := range oldStatus {
 		oldStatusIds = append(oldStatusIds, row.ID)
 	}
-	if err := s.r.DeleteStatusByPrimary(tx, &ddl.SelectStatus{
+	if err := s.r.DeleteStatusByPrimaryAndTeam(tx, &ddl.SelectStatus{
 		TeamID: teamID,
 	}, oldStatusIds); err != nil {
 		if err := s.d.TxRollback(tx); err != nil {
@@ -2216,4 +2220,142 @@ func (s *ApplicantService) ListApplicantType(req *request.ListApplicantType) (*r
 	return &response.ListApplicantType{
 		List: res,
 	}, nil
+}
+
+// 応募者種別紐づけ登録
+func (s *ApplicantService) CreateApplicantTypeAssociation(req *request.CreateApplicantTypeAssociation) *response.Error {
+	// バリデーション
+	if err := s.v.CreateApplicantTypeAssociation(req); err != nil {
+		log.Printf("%v", err)
+		return &response.Error{
+			Status: http.StatusBadRequest,
+		}
+	}
+
+	// 種別取得
+	appType, typeErr := s.r.GetType(&ddl.ApplicantType{
+		AbstractTransactionModel: ddl.AbstractTransactionModel{
+			HashKey: req.TypeHash,
+		},
+	})
+	if typeErr != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// 応募者ID取得
+	ids, idsErr := s.r.GetIDs(req.Applicants)
+	if idsErr != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	var associations []*ddl.ApplicantTypeAssociation
+	for _, id := range ids {
+		associations = append(associations, &ddl.ApplicantTypeAssociation{
+			TypeID:      appType.ID,
+			ApplicantID: id,
+		})
+	}
+
+	tx, txErr := s.d.TxStart()
+	if txErr != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// 削除
+	if err := s.r.DeleteTypeAssociation(tx, ids); err != nil {
+		if err := s.d.TxRollback(tx); err != nil {
+			return &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// 登録
+	if err := s.r.InsertsTypeAssociation(tx, associations); err != nil {
+		if err := s.d.TxRollback(tx); err != nil {
+			return &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	if err := s.d.TxCommit(tx); err != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	return nil
+}
+
+// ステータス更新
+func (s *ApplicantService) UpdateSelectStatus(req *request.UpdateSelectStatus) *response.Error {
+	// バリデーション
+	if err := s.v.UpdateSelectStatus(req); err != nil {
+		log.Printf("%v", err)
+		return &response.Error{
+			Status: http.StatusBadRequest,
+		}
+	}
+
+	// ステータス取得
+	status, statusErr := s.r.GetStatus(&ddl.SelectStatus{
+		AbstractTransactionModel: ddl.AbstractTransactionModel{
+			HashKey: req.StatusHash,
+		},
+	})
+	if statusErr != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// 応募者ID取得
+	ids, idsErr := s.r.GetIDs(req.Applicants)
+	if idsErr != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	tx, txErr := s.d.TxStart()
+	if txErr != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// 更新
+	if err := s.r.UpdatesByPrimary(tx, &ddl.Applicant{
+		Status: status.ID,
+	}, ids); err != nil {
+		if err := s.d.TxRollback(tx); err != nil {
+			return &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	if err := s.d.TxCommit(tx); err != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	return nil
 }

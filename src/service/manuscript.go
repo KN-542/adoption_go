@@ -20,6 +20,8 @@ type IManuscriptService interface {
 	Search(req *request.SearchManuscript) (*response.SearchManuscript, *response.Error)
 	// 登録
 	Create(req *request.CreateManuscript) *response.Error
+	// 応募者紐づけ登録
+	CreateApplicantAssociation(req *request.CreateApplicantAssociation) *response.Error
 	// 検索_同一チーム
 	SearchManuscriptByTeam(req *request.SearchManuscriptByTeam) (*response.SearchManuscriptByTeam, *response.Error)
 }
@@ -29,6 +31,7 @@ type ManuscriptService struct {
 	master     repository.IMasterRepository
 	user       repository.IUserRepository
 	team       repository.ITeamRepository
+	applicant  repository.IApplicantRepository
 	db         repository.IDBRepository
 	redis      repository.IRedisRepository
 	validate   validator.IManuscriptValidator
@@ -39,11 +42,12 @@ func NewManuscriptService(
 	master repository.IMasterRepository,
 	user repository.IUserRepository,
 	team repository.ITeamRepository,
+	applicant repository.IApplicantRepository,
 	db repository.IDBRepository,
 	redis repository.IRedisRepository,
 	validate validator.IManuscriptValidator,
 ) IManuscriptService {
-	return &ManuscriptService{manuscript, master, user, team, db, redis, validate}
+	return &ManuscriptService{manuscript, master, user, team, applicant, db, redis, validate}
 }
 
 // 検索
@@ -223,6 +227,84 @@ func (s *ManuscriptService) Create(req *request.CreateManuscript) *response.Erro
 
 	// サイト紐づけ登録
 	if err := s.manuscript.InsertSiteAssociation(tx, siteAssociations); err != nil {
+		if err := s.db.TxRollback(tx); err != nil {
+			return &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	if err := s.db.TxCommit(tx); err != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	return nil
+}
+
+// 応募者紐づけ登録
+func (s *ManuscriptService) CreateApplicantAssociation(req *request.CreateApplicantAssociation) *response.Error {
+	// バリデーション
+	if err := s.validate.CreateApplicantAssociation(req); err != nil {
+		log.Printf("%v", err)
+		return &response.Error{
+			Status: http.StatusBadRequest,
+		}
+	}
+
+	// 原稿取得
+	manuscript, manuscriptErr := s.manuscript.Get(&ddl.Manuscript{
+		AbstractTransactionModel: ddl.AbstractTransactionModel{
+			HashKey: req.ManuscriptHash,
+		},
+	})
+	if manuscriptErr != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// 応募者ID取得
+	ids, idsErr := s.applicant.GetIDs(req.Applicants)
+	if idsErr != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	var associations []*ddl.ManuscriptApplicantAssociation
+	for _, id := range ids {
+		associations = append(associations, &ddl.ManuscriptApplicantAssociation{
+			ManuscriptID: manuscript.ID,
+			ApplicantID:  id,
+		})
+	}
+
+	tx, txErr := s.db.TxStart()
+	if txErr != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// 削除
+	if err := s.manuscript.DeleteApplicantAssociation(tx, ids); err != nil {
+		if err := s.db.TxRollback(tx); err != nil {
+			return &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// 登録
+	if err := s.manuscript.InsertsApplicantAssociation(tx, associations); err != nil {
 		if err := s.db.TxRollback(tx); err != nil {
 			return &response.Error{
 				Status: http.StatusInternalServerError,

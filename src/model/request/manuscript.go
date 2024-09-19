@@ -22,6 +22,15 @@ type CreateManuscript struct {
 	Sites []string `json:"sites"`
 }
 
+// 応募者紐づけ登録
+type CreateApplicantAssociation struct {
+	Abstract
+	// ハッシュキー
+	ManuscriptHash string `json:"manuscript_hash"`
+	// 応募者
+	Applicants []string `json:"applicants"`
+}
+
 // 検索_同一チーム
 type SearchManuscriptByTeam struct {
 	Abstract

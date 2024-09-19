@@ -19,6 +19,8 @@ type IApplicantRepository interface {
 	Inserts(tx *gorm.DB, m []*ddl.Applicant) error
 	// 更新
 	Update(tx *gorm.DB, m *ddl.Applicant) error
+	// 更新_複数_PK
+	UpdatesByPrimary(tx *gorm.DB, m *ddl.Applicant, ids []uint64) error
 	// 検索
 	Search(m *dto.SearchApplicant) ([]*entity.SearchApplicant, int64, error)
 	// 取得
@@ -27,12 +29,18 @@ type IApplicantRepository interface {
 	InsertType(tx *gorm.DB, m *ddl.ApplicantType) error
 	// 種別一覧
 	ListType(m *ddl.ApplicantType) ([]entity.ApplicantType, error)
+	// 種別取得
+	GetType(m *ddl.ApplicantType) (*entity.ApplicantType, error)
 	// 応募者ステータス一覧
 	ListStatus(m *ddl.SelectStatus) ([]entity.ApplicantStatus, error)
+	// 応募者ステータス取得
+	GetStatus(m *ddl.SelectStatus) (*entity.ApplicantStatus, error)
 	// 応募者ステータス削除
 	DeleteStatus(tx *gorm.DB, m *ddl.SelectStatus) error
+	// 応募者ステータス削除_PK＆チーム
+	DeleteStatusByPrimaryAndTeam(tx *gorm.DB, m *ddl.SelectStatus, ids []uint64) error
 	// 応募者ステータス削除_PK
-	DeleteStatusByPrimary(tx *gorm.DB, m *ddl.SelectStatus, ids []uint64) error
+	DeleteStatusByPrimary(tx *gorm.DB, m []uint64) error
 	// 取得_メールアドレス
 	GetByEmail(m *ddl.Applicant) (*entity.Applicant, error)
 	// 取得_チームID
@@ -45,6 +53,10 @@ type IApplicantRepository interface {
 	InsertApplicantScheduleAssociation(tx *gorm.DB, m *ddl.ApplicantScheduleAssociation) error
 	// 応募者面接予定紐づけ更新
 	UpdateApplicantScheduleAssociation(tx *gorm.DB, m *ddl.ApplicantScheduleAssociation) error
+	// 種別紐づけ登録
+	InsertsTypeAssociation(tx *gorm.DB, m []*ddl.ApplicantTypeAssociation) error
+	// 種別紐づけ削除
+	DeleteTypeAssociation(tx *gorm.DB, m []uint64) error
 	// 履歴書登録
 	InsertApplicantResumeAssociation(tx *gorm.DB, m *ddl.ApplicantResumeAssociation) error
 	// 履歴書削除
@@ -63,6 +75,8 @@ type IApplicantRepository interface {
 	GetUserAssociation(m *ddl.ApplicantUserAssociation) ([]entity.ApplicantUserAssociation, error)
 	// ユーザー紐づけ削除
 	DeleteUserAssociation(tx *gorm.DB, m *ddl.ApplicantUserAssociation) error
+	// 応募者ID取得
+	GetIDs(m []string) ([]uint64, error)
 }
 
 type ApplicantRepository struct {
@@ -106,6 +120,22 @@ func (a *ApplicantRepository) Update(tx *gorm.DB, m *ddl.Applicant) error {
 		TeamID:         m.TeamID,
 		NumOfInterview: m.NumOfInterview,
 	}).Error; err != nil {
+		log.Printf("%v", err)
+		return err
+	}
+	return nil
+}
+
+// 更新_複数_PK
+func (a *ApplicantRepository) UpdatesByPrimary(tx *gorm.DB, m *ddl.Applicant, ids []uint64) error {
+	if err := tx.Model(&ddl.Applicant{}).
+		Where("id IN ?", ids).
+		Updates(&ddl.Applicant{
+			AbstractTransactionModel: ddl.AbstractTransactionModel{
+				UpdatedAt: time.Now(),
+			},
+			Status: m.Status,
+		}).Error; err != nil {
 		log.Printf("%v", err)
 		return err
 	}
@@ -424,6 +454,23 @@ func (a *ApplicantRepository) ListType(m *ddl.ApplicantType) ([]entity.Applicant
 	return res, nil
 }
 
+// 種別取得
+func (a *ApplicantRepository) GetType(m *ddl.ApplicantType) (*entity.ApplicantType, error) {
+	var res entity.ApplicantType
+	if err := a.db.Model(&ddl.ApplicantType{}).Select("id").Where(
+		&ddl.ApplicantType{
+			AbstractTransactionModel: ddl.AbstractTransactionModel{
+				HashKey: m.HashKey,
+			},
+		},
+	).First(&res).Error; err != nil {
+		log.Printf("%v", err)
+		return nil, err
+	}
+
+	return &res, nil
+}
+
 // 応募者ステータス一覧
 func (a *ApplicantRepository) ListStatus(m *ddl.SelectStatus) ([]entity.ApplicantStatus, error) {
 	var res []entity.ApplicantStatus
@@ -440,6 +487,24 @@ func (a *ApplicantRepository) ListStatus(m *ddl.SelectStatus) ([]entity.Applican
 	return res, nil
 }
 
+// 応募者ステータス取得
+func (a *ApplicantRepository) GetStatus(m *ddl.SelectStatus) (*entity.ApplicantStatus, error) {
+	var res entity.ApplicantStatus
+
+	if err := a.db.Where(
+		&ddl.SelectStatus{
+			AbstractTransactionModel: ddl.AbstractTransactionModel{
+				HashKey: m.HashKey,
+			},
+		},
+	).First(&res).Error; err != nil {
+		log.Printf("%v", err)
+		return nil, err
+	}
+
+	return &res, nil
+}
+
 // 応募者ステータス削除
 func (a *ApplicantRepository) DeleteStatus(tx *gorm.DB, m *ddl.SelectStatus) error {
 	if err := tx.Where(&ddl.SelectStatus{
@@ -451,11 +516,22 @@ func (a *ApplicantRepository) DeleteStatus(tx *gorm.DB, m *ddl.SelectStatus) err
 	return nil
 }
 
-// 応募者ステータス削除_PK
-func (a *ApplicantRepository) DeleteStatusByPrimary(tx *gorm.DB, m *ddl.SelectStatus, ids []uint64) error {
+// 応募者ステータス削除_PK＆チーム
+func (a *ApplicantRepository) DeleteStatusByPrimaryAndTeam(tx *gorm.DB, m *ddl.SelectStatus, ids []uint64) error {
 	if err := tx.Where(&ddl.SelectStatus{
 		TeamID: m.TeamID,
 	}).Where("id IN ?", ids).Delete(&ddl.SelectStatus{}).Error; err != nil {
+		log.Printf("%v", err)
+		return err
+	}
+	return nil
+}
+
+// 応募者ステータス削除_PK
+func (a *ApplicantRepository) DeleteStatusByPrimary(tx *gorm.DB, m []uint64) error {
+	if err := tx.Model(&ddl.SelectStatus{}).
+		Where("id IN ?", m).
+		Delete(&ddl.SelectStatus{}).Error; err != nil {
 		log.Printf("%v", err)
 		return err
 	}
@@ -577,6 +653,26 @@ func (a *ApplicantRepository) UpdateApplicantScheduleAssociation(tx *gorm.DB, m 
 	return nil
 }
 
+// 種別紐づけ登録
+func (a *ApplicantRepository) InsertsTypeAssociation(tx *gorm.DB, m []*ddl.ApplicantTypeAssociation) error {
+	if err := tx.Create(m).Error; err != nil {
+		log.Printf("%v", err)
+		return err
+	}
+	return nil
+}
+
+// 種別紐づけ削除
+func (a *ApplicantRepository) DeleteTypeAssociation(tx *gorm.DB, m []uint64) error {
+	if err := tx.Model(&ddl.ApplicantTypeAssociation{}).
+		Where("t_applicant_type_association.applicant_id IN ?", m).
+		Delete(&ddl.ApplicantTypeAssociation{}).Error; err != nil {
+		log.Printf("%v", err)
+		return err
+	}
+	return nil
+}
+
 // 履歴書登録
 func (a *ApplicantRepository) InsertApplicantResumeAssociation(tx *gorm.DB, m *ddl.ApplicantResumeAssociation) error {
 	if err := tx.Create(m).Error; err != nil {
@@ -674,4 +770,23 @@ func (u *ApplicantRepository) DeleteUserAssociation(tx *gorm.DB, m *ddl.Applican
 		return err
 	}
 	return nil
+}
+
+// 応募者ID取得
+func (u *ApplicantRepository) GetIDs(m []string) ([]uint64, error) {
+	var res []entity.Applicant
+	if err := u.db.Model(&ddl.Applicant{}).
+		Select("id").
+		Where("hash_key IN ?", m).
+		Find(&res).Error; err != nil {
+		log.Printf("%v", err)
+		return nil, err
+	}
+
+	var IDs []uint64
+	for _, row := range res {
+		IDs = append(IDs, row.ID)
+	}
+
+	return IDs, nil
 }

@@ -16,6 +16,12 @@ type IManuscriptRepository interface {
 	InsertTeamAssociation(tx *gorm.DB, m []*ddl.ManuscriptTeamAssociation) error
 	// サイト紐づけ登録
 	InsertSiteAssociation(tx *gorm.DB, m []*ddl.ManuscriptSiteAssociation) error
+	// 応募者紐づけ登録
+	InsertsApplicantAssociation(tx *gorm.DB, m []*ddl.ManuscriptApplicantAssociation) error
+	// 応募者紐づけ削除
+	DeleteApplicantAssociation(tx *gorm.DB, m []uint64) error
+	// 取得
+	Get(m *ddl.Manuscript) (*entity.Manuscript, error)
 	// 検索
 	Search(m *dto.SearchManuscript) ([]*entity.SearchManuscript, int64, error)
 	// 検索_同一チーム
@@ -61,6 +67,42 @@ func (u *ManuscriptRepository) InsertSiteAssociation(tx *gorm.DB, m []*ddl.Manus
 		return err
 	}
 	return nil
+}
+
+// 応募者紐づけ登録
+func (s *ManuscriptRepository) InsertsApplicantAssociation(tx *gorm.DB, m []*ddl.ManuscriptApplicantAssociation) error {
+	if err := tx.Create(m).Error; err != nil {
+		log.Printf("%v", err)
+		return err
+	}
+	return nil
+}
+
+// 応募者紐づけ削除
+func (s *ManuscriptRepository) DeleteApplicantAssociation(tx *gorm.DB, m []uint64) error {
+	if err := tx.Model(&ddl.ManuscriptApplicantAssociation{}).
+		Where("t_manuscript_applicant_association.applicant_id IN ?", m).
+		Delete(&ddl.ManuscriptApplicantAssociation{}).Error; err != nil {
+		log.Printf("%v", err)
+		return err
+	}
+	return nil
+}
+
+// 取得
+func (s *ManuscriptRepository) Get(m *ddl.Manuscript) (*entity.Manuscript, error) {
+	var res entity.Manuscript
+
+	if err := s.db.Model(&ddl.Manuscript{}).Where(&ddl.Manuscript{
+		AbstractTransactionModel: ddl.AbstractTransactionModel{
+			HashKey: m.HashKey,
+		},
+	}).First(&res).Error; err != nil {
+		log.Printf("%v", err)
+		return nil, err
+	}
+
+	return &res, nil
 }
 
 // 検索

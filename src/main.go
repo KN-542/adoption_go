@@ -127,6 +127,7 @@ func main() {
 		masterRepository,
 		userRepository,
 		teamRepository,
+		applicantRepository,
 		dbRepository,
 		redisRepository,
 		manuscriptValidator,

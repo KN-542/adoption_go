@@ -1603,6 +1603,30 @@ func CreateData(db *gorm.DB) {
 			NameEn:   "ManagementApplicantAssignUser",
 			RoleType: uint(static.LOGIN_TYPE_MANAGEMENT),
 		},
+		{
+			AbstractMasterModel: ddl.AbstractMasterModel{
+				ID: uint(static.ROLE_MANAGEMENT_APPLICANT_SETTING_MANUSCRIPT),
+			},
+			NameJa:   "管理者応募者原稿割振",
+			NameEn:   "ManagementApplicantAssignManuscript",
+			RoleType: uint(static.LOGIN_TYPE_MANAGEMENT),
+		},
+		{
+			AbstractMasterModel: ddl.AbstractMasterModel{
+				ID: uint(static.ROLE_MANAGEMENT_APPLICANT_SETTING_TYPE),
+			},
+			NameJa:   "管理者応募者種別割振",
+			NameEn:   "ManagementApplicantAssignType",
+			RoleType: uint(static.LOGIN_TYPE_MANAGEMENT),
+		},
+		{
+			AbstractMasterModel: ddl.AbstractMasterModel{
+				ID: uint(static.ROLE_MANAGEMENT_APPLICANT_SETTING_STATUS),
+			},
+			NameJa:   "管理者応募者ステータス割振",
+			NameEn:   "ManagementApplicantAssignStatus",
+			RoleType: uint(static.LOGIN_TYPE_MANAGEMENT),
+		},
 		// management_原稿関連
 		{
 			AbstractMasterModel: ddl.AbstractMasterModel{
@@ -2113,6 +2137,18 @@ func CreateData(db *gorm.DB) {
 		{
 			SidebarID: uint(static.SIDEBAR_MANAGEMENT_APPLICANT),
 			RoleID:    uint(static.ROLE_MANAGEMENT_APPLICANT_ASSIGN_USER),
+		},
+		{
+			SidebarID: uint(static.SIDEBAR_MANAGEMENT_APPLICANT),
+			RoleID:    uint(static.ROLE_MANAGEMENT_APPLICANT_SETTING_MANUSCRIPT),
+		},
+		{
+			SidebarID: uint(static.SIDEBAR_MANAGEMENT_APPLICANT),
+			RoleID:    uint(static.ROLE_MANAGEMENT_APPLICANT_SETTING_TYPE),
+		},
+		{
+			SidebarID: uint(static.SIDEBAR_MANAGEMENT_APPLICANT),
+			RoleID:    uint(static.ROLE_MANAGEMENT_APPLICANT_SETTING_STATUS),
 		},
 		// management_原稿関連
 		{

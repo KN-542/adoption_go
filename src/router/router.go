@@ -91,6 +91,8 @@ func NewRouter(
 	e.POST("/applicant/assign_user", applicant.AssignUser)
 	e.POST("/applicant/check_assign_user", applicant.CheckAssignableUser)
 	e.POST("/applicant/types", applicant.ListApplicantTypeByTeam)
+	e.POST("/applicant/update_type", applicant.CreateApplicantTypeAssociation)
+	e.POST("/applicant/update_status", applicant.UpdateSelectStatus)
 
 	// ロール
 	e.POST("/role/search_company", role.SearchByCompanyID)
@@ -99,6 +101,7 @@ func NewRouter(
 	e.POST("/manuscript/search", manuscript.Search)
 	e.POST("/manuscript/search_by_team", manuscript.SearchManuscriptByTeam)
 	e.POST("/manuscript/create", manuscript.Create)
+	e.POST("/manuscript/assign_applicant", manuscript.CreateApplicantAssociation)
 
 	// 設定
 	e.POST("/setting/get_team", team.GetOwn)
