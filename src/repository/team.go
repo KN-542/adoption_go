@@ -88,6 +88,8 @@ type ITeamRepository interface {
 	GetAssignPossibleSchedule(m *ddl.TeamAssignPossible) ([]entity.AssignPossibleSchedule, error)
 	// 面接毎参加可能者削除
 	DeleteAssignPossible(tx *gorm.DB, m *ddl.TeamAssignPossible) error
+	// 面接毎参加可能者削除_面接回数
+	DeleteAssignPossibleByNum(tx *gorm.DB, m *ddl.TeamAssignPossible) error
 	// 面接毎設定一括登録
 	InsertsPerInterview(tx *gorm.DB, m []*ddl.TeamPerInterview) error
 	// 面接毎設定取得
@@ -96,6 +98,8 @@ type ITeamRepository interface {
 	GetPerInterviewByNumOfInterview(m *ddl.TeamPerInterview) (*entity.TeamPerInterview, error)
 	// 面接毎設定削除
 	DeletePerInterview(tx *gorm.DB, m *ddl.TeamPerInterview) error
+	// 面接毎設定削除_面接回数
+	DeletePerInterviewByNum(tx *gorm.DB, m *ddl.TeamPerInterview) error
 	// チームID取得
 	GetIDs(m []string) ([]uint64, error)
 	// チーム取得_ハッシュキー配列
@@ -719,6 +723,19 @@ func (u *TeamRepository) DeleteAssignPossible(tx *gorm.DB, m *ddl.TeamAssignPoss
 	return nil
 }
 
+// 面接毎参加可能者削除_面接回数
+func (u *TeamRepository) DeleteAssignPossibleByNum(tx *gorm.DB, m *ddl.TeamAssignPossible) error {
+	if err := tx.Where(&ddl.TeamAssignPossible{
+		TeamID: m.TeamID,
+	}).
+		Where("num_of_interview > ?", m.NumOfInterview).
+		Delete(&ddl.TeamAssignPossible{}).Error; err != nil {
+		log.Printf("%v", err)
+		return err
+	}
+	return nil
+}
+
 // 面接毎設定一括登録
 func (u *TeamRepository) InsertsPerInterview(tx *gorm.DB, m []*ddl.TeamPerInterview) error {
 	if err := tx.Create(m).Error; err != nil {
@@ -764,6 +781,19 @@ func (u *TeamRepository) DeletePerInterview(tx *gorm.DB, m *ddl.TeamPerInterview
 	if err := tx.Where(&ddl.TeamPerInterview{
 		TeamID: m.TeamID,
 	}).Delete(&ddl.TeamPerInterview{}).Error; err != nil {
+		log.Printf("%v", err)
+		return err
+	}
+	return nil
+}
+
+// 面接毎設定削除_面接回数
+func (u *TeamRepository) DeletePerInterviewByNum(tx *gorm.DB, m *ddl.TeamPerInterview) error {
+	if err := tx.Where(&ddl.TeamPerInterview{
+		TeamID: m.TeamID,
+	}).
+		Where("num_of_interview > ?", m.NumOfInterview).
+		Delete(&ddl.TeamPerInterview{}).Error; err != nil {
 		log.Printf("%v", err)
 		return err
 	}

@@ -622,17 +622,27 @@ func (u *TeamService) UpdateBasic(req *request.UpdateBasicTeam) *response.Error 
 	}
 
 	// 取得
-	team, err := u.team.GetByPrimary(&ddl.Team{
+	team, teamErr := u.team.GetByPrimary(&ddl.Team{
 		AbstractTransactionModel: ddl.AbstractTransactionModel{
 			ID: teamID,
 		},
 	})
-	if err != nil {
+	if teamErr != nil {
 		return &response.Error{
 			Status: http.StatusBadRequest,
 		}
 	}
 	req.HashKey = team.HashKey
+
+	// ユーザー取得
+	users, usersErr := u.team.ListUserAssociation(&ddl.TeamAssociation{
+		TeamID: teamID,
+	})
+	if usersErr != nil {
+		return &response.Error{
+			Status: http.StatusBadRequest,
+		}
+	}
 
 	tx, txErr := u.db.TxStart()
 	if txErr != nil {
@@ -642,7 +652,7 @@ func (u *TeamService) UpdateBasic(req *request.UpdateBasicTeam) *response.Error 
 	}
 
 	// 更新
-	_, updateErr := u.team.Update(tx, &req.Team)
+	updateTeam, updateErr := u.team.Update(tx, &req.Team)
 	if updateErr != nil {
 		if err := u.db.TxRollback(tx); err != nil {
 			return &response.Error{
@@ -651,6 +661,75 @@ func (u *TeamService) UpdateBasic(req *request.UpdateBasicTeam) *response.Error 
 		}
 		return &response.Error{
 			Status: http.StatusInternalServerError,
+		}
+	}
+
+	if team.NumOfInterview < updateTeam.NumOfInterview {
+		// 面接毎設定登録 & 面接毎参加可能者登録(全員参加可能)
+		var perList []*ddl.TeamPerInterview
+		var possibleList []*ddl.TeamAssignPossible
+		for i := team.NumOfInterview + 1; i <= updateTeam.NumOfInterview; i++ {
+			perList = append(perList, &ddl.TeamPerInterview{
+				TeamID:         team.ID,
+				NumOfInterview: uint(i),
+				UserMin:        1,
+			})
+			for _, user := range users {
+				possibleList = append(possibleList, &ddl.TeamAssignPossible{
+					TeamID:         team.ID,
+					UserID:         user.UserID,
+					NumOfInterview: uint(i),
+				})
+			}
+		}
+
+		if err := u.team.InsertsPerInterview(tx, perList); err != nil {
+			if err := u.db.TxRollback(tx); err != nil {
+				return &response.Error{
+					Status: http.StatusInternalServerError,
+				}
+			}
+			return &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+		if err := u.team.InsertsAssignPossible(tx, possibleList); err != nil {
+			if err := u.db.TxRollback(tx); err != nil {
+				return &response.Error{
+					Status: http.StatusInternalServerError,
+				}
+			}
+			return &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+	} else if team.NumOfInterview > updateTeam.NumOfInterview {
+		// 面接毎設定 & 面接毎参加可能者削除
+		if err := u.team.DeletePerInterviewByNum(tx, &ddl.TeamPerInterview{
+			TeamID:         team.ID,
+			NumOfInterview: updateTeam.NumOfInterview,
+		}); err != nil {
+			if err := u.db.TxRollback(tx); err != nil {
+				return &response.Error{
+					Status: http.StatusInternalServerError,
+				}
+			}
+			return &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+		if err := u.team.DeleteAssignPossibleByNum(tx, &ddl.TeamAssignPossible{
+			TeamID:         team.ID,
+			NumOfInterview: updateTeam.NumOfInterview,
+		}); err != nil {
+			if err := u.db.TxRollback(tx); err != nil {
+				return &response.Error{
+					Status: http.StatusInternalServerError,
+				}
+			}
+			return &response.Error{
+				Status: http.StatusInternalServerError,
+			}
 		}
 	}
 
