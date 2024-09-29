@@ -13,6 +13,8 @@ import (
 )
 
 type ICommonController interface {
+	// ヘルスチェック
+	HealthCheck(e echo.Context) error
 	// サイドバー表示
 	Sidebar(e echo.Context) error
 	// 使用可能ロール一覧
@@ -35,6 +37,11 @@ func NewCommonController(
 
 func (c *CommonController) GetLoginService() service.ILoginService {
 	return c.login
+}
+
+// ヘルスチェック
+func (c *CommonController) HealthCheck(e echo.Context) error {
+	return e.JSON(http.StatusOK, "OK")
 }
 
 // サイドバー表示
