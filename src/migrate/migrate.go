@@ -897,6 +897,8 @@ func main() {
 			&ddl.OperationLog{},
 			&ddl.HistoryOfUploadApplicant{},
 		)
+
+		defer fmt.Println("Successfully Deleted")
 	}
 }
 

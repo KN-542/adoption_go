@@ -10,7 +10,6 @@ import (
 	"api/src/repository"
 	"api/src/validator"
 	"context"
-	"fmt"
 	"log"
 	"math/rand"
 	"mime/multipart"
@@ -1014,15 +1013,6 @@ func (s *ApplicantService) InsertDesiredAt(req *request.InsertDesiredAt) *respon
 		}
 	}
 
-	for _, s := range ableUsers {
-		fmt.Print(*s)
-		fmt.Print("\n")
-		fmt.Print(s.User)
-		fmt.Print("\n")
-		fmt.Print(s.User.ID)
-		fmt.Print("\n")
-	}
-
 	tx, txErr := s.d.TxStart()
 	if txErr != nil {
 		return &response.Error{
@@ -1215,10 +1205,6 @@ func (s *ApplicantService) InsertDesiredAt(req *request.InsertDesiredAt) *respon
 	// 面接官割り振り
 	var users []entity.User
 	for _, s := range ableUsers {
-		fmt.Print(*s)
-		fmt.Print("\n")
-		fmt.Print(s.DuplFlg)
-		fmt.Print("\n")
 		if s.DuplFlg == static.DUPLICATION_SAFE {
 			users = append(users, s.User)
 		}

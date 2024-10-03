@@ -48,7 +48,7 @@ func NewRouter(
 	e.POST("/logout_applicant", login.LogoutApplicant)
 
 	// 共通
-	e.GET("/", common.HealthCheck)
+	e.GET("/health", common.HealthCheck)
 	e.POST("/sidebar", common.Sidebar)
 	e.POST("/roles", common.Roles)
 	e.POST("/change_team", common.ChangeTeam)

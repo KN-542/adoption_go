@@ -7,7 +7,6 @@ import (
 	"api/src/model/static"
 	"api/src/repository"
 	"api/src/validator"
-	"fmt"
 	"log"
 	"net/http"
 )
@@ -342,7 +341,7 @@ func (c *CompanyService) Create(req *request.CreateCompany) (*response.CreateCom
 		}
 	}
 
-	fmt.Print(*password)
+	log.Print(*password)
 
 	return &response.CreateCompany{
 		Password: *password,

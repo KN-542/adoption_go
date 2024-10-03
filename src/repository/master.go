@@ -455,7 +455,7 @@ func (r *MasterRepository) InsertOccupation(tx *gorm.DB, m *ddl.Occupation) erro
 // select by hash
 func (r *MasterRepository) SelectOccupationByHash(m *ddl.Occupation) (*entity.Occupation, error) {
 	var res entity.Occupation
-	if err := r.db.Model(&ddl.Occupation{}).Where(&ddl.Occupation{
+	if err := r.db.Table("m_occupation").Where(&ddl.Occupation{
 		AbstractMasterModel: ddl.AbstractMasterModel{
 			HashKey: m.HashKey,
 		},
@@ -469,7 +469,7 @@ func (r *MasterRepository) SelectOccupationByHash(m *ddl.Occupation) (*entity.Oc
 // list
 func (r *MasterRepository) ListOccupation() ([]entity.Occupation, error) {
 	var res []entity.Occupation
-	if err := r.db.Find(&res).Error; err != nil {
+	if err := r.db.Table("m_occupation").Find(&res).Error; err != nil {
 		log.Printf("%v", err)
 		return nil, err
 	}
