@@ -24,6 +24,8 @@ type IManuscriptService interface {
 	CreateApplicantAssociation(req *request.CreateApplicantAssociation) *response.Error
 	// 検索_同一チーム
 	SearchManuscriptByTeam(req *request.SearchManuscriptByTeam) (*response.SearchManuscriptByTeam, *response.Error)
+	// 削除
+	Delete(manuscriptHashKeys []string) *response.Error
 }
 
 type ManuscriptService struct {
@@ -315,6 +317,111 @@ func (s *ManuscriptService) CreateApplicantAssociation(req *request.CreateApplic
 		}
 	}
 
+	if err := s.db.TxCommit(tx); err != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	return nil
+}
+
+// 削除処理
+func (s *ManuscriptService) Delete(manuscriptHashKeys []string) *response.Error {
+	// トランザクションの開始
+	tx, txErr := s.db.TxStart()
+	if txErr != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// 原稿ID取得
+	manuscriptIDs, err := s.manuscript.GetManuscriptIDsByHashKeys(tx, manuscriptHashKeys)
+	if err != nil {
+		if err := s.db.TxRollback(tx); err != nil {
+			return &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// IDごとに原稿の存在確認を行い、原稿の存在確認ができなかった場合はロールバックを行う
+	for _, manuscriptID := range manuscriptIDs {
+		// 原稿の存在確認
+		_, manuscriptErr := s.manuscript.Get(&ddl.Manuscript{
+			AbstractTransactionModel: ddl.AbstractTransactionModel{
+				ID: manuscriptID,
+			},
+		})
+
+		// IDを指定して原稿を取得できなかった場合
+		if manuscriptErr != nil {
+			// ロールバックを実行 ロールバックが失敗した場合はserver errorを返す
+			if err := s.db.TxRollback(tx); err != nil {
+				return &response.Error{
+					Status: http.StatusInternalServerError,
+				}
+			}
+			// ロールバックに成功した場合は原稿がないため、not foundを返す
+			return &response.Error{
+				Status: http.StatusNotFound,
+			}
+		}
+	}
+
+	// 応募者紐づけの削除
+	if err := s.manuscript.DeleteApplicantAssociationByManuscriptID(tx, manuscriptIDs); err != nil {
+		if err := s.db.TxRollback(tx); err != nil {
+			return &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// チーム紐づけの削除
+	if err := s.manuscript.DeleteTeeamAssociation(tx, manuscriptIDs); err != nil {
+		if err := s.db.TxRollback(tx); err != nil {
+			return &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// サイト紐づけの削除
+	if err := s.manuscript.DeleteSiteAssociation(tx, manuscriptIDs); err != nil {
+		if err := s.db.TxRollback(tx); err != nil {
+			return &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// 原稿の削除
+	if err := s.manuscript.Delete(tx, manuscriptIDs); err != nil {
+		if err := s.db.TxRollback(tx); err != nil {
+			return &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// トランザクションのコミット
 	if err := s.db.TxCommit(tx); err != nil {
 		return &response.Error{
 			Status: http.StatusInternalServerError,

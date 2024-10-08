@@ -21,6 +21,8 @@ type IManuscriptController interface {
 	CreateApplicantAssociation(e echo.Context) error
 	// 検索_同一チーム
 	SearchManuscriptByTeam(e echo.Context) error
+	// 削除
+	Delete(e echo.Context) error
 }
 
 type ManuscriptController struct {
@@ -217,4 +219,55 @@ func (c *ManuscriptController) SearchManuscriptByTeam(e echo.Context) error {
 	}
 
 	return e.JSON(http.StatusOK, res)
+}
+
+// 複数の原稿IDの削除
+func (c *ManuscriptController) Delete(e echo.Context) error {
+	// リクエストボディをパースするための構造体
+	type DeleteManuscriptRequest struct {
+		UserHashKey       string   `json:"user_hash_key"`
+		ManuscriptHashKey []string `json:"manuscript_hash_key"`
+	}
+
+	var req DeleteManuscriptRequest
+	if err := e.Bind(&req); err != nil {
+		log.Printf("Invalid request body: %v", err)
+		return e.JSON(http.StatusBadRequest, "Invalid request body")
+	}
+
+	// JWT検証
+	if err := JWTDecodeCommon(
+		c,
+		e,
+		req.UserHashKey, // ここを修正
+		JWT_TOKEN,
+		JWT_SECRET,
+		true,
+	); err != nil {
+		return err
+	}
+
+	// ロールチェック
+	exist, roleErr := c.role.Check(&request.CheckRole{
+		Abstract: request.Abstract{
+			UserHashKey: req.UserHashKey, // ここを修正
+		},
+		ID: static.ROLE_MANAGEMENT_MANUSCRIPT_DELETE, // 削除権限のロールID
+	})
+	if roleErr != nil {
+		return e.JSON(roleErr.Status, response.ErrorConvert(*roleErr))
+	}
+	if !exist {
+		err := &response.Error{
+			Status: http.StatusForbidden,
+		}
+		return e.JSON(err.Status, response.ErrorConvert(*err))
+	}
+
+	// サービスで削除処理を実行
+	if err := c.s.Delete(req.ManuscriptHashKey); err != nil { // req.ManuscriptIDs をそのまま使用
+		return e.JSON(err.Status, response.ErrorConvert(*err))
+	}
+
+	return e.JSON(http.StatusOK, "OK")
 }

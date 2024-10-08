@@ -103,6 +103,7 @@ func NewRouter(
 	e.POST("/manuscript/search_by_team", manuscript.SearchManuscriptByTeam)
 	e.POST("/manuscript/create", manuscript.Create)
 	e.POST("/manuscript/assign_applicant", manuscript.CreateApplicantAssociation)
+	e.POST("/manuscript/delete", manuscript.Delete)
 
 	// 設定
 	e.POST("/setting/get_team", team.GetOwn)
