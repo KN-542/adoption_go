@@ -227,6 +227,20 @@ type Occupation struct {
 	NameEn string `json:"name_en" gorm:"text"`
 }
 
+/*
+m_interview_processing
+面接過程マスタ
+*/
+type Processing struct {
+	AbstractMasterModel
+	// 過程
+	Processing string `json:"processing" gorm:"text"`
+	// 説明_日本語
+	DescJa string `json:"desc_ja" gorm:"text"`
+	// 説明_英語
+	DescEn string `json:"desc_en" gorm:"text"`
+}
+
 func (m LoginType) TableName() string {
 	return "m_login_type"
 }
@@ -277,6 +291,9 @@ func (m DocumentRule) TableName() string {
 }
 func (m Occupation) TableName() string {
 	return "m_occupation"
+}
+func (m Processing) TableName() string {
+	return "m_interview_processing"
 }
 
 type Sites struct {

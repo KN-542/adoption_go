@@ -103,6 +103,13 @@ type IMasterRepository interface {
 	SelectOccupationByHash(m *ddl.Occupation) (*entity.Occupation, error)
 	// list
 	ListOccupation() ([]entity.Occupation, error)
+	/*
+		m_interview_processing
+	*/
+	// insert
+	InsertProcessing(tx *gorm.DB, m *ddl.Processing) error
+	// list
+	ListProcessing() ([]entity.Processing, error)
 }
 
 type MasterRepository struct {
@@ -470,6 +477,28 @@ func (r *MasterRepository) SelectOccupationByHash(m *ddl.Occupation) (*entity.Oc
 func (r *MasterRepository) ListOccupation() ([]entity.Occupation, error) {
 	var res []entity.Occupation
 	if err := r.db.Table("m_occupation").Find(&res).Error; err != nil {
+		log.Printf("%v", err)
+		return nil, err
+	}
+	return res, nil
+}
+
+/*
+	m_interview_processing
+*/
+// insert
+func (r *MasterRepository) InsertProcessing(tx *gorm.DB, m *ddl.Processing) error {
+	if err := tx.Create(m).Error; err != nil {
+		log.Printf("%v", err)
+		return err
+	}
+	return nil
+}
+
+// list
+func (r *MasterRepository) ListProcessing() ([]entity.Processing, error) {
+	var res []entity.Processing
+	if err := r.db.Find(&res).Error; err != nil {
 		log.Printf("%v", err)
 		return nil, err
 	}

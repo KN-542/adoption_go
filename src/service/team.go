@@ -34,6 +34,8 @@ type ITeamService interface {
 	SearchByCompany(req *request.SearchTeamByCompany) (*response.SearchTeamByCompany, *response.Error)
 	// 毎ステータスイベント取得
 	StatusEvents(req *request.StatusEventsByTeam) (*response.StatusEventsByTeam, *response.Error)
+	// 面接過程マスタ一覧
+	ListInterviewProcessing() (*response.ListInterviewProcessing, *response.Error)
 }
 
 type TeamService struct {
@@ -731,6 +733,21 @@ func (u *TeamService) UpdateBasic(req *request.UpdateBasicTeam) *response.Error 
 				Status: http.StatusInternalServerError,
 			}
 		}
+
+		// 選考ステータス紐づけ削除
+		if err := u.team.DeleteEventEachInterviewAssociationByNum(tx, &ddl.TeamEventEachInterview{
+			TeamID:         team.ID,
+			NumOfInterview: updateTeam.NumOfInterview,
+		}); err != nil {
+			if err := u.db.TxRollback(tx); err != nil {
+				return &response.Error{
+					Status: http.StatusInternalServerError,
+				}
+			}
+			return &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
 	}
 
 	if err := u.db.TxCommit(tx); err != nil {
@@ -1056,5 +1073,19 @@ func (u *TeamService) StatusEvents(req *request.StatusEventsByTeam) (*response.S
 
 	return &response.StatusEventsByTeam{
 		List: res,
+	}, nil
+}
+
+// 面接過程マスタ一覧
+func (u *TeamService) ListInterviewProcessing() (*response.ListInterviewProcessing, *response.Error) {
+	list, err := u.master.ListProcessing()
+	if err != nil {
+		return nil, &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	return &response.ListInterviewProcessing{
+		List: list,
 	}, nil
 }

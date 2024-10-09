@@ -111,6 +111,7 @@ func NewRouter(
 	e.POST("/setting/status_events", user.ListStatusEvent)
 	e.POST("/setting/status_events_of_team", team.StatusEvents)
 	e.POST("/setting/assign_masters", user.AssignMaster)
+	e.POST("/setting/processing_list", team.ListInterviewProcessing)
 	e.POST("/setting/update_assign", user.UpdateAssignMethod)
 	e.POST("/setting/document_rules", user.DocumentRuleMaster)
 	e.POST("/setting/occupations", user.OccupationMaster)

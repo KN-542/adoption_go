@@ -925,11 +925,12 @@ func (s *ApplicantService) InsertDesiredAt(req *request.InsertDesiredAt) *respon
 	}
 
 	// ～次面接イベント取得
-	tEvent, tEventErr := s.t.GetEventEachInterviewAssociation(&ddl.TeamEventEachInterview{
+	tEvents, tEventsErr := s.t.GetEventEachInterviewAssociation(&ddl.TeamEventEachInterview{
 		TeamID:         applicant.TeamID,
 		NumOfInterview: applicant.NumOfInterview,
+		ProcessID:      static.INTERVIEW_PROCESSING_PASS,
 	})
-	if tEventErr != nil {
+	if tEventsErr != nil {
 		return &response.Error{
 			Status: http.StatusInternalServerError,
 		}
@@ -1158,23 +1159,33 @@ func (s *ApplicantService) InsertDesiredAt(req *request.InsertDesiredAt) *respon
 	}
 
 	// 応募者ステータス決定＆更新
-	if tEvent.NumOfInterview > 1 {
-		if err := s.r.Update(tx, &ddl.Applicant{
-			AbstractTransactionModel: ddl.AbstractTransactionModel{
-				HashKey: applicant.HashKey,
-			},
-			Status: tEvent.StatusID,
-		}); err != nil {
-			if err := s.d.TxRollback(tx); err != nil {
-				return &response.Error{
-					Status: http.StatusInternalServerError,
-				}
-			}
+	if len(tEvents) > 0 {
+		if len(tEvents) != 1 {
+			log.Printf("not unique event each rule.")
 			return &response.Error{
 				Status: http.StatusInternalServerError,
 			}
 		}
-	} else {
+
+		tEvent := tEvents[0]
+		if tEvent.NumOfInterview > 1 {
+			if err := s.r.Update(tx, &ddl.Applicant{
+				AbstractTransactionModel: ddl.AbstractTransactionModel{
+					HashKey: applicant.HashKey,
+				},
+				Status: tEvent.StatusID,
+			}); err != nil {
+				if err := s.d.TxRollback(tx); err != nil {
+					return &response.Error{
+						Status: http.StatusInternalServerError,
+					}
+				}
+				return &response.Error{
+					Status: http.StatusInternalServerError,
+				}
+			}
+		}
+	} else if applicant.NumOfInterview == 1 {
 		eventStatus := uint(0)
 		if req.ResumeExtension != "" && req.CurriculumVitaeExtension != "" {
 			eventStatus = uint(static.STATUS_EVENT_SUBMIT_DOCUMENTS)
@@ -1550,6 +1561,14 @@ func (s *ApplicantService) UpdateStatus(req *request.UpdateStatus) *response.Err
 		req.Events[index].EventID = events[index].ID
 	}
 
+	// 過程マスタ一覧
+	processingList, processingListErr := s.m.ListProcessing()
+	if processingListErr != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
 	tx, txErr := s.d.TxStart()
 	if txErr != nil {
 		return &response.Error{
@@ -1662,10 +1681,19 @@ func (s *ApplicantService) UpdateStatus(req *request.UpdateStatus) *response.Err
 	if len(req.EventsOfInterview) > 0 {
 		var eventsDDL []*ddl.TeamEventEachInterview
 		for _, row := range req.EventsOfInterview {
+			var process_id uint
+			for _, processing := range processingList {
+				if processing.HashKey == row.ProcessHash {
+					process_id = processing.ID
+					break
+				}
+			}
+
 			eventsDDL = append(eventsDDL, &ddl.TeamEventEachInterview{
 				TeamID:         teamID,
 				NumOfInterview: row.Num,
 				StatusID:       ids.List[row.Status].ID,
+				ProcessID:      process_id,
 			})
 		}
 		if err := s.t.InsertsEventEachInterviewAssociation(tx, eventsDDL); err != nil {

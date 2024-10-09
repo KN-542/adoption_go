@@ -31,6 +31,8 @@ type ITeamController interface {
 	SearchByCompany(e echo.Context) error
 	// 毎ステータスイベント取得
 	StatusEvents(e echo.Context) error
+	// 面接過程マスタ一覧
+	ListInterviewProcessing(e echo.Context) error
 }
 
 type TeamController struct {
@@ -439,6 +441,15 @@ func (c *TeamController) StatusEvents(e echo.Context) error {
 	}
 
 	res, err := c.s.StatusEvents(&req)
+	if err != nil {
+		return e.JSON(err.Status, response.ErrorConvert(*err))
+	}
+	return e.JSON(http.StatusOK, res)
+}
+
+// 面接過程マスタ一覧
+func (c *TeamController) ListInterviewProcessing(e echo.Context) error {
+	res, err := c.s.ListInterviewProcessing()
 	if err != nil {
 		return e.JSON(err.Status, response.ErrorConvert(*err))
 	}

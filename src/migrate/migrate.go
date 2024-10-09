@@ -41,6 +41,7 @@ func main() {
 			&ddl.AutoAssignRule{},
 			&ddl.DocumentRule{},
 			&ddl.Occupation{},
+			&ddl.Processing{},
 			// t
 			&ddl.Company{},
 			&ddl.CustomRole{},
@@ -325,6 +326,21 @@ func main() {
 			log.Println(err)
 		}
 
+		// m_interview_processing
+		if err := AddTableComment(dbConn, "m_interview_processing", "面接過程マスタ"); err != nil {
+			log.Println(err)
+		}
+		mProcessing := map[string]string{
+			"id":         "ID",
+			"hash_key":   "ハッシュキー",
+			"processing": "過程",
+			"desc_ja":    "説明_日本語",
+			"desc_en":    "説明_英語",
+		}
+		if err := AddColumnComments(dbConn, "m_interview_processing", mProcessing); err != nil {
+			log.Println(err)
+		}
+
 		// t_company
 		if err := AddTableComment(dbConn, "t_company", "企業"); err != nil {
 			log.Println(err)
@@ -472,6 +488,7 @@ func main() {
 		teamEventEachInterview := map[string]string{
 			"team_id":          "チームID",
 			"num_of_interview": "面接回数",
+			"process_id":       "面接過程",
 			"status_id":        "ステータスID",
 		}
 		if err := AddColumnComments(dbConn, "t_team_event_each_interview", teamEventEachInterview); err != nil {
@@ -861,6 +878,7 @@ func main() {
 			&ddl.AutoAssignRule{},
 			&ddl.DocumentRule{},
 			&ddl.Occupation{},
+			&ddl.Processing{},
 			// t
 			&ddl.Company{},
 			&ddl.CustomRole{},
@@ -1105,6 +1123,45 @@ func CreateData(db *gorm.DB) {
 		_, hash, _ := service.GenerateHash(1, 25)
 		row.HashKey = "m_auto_assign_rule" + "_" + *hash
 		if err := master.InsertAutoAssignRule(tx, row); err != nil {
+			if err := tx.Rollback().Error; err != nil {
+				log.Printf("%v", err)
+				return
+			}
+			return
+		}
+	}
+
+	// m_interview_processing
+	interviewResult := []*ddl.Processing{
+		{
+			AbstractMasterModel: ddl.AbstractMasterModel{
+				ID: static.INTERVIEW_PROCESSING_NOW,
+			},
+			Processing: "面接予定",
+			DescJa:     "日程確定時",
+			DescEn:     "The schedule is finalized",
+		},
+		{
+			AbstractMasterModel: ddl.AbstractMasterModel{
+				ID: static.INTERVIEW_PROCESSING_PASS,
+			},
+			Processing: "通過",
+			DescJa:     "面接通過時",
+			DescEn:     "Time to pass face-to-face contact",
+		},
+		{
+			AbstractMasterModel: ddl.AbstractMasterModel{
+				ID: static.INTERVIEW_PROCESSING_FAIL,
+			},
+			Processing: "不採用",
+			DescJa:     "面接不通過時",
+			DescEn:     "the face connection fails",
+		},
+	}
+	for _, row := range interviewResult {
+		_, hash, _ := service.GenerateHash(1, 25)
+		row.HashKey = "m_interview_processing" + "_" + *hash
+		if err := master.InsertProcessing(tx, row); err != nil {
 			if err := tx.Rollback().Error; err != nil {
 				log.Printf("%v", err)
 				return

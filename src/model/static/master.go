@@ -219,6 +219,13 @@ func ConvertFreqStatus(value uint) string {
 	return ""
 }
 
+// m_interview_processing
+const (
+	INTERVIEW_PROCESSING_NOW  uint = 1
+	INTERVIEW_PROCESSING_PASS uint = 2
+	INTERVIEW_PROCESSING_FAIL uint = 3
+)
+
 // m_document_rule
 const (
 	DOCUMENT_RULE_REPUDIATE         uint = 1

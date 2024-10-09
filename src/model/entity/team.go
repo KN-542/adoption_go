@@ -86,6 +86,14 @@ type TeamEventEachInterview struct {
 type InterviewEventsByTeam struct {
 	// 面接回数
 	NumOfInterview uint `json:"num_of_interview"`
+	// 過程ハッシュ
+	ProcessHash string `json:"process_hash"`
+	// 過程
+	Processing string `json:"processing"`
+	// 説明_日本語
+	DescJa string `json:"desc_ja" gorm:"text"`
+	// 説明_英語
+	DescEn string `json:"desc_en" gorm:"text"`
 	// 選考状況ハッシュキー
 	SelectStatusHashKey string `json:"select_status_hash_key"`
 	// ステータス名

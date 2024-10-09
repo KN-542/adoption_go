@@ -36,3 +36,8 @@ type DocumentRule struct {
 type Occupation struct {
 	ddl.Occupation
 }
+
+// m_interview_processing
+type Processing struct {
+	ddl.Processing
+}

@@ -57,9 +57,11 @@ type ITeamRepository interface {
 	// 面接毎イベント一括登録
 	InsertsEventEachInterviewAssociation(tx *gorm.DB, m []*ddl.TeamEventEachInterview) error
 	// ～次面接イベント取得
-	GetEventEachInterviewAssociation(m *ddl.TeamEventEachInterview) (*entity.TeamEventEachInterview, error)
+	GetEventEachInterviewAssociation(m *ddl.TeamEventEachInterview) ([]entity.TeamEventEachInterview, error)
 	// 面接毎イベント削除
 	DeleteEventEachInterviewAssociation(tx *gorm.DB, m *ddl.TeamEventEachInterview) error
+	// 面接毎イベント削除_面接回数
+	DeleteEventEachInterviewAssociationByNum(tx *gorm.DB, m *ddl.TeamEventEachInterview) error
 	// 面接自動割り当てルールイベント登録
 	InsertAutoAssignRule(tx *gorm.DB, m *ddl.TeamAutoAssignRule) error
 	// 面接自動割り当てルールイベント取得
@@ -366,11 +368,22 @@ func (u *TeamRepository) InterviewEventsByTeam(m *ddl.Team) ([]entity.InterviewE
 	query := u.db.Table("t_team_event_each_interview").
 		Select(`
 			t_team_event_each_interview.num_of_interview as num_of_interview,
+			m_interview_processing.hash_key as process_hash,
+			m_interview_processing.processing as processing,
+			m_interview_processing.desc_ja as desc_ja,
+			m_interview_processing.desc_en as desc_en,
 			t_select_status.hash_key as select_status_hash_key,
 			t_select_status.status_name as status_name
 		`).
 		Joins("LEFT JOIN t_select_status ON t_team_event_each_interview.status_id = t_select_status.id").
-		Where("t_team_event_each_interview.team_id = ?", m.ID)
+		Joins(`
+			LEFT JOIN
+				m_interview_processing
+			ON
+				m_interview_processing.id = t_team_event_each_interview.process_id
+		`).
+		Where("t_team_event_each_interview.team_id = ?", m.ID).
+		Order("num_of_interview ASC, processing ASC")
 
 	if err := query.Find(&res).Error; err != nil {
 		log.Printf("%v", err)
@@ -466,14 +479,14 @@ func (u *TeamRepository) InsertsEventEachInterviewAssociation(tx *gorm.DB, m []*
 }
 
 // ～次面接イベント取得
-func (u *TeamRepository) GetEventEachInterviewAssociation(m *ddl.TeamEventEachInterview) (*entity.TeamEventEachInterview, error) {
-	var res entity.TeamEventEachInterview
+func (u *TeamRepository) GetEventEachInterviewAssociation(m *ddl.TeamEventEachInterview) ([]entity.TeamEventEachInterview, error) {
+	var res []entity.TeamEventEachInterview
 	if err := u.db.Table("t_team_event_each_interview").Where(m).Find(&res).Error; err != nil {
 		log.Printf("%v", err)
 		return nil, err
 	}
 
-	return &res, nil
+	return res, nil
 }
 
 // 面接毎イベント削除
@@ -481,6 +494,20 @@ func (u *TeamRepository) DeleteEventEachInterviewAssociation(tx *gorm.DB, m *ddl
 	if err := tx.Model(&ddl.TeamEventEachInterview{}).Where(&ddl.TeamEventEachInterview{
 		TeamID: m.TeamID,
 	}).Delete(&ddl.TeamEventEachInterview{}).Error; err != nil {
+		log.Printf("%v", err)
+		return err
+	}
+	return nil
+}
+
+// 面接毎イベント削除_面接回数
+func (u *TeamRepository) DeleteEventEachInterviewAssociationByNum(tx *gorm.DB, m *ddl.TeamEventEachInterview) error {
+	if err := tx.Model(&ddl.TeamEventEachInterview{}).
+		Where(&ddl.TeamEventEachInterview{
+			TeamID: m.TeamID,
+		}).
+		Where("num_of_interview > ?", m.NumOfInterview).
+		Delete(&ddl.TeamEventEachInterview{}).Error; err != nil {
 		log.Printf("%v", err)
 		return err
 	}

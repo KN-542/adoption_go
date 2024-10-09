@@ -44,10 +44,14 @@ type TeamEventEachInterview struct {
 	TeamID uint64 `json:"team_id" gorm:"primaryKey"`
 	// 面接回数
 	NumOfInterview uint `json:"num_of_interview" gorm:"primaryKey"`
+	// 面接過程
+	ProcessID uint `json:"process_id" gorm:"primaryKey"`
 	// ステータスID
 	StatusID uint64 `json:"status_id"`
 	// チーム(外部キー)
 	Team Team `gorm:"foreignKey:team_id;references:id"`
+	// 面接過程(外部キー)
+	Processing Processing `gorm:"foreignKey:process_id;references:id"`
 	// ステータス(外部キー)
 	Status SelectStatus `gorm:"foreignKey:status_id;references:id"`
 }

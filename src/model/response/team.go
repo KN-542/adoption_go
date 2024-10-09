@@ -31,3 +31,8 @@ type SearchTeamByCompany struct {
 type StatusEventsByTeam struct {
 	List []entity.StatusEventsByTeam `json:"list"`
 }
+
+// 面接過程マスタ一覧
+type ListInterviewProcessing struct {
+	List []entity.Processing `json:"list"`
+}

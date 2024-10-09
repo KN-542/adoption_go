@@ -163,6 +163,8 @@ type UpdateStatusSub2 struct {
 type UpdateStatusSub3 struct {
 	// 面接回数
 	Num uint `json:"num"`
+	// 過程
+	ProcessHash string `json:"process_hash"`
 	// ステータス
 	Status int `json:"status"`
 }
