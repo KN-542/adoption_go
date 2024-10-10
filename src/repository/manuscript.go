@@ -28,7 +28,7 @@ type IManuscriptRepository interface {
 	DeleteSiteAssociation(tx *gorm.DB, m []uint64) error
 	// 原稿チーム紐づけ削除
 	DeleteTeeamAssociation(tx *gorm.DB, m []uint64) error
-	// 応募者紐づけ削除(応募者IDで削除)
+	// 応募者紐づけ削除
 	DeleteApplicantAssociation(tx *gorm.DB, m []uint64) error
 	// 取得
 	Get(m *ddl.Manuscript) (*entity.Manuscript, error)
@@ -88,7 +88,7 @@ func (s *ManuscriptRepository) InsertsApplicantAssociation(tx *gorm.DB, m []*ddl
 	return nil
 }
 
-// 応募者紐づけ削除（応募者IDで削除）
+// 応募者紐づけ削除
 func (s *ManuscriptRepository) DeleteApplicantAssociation(tx *gorm.DB, m []uint64) error {
 	if err := tx.Model(&ddl.ManuscriptApplicantAssociation{}).
 		Where("t_manuscript_applicant_association.applicant_id IN ?", m).

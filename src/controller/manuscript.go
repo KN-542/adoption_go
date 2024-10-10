@@ -234,7 +234,7 @@ func (c *ManuscriptController) Delete(e echo.Context) error {
 	if err := JWTDecodeCommon(
 		c,
 		e,
-		req.UserHashKey, // ここを修正
+		req.UserHashKey,
 		JWT_TOKEN,
 		JWT_SECRET,
 		true,
@@ -245,9 +245,9 @@ func (c *ManuscriptController) Delete(e echo.Context) error {
 	// ロールチェック
 	exist, roleErr := c.role.Check(&request.CheckRole{
 		Abstract: request.Abstract{
-			UserHashKey: req.UserHashKey, // ここを修正
+			UserHashKey: req.UserHashKey,
 		},
-		ID: static.ROLE_MANAGEMENT_MANUSCRIPT_DELETE, // 削除権限のロールID
+		ID: static.ROLE_MANAGEMENT_MANUSCRIPT_DELETE,
 	})
 	if roleErr != nil {
 		return e.JSON(roleErr.Status, response.ErrorConvert(*roleErr))
