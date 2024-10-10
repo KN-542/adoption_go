@@ -322,7 +322,7 @@ func (r *MasterRepository) SelectSelectStatusEvent() ([]entity.SelectStatusEvent
 // list
 func (r *MasterRepository) ListSelectStatusEvent() ([]entity.SelectStatusEvent, error) {
 	var res []entity.SelectStatusEvent
-	if err := r.db.Find(&res).Error; err != nil {
+	if err := r.db.Find(&res).Order("id ASC").Error; err != nil {
 		log.Printf("%v", err)
 		return nil, err
 	}

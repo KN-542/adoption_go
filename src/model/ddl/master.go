@@ -32,6 +32,8 @@ type Site struct {
 	TELIndex uint `json:"tel_index"`
 	// 年齢_index
 	AgeIndex uint `json:"age_index"`
+	// 原稿_index
+	ManuscriptIndex uint `json:"manuscript_index"`
 	// 氏名_チェックタイプ
 	NameCheckType uint `json:"name_check_type"`
 	// カラム数

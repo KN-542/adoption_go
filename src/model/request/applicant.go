@@ -58,6 +58,10 @@ type ApplicantDownloadSub struct {
 	Tel string `json:"tel"`
 	// 年齢
 	Age int64 `json:"age"`
+	// 原稿ID
+	ManuscriptID uint64 `json:"manuscript_id"`
+	// 原稿
+	ManuscriptHash string `json:"manuscript_hash"`
 }
 
 // 応募者ダウンロード

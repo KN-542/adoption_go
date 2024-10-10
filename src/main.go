@@ -65,6 +65,7 @@ func main() {
 		userRepository,
 		teamRepository,
 		scheduleRepository,
+		manuscriptRepository,
 		masterRepository,
 		awsRepository,
 		googleRepository,

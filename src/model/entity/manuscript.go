@@ -15,3 +15,6 @@ type SearchManuscript struct {
 type ManuscriptTeamAssociation struct {
 	ddl.ManuscriptTeamAssociation
 }
+type ManuscriptSiteAssociation struct {
+	ddl.ManuscriptSiteAssociation
+}

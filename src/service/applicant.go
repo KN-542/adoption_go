@@ -62,6 +62,7 @@ type ApplicantService struct {
 	u     repository.IUserRepository
 	t     repository.ITeamRepository
 	s     repository.IScheduleRepository
+	manu  repository.IManuscriptRepository
 	m     repository.IMasterRepository
 	a     repository.IAWSRepository
 	g     repository.IGoogleRepository
@@ -76,6 +77,7 @@ func NewApplicantService(
 	u repository.IUserRepository,
 	t repository.ITeamRepository,
 	s repository.IScheduleRepository,
+	manu repository.IManuscriptRepository,
 	m repository.IMasterRepository,
 	a repository.IAWSRepository,
 	g repository.IGoogleRepository,
@@ -84,7 +86,7 @@ func NewApplicantService(
 	d repository.IDBRepository,
 	o repository.IOuterIFRepository,
 ) IApplicantService {
-	return &ApplicantService{r, u, t, s, m, a, g, redis, v, d, o}
+	return &ApplicantService{r, u, t, s, manu, m, a, g, redis, v, d, o}
 }
 
 // 検索
@@ -327,6 +329,47 @@ func (s *ApplicantService) Download(req *request.ApplicantDownload) (*response.A
 		}
 	}
 
+	// サイトID取得
+	site, siteErr := s.m.SelectSite(&ddl.Site{
+		AbstractMasterModel: ddl.AbstractMasterModel{
+			HashKey: req.SiteHashKey,
+		},
+	})
+	if siteErr != nil {
+		return nil, &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// 原稿がある場合、ID取得
+	manuscripts, manuscriptsErr := s.manu.SearchByTeam2(&dto.SearchManuscriptByTeamAndSite{
+		TeamID: teamID,
+		SiteID: site.ID,
+	})
+	if manuscriptsErr != nil {
+		return nil, &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	for i := range req.Applicants {
+		for _, row2 := range manuscripts {
+			if row2.HashKey == req.Applicants[i].ManuscriptHash {
+				req.Applicants[i].ManuscriptID = row2.ID
+				break
+			}
+		}
+	}
+
+	// コミットID生成
+	commitID, _, hashErr := GenerateHash(16, 28)
+	if hashErr != nil {
+		log.Printf("%v", hashErr)
+		return nil, &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
 	// 重複チェック
 	var request request.ApplicantDownload
 	var outerIDs []string
@@ -359,27 +402,6 @@ func (s *ApplicantService) Download(req *request.ApplicantDownload) (*response.A
 		}
 	}
 
-	// サイトID取得
-	site, siteErr := s.m.SelectSite(&ddl.Site{
-		AbstractMasterModel: ddl.AbstractMasterModel{
-			HashKey: req.SiteHashKey,
-		},
-	})
-	if siteErr != nil {
-		return nil, &response.Error{
-			Status: http.StatusInternalServerError,
-		}
-	}
-
-	// コミットID生成
-	commitID, _, hashErr := GenerateHash(16, 28)
-	if hashErr != nil {
-		log.Printf("%v", hashErr)
-		return nil, &response.Error{
-			Status: http.StatusInternalServerError,
-		}
-	}
-
 	tx, txErr := s.d.TxStart()
 	if txErr != nil {
 		return nil, &response.Error{
@@ -389,6 +411,8 @@ func (s *ApplicantService) Download(req *request.ApplicantDownload) (*response.A
 
 	// 一括登録
 	var applicants []*ddl.Applicant
+	var applicants2 []*dto.ApplicantManuscriptAssociation
+	var applicantManuscriptAssociations []*ddl.ManuscriptApplicantAssociation
 	if len(request.Applicants) > 0 {
 		for _, row := range request.Applicants {
 			// ハッシュキー生成
@@ -424,9 +448,30 @@ func (s *ApplicantService) Download(req *request.ApplicantDownload) (*response.A
 				NumOfInterview: 1,
 			}
 			applicants = append(applicants, applicant)
+			applicant2 := &dto.ApplicantManuscriptAssociation{
+				Applicant: ddl.Applicant{
+					AbstractTransactionModel: ddl.AbstractTransactionModel{
+						HashKey:   static.PRE_APPLICANT + "_" + *hash,
+						CompanyID: companyID,
+					},
+					OuterID:        row.OuterID,
+					SiteID:         site.ID,
+					Status:         list[0].ID,
+					Name:           row.Name,
+					Email:          row.Email,
+					Tel:            row.Tel,
+					Age:            uint(row.Age),
+					CommitID:       *commitID,
+					TeamID:         teamID,
+					NumOfInterview: 1,
+				},
+				ManuscriptID: row.ManuscriptID,
+			}
+			applicants2 = append(applicants2, applicant2)
 		}
 
-		if err := s.r.Inserts(tx, applicants); err != nil {
+		entities, entitiesErr := s.r.Inserts(tx, applicants)
+		if entitiesErr != nil {
 			if err := s.d.TxRollback(tx); err != nil {
 				return nil, &response.Error{
 					Status: http.StatusInternalServerError,
@@ -434,6 +479,31 @@ func (s *ApplicantService) Download(req *request.ApplicantDownload) (*response.A
 			}
 			return nil, &response.Error{
 				Status: http.StatusInternalServerError,
+			}
+		}
+
+		for _, row := range applicants2 {
+			for _, row2 := range entities {
+				if row.HashKey == row2.HashKey && row.ManuscriptID > 0 {
+					applicantManuscriptAssociations = append(applicantManuscriptAssociations, &ddl.ManuscriptApplicantAssociation{
+						ManuscriptID: row.ManuscriptID,
+						ApplicantID:  row2.ID,
+					})
+					continue
+				}
+			}
+		}
+
+		if len(applicantManuscriptAssociations) > 0 {
+			if err := s.manu.InsertsApplicantAssociation(tx, applicantManuscriptAssociations); err != nil {
+				if err := s.d.TxRollback(tx); err != nil {
+					return nil, &response.Error{
+						Status: http.StatusInternalServerError,
+					}
+				}
+				return nil, &response.Error{
+					Status: http.StatusInternalServerError,
+				}
 			}
 		}
 	}

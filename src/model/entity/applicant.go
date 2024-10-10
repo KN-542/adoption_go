@@ -16,6 +16,8 @@ type Applicant struct {
 	CurriculumVitaeExtension string `json:"curriculum_vitae_extension"`
 	// Google Meet URL
 	GoogleMeetURL string `json:"google_meet_url"`
+	// 原稿ハッシュ
+	ManuscriptHash string `json:"manuscript_hash"`
 }
 
 // 応募者種別

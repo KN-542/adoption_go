@@ -118,8 +118,10 @@ const (
 
 // m_select_status_event
 const (
-	STATUS_EVENT_DECIDE_SCHEDULE  uint = 1
-	STATUS_EVENT_SUBMIT_DOCUMENTS uint = 2
+	STATUS_EVENT_DECIDE_SCHEDULE           uint = 1
+	STATUS_EVENT_SUBMIT_DOCUMENTS          uint = 2
+	STATUS_EVENT_SUBMIT_DOCUMENTS_NOT_PASS uint = 3
+	STATUS_EVENT_SUBMIT_DOCUMENTS_PASS     uint = 4
 )
 
 // m_assign_rule
@@ -166,29 +168,32 @@ const (
 	DODA uint = 3
 
 	// リクナビNEXT
-	FILE_NAME_RECRUIT      string = "oubosha"
-	INDEX_RECRUIT_OUTER_ID uint   = 11
-	INDEX_RECRUIT_NAME     uint   = 12
-	INDEX_RECRUIT_EMAIL    uint   = 17
-	INDEX_RECRUIT_TEL      uint   = 18
-	INDEX_RECRUIT_AGE      uint   = 14
-	COLUMNS_RECRUIT        uint   = 220
+	FILE_NAME_RECRUIT        string = "oubosha"
+	INDEX_RECRUIT_OUTER_ID   uint   = 11
+	INDEX_RECRUIT_NAME       uint   = 12
+	INDEX_RECRUIT_EMAIL      uint   = 17
+	INDEX_RECRUIT_TEL        uint   = 18
+	INDEX_RECRUIT_AGE        uint   = 14
+	INDEX_RECRUIT_MANUSCRIPT uint   = 3
+	COLUMNS_RECRUIT          uint   = 220
 	// マイナビ
-	FILE_NAME_MYNAVI      string = "mynavi"
-	INDEX_MYNAVI_OUTER_ID uint   = 0
-	INDEX_MYNAVI_NAME     uint   = 1 // ※性: 1, 名: 2
-	INDEX_MYNAVI_EMAIL    uint   = 9
-	INDEX_MYNAVI_TEL      uint   = 11 // 空文字の場合は12の電話番号(自宅)をチェック
-	INDEX_MYNAVI_AGE      uint   = 6
-	COLUMNS_MYNAVI        uint   = 381
+	FILE_NAME_MYNAVI        string = "mynavi"
+	INDEX_MYNAVI_OUTER_ID   uint   = 0
+	INDEX_MYNAVI_NAME       uint   = 1 // ※性: 1, 名: 2
+	INDEX_MYNAVI_EMAIL      uint   = 9
+	INDEX_MYNAVI_TEL        uint   = 11 // 空文字の場合は12の電話番号(自宅)をチェック
+	INDEX_MYNAVI_AGE        uint   = 6
+	INDEX_MYNAVI_MANUSCRIPT uint   = 18
+	COLUMNS_MYNAVI          uint   = 381
 	// DODA
-	FILE_NAME_DODA      string = "Senko"
-	INDEX_DODA_OUTER_ID uint   = 186
-	INDEX_DODA_NAME     uint   = 6 // ※性: 6, 名: 7
-	INDEX_DODA_EMAIL    uint   = 13
-	INDEX_DODA_TEL      uint   = 18 // 空文字の場合は19の電話番号(自宅)をチェック
-	INDEX_DODA_AGE      uint   = 11
-	COLUMNS_DODA        uint   = 186
+	FILE_NAME_DODA        string = "Senko"
+	INDEX_DODA_OUTER_ID   uint   = 186
+	INDEX_DODA_NAME       uint   = 6 // ※性: 6, 名: 7
+	INDEX_DODA_EMAIL      uint   = 13
+	INDEX_DODA_TEL        uint   = 18 // 空文字の場合は19の電話番号(自宅)をチェック
+	INDEX_DODA_AGE        uint   = 11
+	INDEX_DODA_MANUSCRIPT uint   = 3
+	COLUMNS_DODA          uint   = 186
 )
 
 // m_schedule_freq_status

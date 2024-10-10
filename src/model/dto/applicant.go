@@ -1,6 +1,7 @@
 package dto
 
 import (
+	"api/src/model/ddl"
 	"api/src/model/request"
 	"time"
 )
@@ -30,4 +31,13 @@ type CheckDuplDownloading struct {
 	CompanyID uint64
 	// 媒体側IDリスト
 	List []string
+}
+
+// 応募者原稿紐づけ
+type ApplicantManuscriptAssociation struct {
+	ddl.Applicant
+	// 原稿ID
+	ManuscriptID uint64 `json:"manuscript_id"`
+	// 原稿ハッシュ
+	ManuscriptHash string `json:"manuscript_hash"`
 }

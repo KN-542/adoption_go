@@ -16,7 +16,7 @@ type IApplicantRepository interface {
 	// 登録
 	Insert(tx *gorm.DB, m *ddl.Applicant) error
 	// 一括登録
-	Inserts(tx *gorm.DB, m []*ddl.Applicant) error
+	Inserts(tx *gorm.DB, m []*ddl.Applicant) ([]entity.Applicant, error)
 	// 更新
 	Update(tx *gorm.DB, m *ddl.Applicant) error
 	// 更新_複数_PK
@@ -98,12 +98,19 @@ func (a *ApplicantRepository) Insert(tx *gorm.DB, m *ddl.Applicant) error {
 }
 
 // 一括登録
-func (a *ApplicantRepository) Inserts(tx *gorm.DB, m []*ddl.Applicant) error {
+func (a *ApplicantRepository) Inserts(tx *gorm.DB, m []*ddl.Applicant) ([]entity.Applicant, error) {
 	if err := tx.Create(m).Error; err != nil {
 		log.Printf("%v", err)
-		return err
+		return nil, err
 	}
-	return nil
+
+	var res []entity.Applicant
+	for _, row := range m {
+		res = append(res, entity.Applicant{
+			Applicant: *row,
+		})
+	}
+	return res, nil
 }
 
 // 更新

@@ -26,6 +26,8 @@ type IManuscriptRepository interface {
 	Search(m *dto.SearchManuscript) ([]*entity.SearchManuscript, int64, error)
 	// 検索_同一チーム
 	SearchByTeam(m *ddl.ManuscriptTeamAssociation) ([]entity.Manuscript, error)
+	// 検索_同一チーム2
+	SearchByTeam2(m *dto.SearchManuscriptByTeamAndSite) ([]entity.Manuscript, error)
 	// 紐づけ取得
 	GetAssociationByTeamID(m *ddl.ManuscriptTeamAssociation) ([]entity.ManuscriptTeamAssociation, error)
 	// 内容重複チェック
@@ -220,6 +222,33 @@ func (s *ManuscriptRepository) SearchByTeam(m *ddl.ManuscriptTeamAssociation) ([
 			ON
 				t_manuscript_team_association.manuscript_id = t_manuscript.id
 		`).
+		Where("t_manuscript_team_association.team_id = ?", m.TeamID)
+
+	if err := query.Find(&res).Error; err != nil {
+		log.Printf("%v", err)
+		return nil, err
+	}
+	return res, nil
+}
+
+// 検索_同一チーム2
+func (s *ManuscriptRepository) SearchByTeam2(m *dto.SearchManuscriptByTeamAndSite) ([]entity.Manuscript, error) {
+	var res []entity.Manuscript
+
+	query := s.db.Table("t_manuscript").
+		Joins(`
+			LEFT JOIN
+				t_manuscript_team_association
+			ON
+				t_manuscript_team_association.manuscript_id = t_manuscript.id
+		`).
+		Joins(`
+			LEFT JOIN
+				t_manuscript_site_association
+			ON
+				t_manuscript_site_association.manuscript_id = t_manuscript.id
+		`).
+		Where("t_manuscript_site_association.site_id = ?", m.SiteID).
 		Where("t_manuscript_team_association.team_id = ?", m.TeamID)
 
 	if err := query.Find(&res).Error; err != nil {
