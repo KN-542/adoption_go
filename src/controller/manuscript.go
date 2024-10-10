@@ -223,13 +223,8 @@ func (c *ManuscriptController) SearchManuscriptByTeam(e echo.Context) error {
 
 // 複数の原稿IDの削除
 func (c *ManuscriptController) Delete(e echo.Context) error {
-	// リクエストボディをパースするための構造体
-	type DeleteManuscriptRequest struct {
-		UserHashKey       string   `json:"user_hash_key"`
-		ManuscriptHashKey []string `json:"manuscript_hash_key"`
-	}
 
-	var req DeleteManuscriptRequest
+	var req request.DeleteManuscriptRequest
 	if err := e.Bind(&req); err != nil {
 		log.Printf("Invalid request body: %v", err)
 		return e.JSON(http.StatusBadRequest, "Invalid request body")
@@ -265,7 +260,7 @@ func (c *ManuscriptController) Delete(e echo.Context) error {
 	}
 
 	// サービスで削除処理を実行
-	if err := c.s.Delete(req.ManuscriptHashKey); err != nil { // req.ManuscriptIDs をそのまま使用
+	if err := c.s.Delete(req.ManuscriptHashKeys); err != nil {
 		return e.JSON(err.Status, response.ErrorConvert(*err))
 	}
 

@@ -35,3 +35,9 @@ type CreateApplicantAssociation struct {
 type SearchManuscriptByTeam struct {
 	Abstract
 }
+
+// 削除リクエスト
+type DeleteManuscriptRequest struct {
+	UserHashKey        string   `json:"user_hash_key"`
+	ManuscriptHashKeys []string `json:"manuscript_hash_keys"`
+}
