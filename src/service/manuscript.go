@@ -25,7 +25,7 @@ type IManuscriptService interface {
 	// 検索_同一チーム
 	SearchManuscriptByTeam(req *request.SearchManuscriptByTeam) (*response.SearchManuscriptByTeam, *response.Error)
 	// 削除
-	Delete(manuscriptHashKeys []string) *response.Error
+	Delete(req *request.DeleteManuscriptRequest) *response.Error
 }
 
 type ManuscriptService struct {
@@ -327,9 +327,9 @@ func (s *ManuscriptService) CreateApplicantAssociation(req *request.CreateApplic
 }
 
 // 削除処理
-func (s *ManuscriptService) Delete(manuscriptHashKeys []string) *response.Error {
+func (s *ManuscriptService) Delete(req *request.DeleteManuscriptRequest) *response.Error {
 	// 原稿ID取得
-	manuscriptIDs, manuscriptErr := s.manuscript.GetManuscriptIDsByHashKeys(manuscriptHashKeys)
+	manuscriptIDs, manuscriptErr := s.manuscript.GetManuscriptIDsByHashKeys(req.ManuscriptHashKeys)
 	if manuscriptErr != nil {
 		return &response.Error{
 			Status: http.StatusInternalServerError,
@@ -383,7 +383,7 @@ func (s *ManuscriptService) Delete(manuscriptHashKeys []string) *response.Error 
 	}
 
 	// 原稿の削除
-	if err := s.manuscript.Delete(tx, manuscriptHashKeys); err != nil {
+	if err := s.manuscript.Delete(tx, req.ManuscriptHashKeys); err != nil {
 		if err := s.db.TxRollback(tx); err != nil {
 			return &response.Error{
 				Status: http.StatusInternalServerError,

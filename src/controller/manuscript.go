@@ -226,8 +226,8 @@ func (c *ManuscriptController) Delete(e echo.Context) error {
 
 	var req request.DeleteManuscriptRequest
 	if err := e.Bind(&req); err != nil {
-		log.Printf("Invalid request body: %v", err)
-		return e.JSON(http.StatusBadRequest, "Invalid request body")
+		log.Printf("%v", err)
+		return e.JSON(http.StatusBadRequest, fmt.Errorf(static.MESSAGE_BAD_REQUEST))
 	}
 
 	// JWT検証
@@ -260,7 +260,7 @@ func (c *ManuscriptController) Delete(e echo.Context) error {
 	}
 
 	// サービスで削除処理を実行
-	if err := c.s.Delete(req.ManuscriptHashKeys); err != nil {
+	if err := c.s.Delete(&req); err != nil {
 		return e.JSON(err.Status, response.ErrorConvert(*err))
 	}
 

@@ -38,6 +38,6 @@ type SearchManuscriptByTeam struct {
 
 // 削除リクエスト
 type DeleteManuscriptRequest struct {
-	UserHashKey        string   `json:"user_hash_key"`
+	Abstract
 	ManuscriptHashKeys []string `json:"manuscript_hash_keys"`
 }
