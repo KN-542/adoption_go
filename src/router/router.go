@@ -57,6 +57,7 @@ func NewRouter(
 	e.POST("/user/search_company", user.SearchByCompany)
 	e.POST("/user/search", user.Search)
 	e.POST("/user/create", user.Create)
+	e.POST("/user/delete", user.Delete)
 
 	// チーム
 	e.POST("/team/create", team.Create)

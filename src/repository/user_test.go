@@ -155,7 +155,7 @@ func TestUserRepository_Insert(t *testing.T) {
 				}
 
 				tx := u.db.Begin()
-				if err := u.Delete(tx, tt.args.m); err != nil {
+				if err := u.Delete(tx, []string{tt.args.m.HashKey}); err != nil {
 					if err := tx.Rollback().Error; err != nil {
 						t.Errorf("UserRepository.Delete() error = %v", err)
 					}
@@ -282,7 +282,7 @@ func TestUserRepository_Get(t *testing.T) {
 			got, gotErr := u.Get(tt.args.m)
 			if gotErr != nil {
 				tx2 := u.db.Begin()
-				if err := u.Delete(tx2, tt.want); err != nil {
+				if err := u.Delete(tx2, []string{tt.want.HashKey}); err != nil {
 					if err := tx2.Rollback().Error; err != nil {
 						t.Errorf("UserRepository.Delete() error = %v", err)
 					}
@@ -305,7 +305,7 @@ func TestUserRepository_Get(t *testing.T) {
 				got.CreatedAt.Sub(tt.want.CreatedAt) < time.Second &&
 				got.UpdatedAt.Sub(tt.want.UpdatedAt) < time.Second)) {
 				tx2 := u.db.Begin()
-				if err := u.Delete(tx2, tt.want); err != nil {
+				if err := u.Delete(tx2, []string{tt.want.HashKey}); err != nil {
 					if err := tx2.Rollback().Error; err != nil {
 						t.Errorf("UserRepository.Delete() error = %v", err)
 					}
@@ -319,7 +319,7 @@ func TestUserRepository_Get(t *testing.T) {
 			}
 
 			tx2 := u.db.Begin()
-			if err := u.Delete(tx2, tt.want); err != nil {
+			if err := u.Delete(tx2, []string{tt.want.HashKey}); err != nil {
 				if err := tx2.Rollback().Error; err != nil {
 					t.Errorf("UserRepository.Delete() error = %v", err)
 				}
@@ -385,7 +385,7 @@ func TestUserRepository_Delete(t *testing.T) {
 			u := &UserRepository{
 				db: tt.fields.db,
 			}
-			if err := u.Delete(tt.args.tx, tt.args.m); (err != nil) != tt.wantErr {
+			if err := u.Delete(tt.args.tx, []string{tt.args.m.HashKey}); (err != nil) != tt.wantErr {
 				t.Errorf("UserRepository.Delete() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})

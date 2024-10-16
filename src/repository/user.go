@@ -27,7 +27,7 @@ type IUserRepository interface {
 	// 更新
 	Update(tx *gorm.DB, m *ddl.User) error
 	// 削除
-	Delete(tx *gorm.DB, m *ddl.User) error
+	Delete(tx *gorm.DB, m []string) error
 	// リフレッシュトークン紐づけ登録
 	InsertUserRefreshTokenAssociation(tx *gorm.DB, m *ddl.UserRefreshTokenAssociation) error
 	// リフレッシュトークン紐づけ取得
@@ -42,6 +42,20 @@ type IUserRepository interface {
 	GetByHashKeys(m []string) ([]entity.User, error)
 	// ユーザー取得_予定数順
 	GetUsersSortedByScheduleCount(m *ddl.Schedule) ([]entity.User, error)
+	// ユーザーと紐づいている応募者数を取得
+	CountApplicantUserAssociation(m []uint64) (int64, error)
+	// ユーザーと紐づいているスケジュール数を取得
+	CountScheduleAssociation(m []uint64) (int64, error)
+	// 削除_通知
+	DeleteNotice(tx *gorm.DB, m []uint64) error
+	// 削除_面接毎参加可能者
+	DeleteTeamAssignPossible(tx *gorm.DB, m []uint64) error
+	// 削除_面接割り振り優先順位
+	DeleteTeamAssignPriority(tx *gorm.DB, m []uint64) error
+	// 削除_チーム紐づけ
+	DeleteTeamAssociation(tx *gorm.DB, m []uint64) error
+	// 削除_リフレッシュトークン紐づけ
+	DeleteUserRefreshTokenAssociation(tx *gorm.DB, m []uint64) error
 }
 
 type UserRepository struct {
@@ -185,12 +199,10 @@ func (u *UserRepository) Update(tx *gorm.DB, m *ddl.User) error {
 }
 
 // 削除
-func (u *UserRepository) Delete(tx *gorm.DB, m *ddl.User) error {
-	if err := tx.Where(&ddl.User{
-		AbstractTransactionModel: ddl.AbstractTransactionModel{
-			HashKey: m.HashKey,
-		},
-	}).Delete(&ddl.User{}).Error; err != nil {
+func (u *UserRepository) Delete(tx *gorm.DB, m []string) error {
+	if err := tx.
+		Where("hash_key IN ?", m).
+		Delete(&ddl.User{}).Error; err != nil {
 		log.Printf("%v", err)
 		return err
 	}
@@ -306,4 +318,91 @@ func (u *UserRepository) GetUsersSortedByScheduleCount(m *ddl.Schedule) ([]entit
 	}
 
 	return res, nil
+}
+
+// ユーザーと紐づいている応募者数を取得
+func (u *UserRepository) CountApplicantUserAssociation(m []uint64) (int64, error) {
+	var count int64
+	if err := u.db.Model(&ddl.ApplicantUserAssociation{}).
+		Where("user_id IN ?", m).
+		Count(&count).Error; err != nil {
+		log.Printf("%v", err)
+		return 0, err
+	}
+	return count, nil
+}
+
+// ユーザーと紐づいているスケジュール数を取得
+func (u *UserRepository) CountScheduleAssociation(m []uint64) (int64, error) {
+	var count int64
+	if err := u.db.Model(&ddl.ScheduleAssociation{}).
+		Where("user_id IN ?", m).
+		Count(&count).Error; err != nil {
+		log.Printf("%v", err)
+		return 0, err
+	}
+	return count, nil
+}
+
+// 削除_通知
+func (u *UserRepository) DeleteNotice(tx *gorm.DB, m []uint64) error {
+	// 通知_通知元ユーザー
+	if err := tx.
+		Where("from_user_id IN ?", m).
+		Delete(&ddl.Notice{}).Error; err != nil {
+		log.Printf("%v", err)
+		return err
+	}
+	// 通知_通知先ユーザー
+	if err := tx.
+		Where("to_user_id IN ?", m).
+		Delete(&ddl.Notice{}).Error; err != nil {
+		log.Printf("%v", err)
+		return err
+	}
+	return nil
+}
+
+// 削除_面接毎参加可能者
+func (u *UserRepository) DeleteTeamAssignPossible(tx *gorm.DB, m []uint64) error {
+	if err := tx.
+		Where("user_id IN ?", m).
+		Delete(&ddl.TeamAssignPossible{}).Error; err != nil {
+		log.Printf("%v", err)
+		return err
+	}
+	return nil
+}
+
+// 削除_面接割り振り優先順位
+func (u *UserRepository) DeleteTeamAssignPriority(tx *gorm.DB, m []uint64) error {
+	if err := tx.
+		Where("user_id IN ?", m).
+		Delete(&ddl.TeamAssignPriority{}).Error; err != nil {
+		log.Printf("%v", err)
+		return err
+	}
+	return nil
+}
+
+// 削除_チーム紐づけ
+func (u *UserRepository) DeleteTeamAssociation(tx *gorm.DB, m []uint64) error {
+	if err := tx.
+		Where("user_id IN ?", m).
+		Delete(&ddl.TeamAssociation{}).Error; err != nil {
+		log.Printf("%v", err)
+		return err
+	}
+	return nil
+}
+
+// 削除_リフレッシュトークン紐づけ
+func (u *UserRepository) DeleteUserRefreshTokenAssociation(tx *gorm.DB, m []uint64) error {
+	if err := tx.
+		Where("user_id IN ?", m).
+		Delete(&ddl.UserRefreshTokenAssociation{}).Error; err != nil {
+		log.Printf("%v", err)
+		return err
+	}
+	return nil
 }
