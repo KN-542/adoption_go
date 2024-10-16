@@ -60,6 +60,8 @@ const (
 	*/
 	// 原稿登録
 	CODE_MANUSCRIPT_DUPLICATE_CONTENT uint = 1
+	// 原稿削除
+	CODE_MANUSCRIPT_CANNOT_DELETE_APPLICANT uint = 1
 )
 
 // Response Body メッセージ

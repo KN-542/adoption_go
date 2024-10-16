@@ -336,17 +336,18 @@ func (s *ManuscriptService) Delete(req *request.DeleteManuscriptRequest) *respon
 		}
 	}
 
-	// 応募書に紐づいている原稿IDがあるかチェック
+	// 応募者に紐づいている原稿IDがあるかチェック
 	count, countErr := s.manuscript.CheckManuscriptAssociationByApplicant(manuscriptIDs)
 	if countErr != nil {
 		return &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
-	//  応募書に紐づいている原稿IDがあれば、削除不可(400 エラーを返す)
+	//  応募者に紐づいている原稿IDがあれば、削除不可(400 エラーを返す)
 	if count > 0 {
 		return &response.Error{
 			Status: http.StatusBadRequest,
+			Code:   static.CODE_MANUSCRIPT_CANNOT_DELETE_APPLICANT,
 		}
 	}
 
