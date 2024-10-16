@@ -31,6 +31,8 @@ type ApplicantType struct {
 	NameJa string `json:"name_ja"`
 	// 職種名_英語
 	NameEn string `json:"name_en"`
+	// 書類確認必要性
+	IsDocumentConfirm bool `json:"is_document_confirm"`
 }
 
 // 応募者ユーザー紐づけ

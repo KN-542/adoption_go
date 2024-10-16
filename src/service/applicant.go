@@ -451,19 +451,8 @@ func (s *ApplicantService) Download(req *request.ApplicantDownload) (*response.A
 			applicant2 := &dto.ApplicantManuscriptAssociation{
 				Applicant: ddl.Applicant{
 					AbstractTransactionModel: ddl.AbstractTransactionModel{
-						HashKey:   static.PRE_APPLICANT + "_" + *hash,
-						CompanyID: companyID,
+						HashKey: static.PRE_APPLICANT + "_" + *hash,
 					},
-					OuterID:        row.OuterID,
-					SiteID:         site.ID,
-					Status:         list[0].ID,
-					Name:           row.Name,
-					Email:          row.Email,
-					Tel:            row.Tel,
-					Age:            uint(row.Age),
-					CommitID:       *commitID,
-					TeamID:         teamID,
-					NumOfInterview: 1,
 				},
 				ManuscriptID: row.ManuscriptID,
 			}
@@ -693,7 +682,6 @@ func (s *ApplicantService) ReserveTable(req *request.ReserveTable) (*response.Re
 			if !isReserve {
 				reserveTime = append(reserveTime, dto.ReserveTableSub{
 					Time:      d,
-					Users:     []string{},
 					IsReserve: false,
 				})
 			} else {
@@ -726,7 +714,7 @@ func (s *ApplicantService) ReserveTable(req *request.ReserveTable) (*response.Re
 					}
 				}
 
-				var ableUsers []string
+				var count int = 0
 				for _, a := range users {
 					found := false
 					for _, b := range unableUsers {
@@ -737,14 +725,13 @@ func (s *ApplicantService) ReserveTable(req *request.ReserveTable) (*response.Re
 					}
 
 					if !found {
-						ableUsers = append(ableUsers, a)
+						count++
 					}
 				}
 
 				reserveTime = append(reserveTime, dto.ReserveTableSub{
 					Time:      d,
-					Users:     ableUsers,
-					IsReserve: len(ableUsers) >= int(setting.UserMin),
+					IsReserve: count >= int(setting.UserMin),
 				})
 			}
 		}
@@ -755,8 +742,8 @@ func (s *ApplicantService) ReserveTable(req *request.ReserveTable) (*response.Re
 		Options:           reserveTime,
 		Schedule:          res.Start,
 		ScheduleHashKey:   res.HashKey,
-		IsResume:          setting.UserMin == 1 || applicant.ResumeExtension == "",
-		IsCurriculumVitae: setting.UserMin == 1 || applicant.CurriculumVitaeExtension == "",
+		IsResume:          applicant.NumOfInterview == 1 && applicant.ResumeExtension == "",
+		IsCurriculumVitae: applicant.NumOfInterview == 1 && applicant.CurriculumVitaeExtension == "",
 	}, nil
 }
 
@@ -1295,6 +1282,58 @@ func (s *ApplicantService) InsertDesiredAt(req *request.InsertDesiredAt) *respon
 		return &response.Error{
 			Status: http.StatusConflict,
 			Code:   static.CODE_APPLICANT_CANNOT_ASSIGN_USER,
+		}
+	}
+
+	// 手動
+	if len(interviewers) == 0 && applicant.ScheduleID == 0 && len(autoRules) == 0 && team.RuleID == static.ASSIGN_RULE_MANUAL {
+		var applicantUsers []*ddl.ApplicantUserAssociation
+
+		rng := rand.New(rand.NewSource(time.Now().UnixNano()))
+
+		rng.Shuffle(len(users), func(i, j int) {
+			users[i], users[j] = users[j], users[i]
+		})
+
+		for _, user := range users[:int(setting.UserMin)] {
+			applicantUsers = append(applicantUsers, &ddl.ApplicantUserAssociation{
+				ApplicantID: applicant.ID,
+				UserID:      user.ID,
+				DisplayFlg:  static.INTERVIEWER_NOT_DISPLAY,
+			})
+		}
+
+		if len(applicantUsers) > 0 {
+			// 応募者ユーザー紐づけ登録
+			if err := s.r.InsertsUserAssociation(tx, applicantUsers); err != nil {
+				if err := s.d.TxRollback(tx); err != nil {
+					return &response.Error{
+						Status: http.StatusInternalServerError,
+					}
+				}
+				return &response.Error{
+					Status: http.StatusInternalServerError,
+				}
+			}
+
+			// 予定ユーザー紐づけ登録
+			var list []*ddl.ScheduleAssociation
+			for _, row := range applicantUsers {
+				list = append(list, &ddl.ScheduleAssociation{
+					ScheduleID: scheduleID,
+					UserID:     row.UserID,
+				})
+			}
+			if err := s.s.InsertsScheduleAssociation(tx, list); err != nil {
+				if err := s.d.TxRollback(tx); err != nil {
+					return &response.Error{
+						Status: http.StatusInternalServerError,
+					}
+				}
+				return &response.Error{
+					Status: http.StatusInternalServerError,
+				}
+			}
 		}
 	}
 
@@ -2333,13 +2372,24 @@ func (s *ApplicantService) ListApplicantType(req *request.ListApplicantType) (*r
 	}
 
 	// 種別一覧
-	res, err := s.r.ListType(&ddl.ApplicantType{
+	types, typesErr := s.r.ListType(&ddl.ApplicantType{
 		TeamID: teamID,
 	})
-	if err != nil {
+	if typesErr != nil {
 		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
 		}
+	}
+
+	var res []entity.ApplicantType
+
+	// 書類確認必要性チェック
+	for _, t := range types {
+		if t.RuleID == static.DOCUMENT_RULE_REQUIRED_CONFIRM {
+			t.IsDocumentConfirm = true
+		}
+		t.RuleID = 0
+		res = append(res, t)
 	}
 
 	return &response.ListApplicantType{

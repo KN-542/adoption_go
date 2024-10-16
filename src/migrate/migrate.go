@@ -585,18 +585,22 @@ func main() {
 			log.Println(err)
 		}
 		applicant := map[string]string{
-			"id":         "ID",
-			"outer_id":   "媒体側ID",
-			"hash_key":   "ハッシュキー",
-			"site_id":    "サイトID",
-			"status":     "ステータス",
-			"name":       "氏名",
-			"email":      "メールアドレス",
-			"tel":        "TEL",
-			"age":        "年齢",
-			"company_id": "企業ID",
-			"created_at": "登録日時",
-			"updated_at": "更新日時",
+			"id":                "ID",
+			"outer_id":          "媒体側ID",
+			"hash_key":          "ハッシュキー",
+			"site_id":           "サイトID",
+			"status":            "ステータス",
+			"name":              "氏名",
+			"email":             "メールアドレス",
+			"tel":               "TEL",
+			"age":               "年齢",
+			"commit_id":         "コミットID",
+			"num_of_interview":  "面接回数",
+			"document_pass_flg": "書類通過フラグ",
+			"company_id":        "企業ID",
+			"team_id":           "チームID",
+			"created_at":        "登録日時",
+			"updated_at":        "更新日時",
 		}
 		if err := AddColumnComments(dbConn, "t_applicant", applicant); err != nil {
 			log.Println(err)
@@ -609,6 +613,7 @@ func main() {
 		applicantUserAssociation := map[string]string{
 			"applicant_id": "応募者ID",
 			"user_id":      "ユーザーID",
+			"display_flg":  "表示フラグ",
 		}
 		if err := AddColumnComments(dbConn, "t_applicant_user_association", applicantUserAssociation); err != nil {
 			log.Println(err)
@@ -1066,6 +1071,20 @@ func CreateData(db *gorm.DB) {
 			DescJa: "書類通過時(初回面接前)",
 			DescEn: "When documents are passed (initial interview)",
 		},
+		{
+			AbstractMasterModel: ddl.AbstractMasterModel{
+				ID: uint(static.STATUS_EVENT_INTERVIEW_PASS),
+			},
+			DescJa: "面接通過時",
+			DescEn: "Time to pass face-to-face contact",
+		},
+		{
+			AbstractMasterModel: ddl.AbstractMasterModel{
+				ID: uint(static.STATUS_EVENT_INTERVIEW_FAIL),
+			},
+			DescJa: "面接不通過時",
+			DescEn: "The face connection fails",
+		},
 	}
 	for _, row := range events {
 		_, hash, _ := service.GenerateHash(1, 25)
@@ -1173,7 +1192,7 @@ func CreateData(db *gorm.DB) {
 			},
 			Processing: "不採用",
 			DescJa:     "面接不通過時",
-			DescEn:     "the face connection fails",
+			DescEn:     "The face connection fails",
 		},
 	}
 	for _, row := range interviewResult {
@@ -1199,9 +1218,9 @@ func CreateData(db *gorm.DB) {
 		},
 		{
 			AbstractMasterModel: ddl.AbstractMasterModel{
-				ID: static.DOCUMENT_RULE_REPUDIATE_CONFIRM,
+				ID: static.DOCUMENT_RULE_SUBMIT_CONFIRM,
 			},
-			RuleJa: "提出不要、確認必須",
+			RuleJa: "提出必須、確認不要",
 			RuleEn: "Submission not required and confirmation required",
 		},
 		{

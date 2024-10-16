@@ -24,6 +24,8 @@ type Applicant struct {
 	CommitID string `json:"commit_id" gorm:"not null;check:commit_id <> '';type:text;index"`
 	// 面接回数
 	NumOfInterview uint `json:"num_of_interview"`
+	// 書類通過フラグ
+	DocumentPassFlg uint `json:"document_pass_flg"`
 	// チームID
 	TeamID uint64 `json:"team_id" gorm:"index"`
 	// サイト(外部キー)
@@ -43,6 +45,8 @@ type ApplicantUserAssociation struct {
 	ApplicantID uint64 `json:"applicant_id" gorm:"primaryKey;index"`
 	// ユーザーID
 	UserID uint64 `json:"user_id" gorm:"primaryKey;index"`
+	// 表示フラグ
+	DisplayFlg uint `json:"display_flg" gorm:"index"`
 	// 応募者(外部キー)
 	Applicant Applicant `gorm:"foreignKey:applicant_id;references:id"`
 	// ユーザー(外部キー)

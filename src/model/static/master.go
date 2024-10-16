@@ -122,6 +122,8 @@ const (
 	STATUS_EVENT_SUBMIT_DOCUMENTS          uint = 2
 	STATUS_EVENT_SUBMIT_DOCUMENTS_NOT_PASS uint = 3
 	STATUS_EVENT_SUBMIT_DOCUMENTS_PASS     uint = 4
+	STATUS_EVENT_INTERVIEW_PASS            uint = 5
+	STATUS_EVENT_INTERVIEW_FAIL            uint = 6
 )
 
 // m_assign_rule
@@ -233,9 +235,9 @@ const (
 
 // m_document_rule
 const (
-	DOCUMENT_RULE_REPUDIATE         uint = 1
-	DOCUMENT_RULE_REPUDIATE_CONFIRM uint = 2
-	DOCUMENT_RULE_REQUIRED_CONFIRM  uint = 3
+	DOCUMENT_RULE_REPUDIATE        uint = 1
+	DOCUMENT_RULE_SUBMIT_CONFIRM   uint = 2
+	DOCUMENT_RULE_REQUIRED_CONFIRM uint = 3
 )
 
 // m_occupation

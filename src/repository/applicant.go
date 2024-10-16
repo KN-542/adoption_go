@@ -221,7 +221,8 @@ func (a *ApplicantRepository) Search(m *dto.SearchApplicant) ([]*entity.SearchAp
 	if len(m.Users) > 0 {
 		query = query.Joins("INNER JOIN t_applicant_user_association ON t_applicant_user_association.applicant_id = t_applicant.id").
 			Joins("INNER JOIN t_user ON t_applicant_user_association.user_id = t_user.id").
-			Where("t_user.hash_key IN ?", m.Users)
+			Where("t_user.hash_key IN ?", m.Users).
+			Where("t_applicant_user_association.display_flg = ?", static.INTERVIEWER_DISPLAY)
 	}
 
 	if len(m.Sites) > 0 {
@@ -306,6 +307,8 @@ func (a *ApplicantRepository) Search(m *dto.SearchApplicant) ([]*entity.SearchAp
 		t_applicant.email,
 		t_applicant.age,
 		t_applicant.commit_id,
+		t_applicant.num_of_interview,
+		t_applicant.document_pass_flg,
 		t_applicant.created_at,
 		t_select_status.status_name,
 		m_site.site_name,
@@ -339,9 +342,15 @@ func (a *ApplicantRepository) Search(m *dto.SearchApplicant) ([]*entity.SearchAp
 		}
 
 		if err := a.db.Table("t_applicant_user_association").
-			Select("t_applicant_user_association.applicant_id, t_user.id as user_id, t_user.hash_key, t_user.name").
+			Select(`
+				t_applicant_user_association.applicant_id,
+				t_user.id as user_id,
+				t_user.hash_key,
+				t_user.name
+			`).
 			Joins("INNER JOIN t_user ON t_applicant_user_association.user_id = t_user.id").
 			Where("t_applicant_user_association.applicant_id IN ?", applicantIDs).
+			Where("t_applicant_user_association.display_flg = ?", static.INTERVIEWER_DISPLAY).
 			Find(&userAssociations).Error; err != nil {
 			log.Printf("%v", err)
 			return nil, 0, err
@@ -432,6 +441,7 @@ func (a *ApplicantRepository) ListType(m *ddl.ApplicantType) ([]entity.Applicant
 	if err := a.db.Table("t_applicant_type").Select(`
 			t_applicant_type.hash_key,
 			t_applicant_type.name,
+			t_applicant_type.rule_id,
 			m_document_rule.rule_ja as rule_ja,
 			m_document_rule.rule_en as rule_en,
 			m_occupation.name_ja as name_ja,

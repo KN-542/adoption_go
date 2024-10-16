@@ -17,8 +17,6 @@ type SearchApplicant struct {
 type ReserveTableSub struct {
 	// 時間
 	Time time.Time `json:"time"`
-	// ユーザー
-	Users []string `json:"users"`
 	// 予約可否
 	IsReserve bool `json:"is_reserve"`
 }
