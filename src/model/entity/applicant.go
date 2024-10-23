@@ -10,6 +10,8 @@ type Applicant struct {
 	ddl.Applicant
 	// 予定ID
 	ScheduleID uint64 `json:"schedule_id"`
+	// 面接開始日
+	Start time.Time `json:"start"`
 	// 履歴書拡張子
 	ResumeExtension string `json:"resume_extension"`
 	// 職務経歴書拡張子

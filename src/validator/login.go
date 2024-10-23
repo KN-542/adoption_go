@@ -33,6 +33,8 @@ type ILoginValidator interface {
 	MFAApplicant(u *request.MFAApplicant) error
 	// ログアウト(応募者)
 	LogoutApplicant(u *request.LogoutApplicant) error
+	// 応募者チェック
+	CheckApplicant(u *request.CheckApplicant) error
 }
 
 type LoginValidator struct{}
@@ -209,6 +211,17 @@ func (v *LoginValidator) MFAApplicant(u *request.MFAApplicant) error {
 
 // ログアウト(応募者)
 func (v *LoginValidator) LogoutApplicant(u *request.LogoutApplicant) error {
+	return validation.ValidateStruct(
+		u,
+		validation.Field(
+			&u.HashKey,
+			validation.Required,
+		),
+	)
+}
+
+// 応募者チェック
+func (v *LoginValidator) CheckApplicant(u *request.CheckApplicant) error {
 	return validation.ValidateStruct(
 		u,
 		validation.Field(

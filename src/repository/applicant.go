@@ -391,6 +391,7 @@ func (a *ApplicantRepository) Get(m *ddl.Applicant) (*entity.Applicant, error) {
 		Select(`
 			t_applicant.*,
 			t_applicant_schedule_association.schedule_id,
+			t_schedule.start,
 			t_applicant_resume_association.extension as resume_extension,
 			t_applicant_curriculum_vitae_association.extension as curriculum_vitae_extension,
 			t_applicant_url_association.url as google_meet_url
@@ -400,6 +401,12 @@ func (a *ApplicantRepository) Get(m *ddl.Applicant) (*entity.Applicant, error) {
 				t_applicant_schedule_association
 			ON
 				t_applicant_schedule_association.applicant_id = t_applicant.id
+		`).
+		Joins(`
+			LEFT JOIN
+				t_schedule
+			ON
+				t_applicant_schedule_association.schedule_id = t_schedule.id
 		`).
 		Joins(`
 			LEFT JOIN

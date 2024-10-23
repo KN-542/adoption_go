@@ -21,6 +21,9 @@ const (
 	CODE_INIT_PASSWORD_INCORRECT uint = 1
 	// チーム未検証
 	CODE_CONFIRM_TEAM_NOT_EXIST uint = 1
+	// 応募者チェック
+	CODE_CHECK_APPLICANT_TEST_FINISHED          uint = 11
+	CODE_CHECK_APPLICANT_CANNOT_UPDATE_SCHEDULE uint = 12
 
 	/*
 		company

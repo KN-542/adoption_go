@@ -67,3 +67,8 @@ type JWTDecodeApplicant struct {
 type LogoutApplicant struct {
 	ddl.Applicant
 }
+
+// CheckApplicant
+type CheckApplicant struct {
+	ddl.Applicant
+}

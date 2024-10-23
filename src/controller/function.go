@@ -51,10 +51,21 @@ func JWTDecodeCommon[T any](c *T, e echo.Context, hash_key string, token string,
 		return e.JSON(err.Status, response.ErrorConvert(*err))
 	}
 
-	// ユーザーが削除されていないかの確認
 	if isUser {
+		// ユーザーが削除されていないかの確認
 		if err := s.UserCheck(&request.JWTDecode{
 			User: ddl.User{
+				AbstractTransactionModel: ddl.AbstractTransactionModel{
+					HashKey: hash_key,
+				},
+			},
+		}); err != nil {
+			return e.JSON(err.Status, response.ErrorConvert(*err))
+		}
+	} else {
+		// 応募者チェック
+		if err := s.CheckApplicant(&request.CheckApplicant{
+			Applicant: ddl.Applicant{
 				AbstractTransactionModel: ddl.AbstractTransactionModel{
 					HashKey: hash_key,
 				},

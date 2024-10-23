@@ -53,6 +53,8 @@ type ILoginService interface {
 	MFAApplicant(req *request.MFAApplicant) *response.Error
 	// ログアウト(応募者)
 	LogoutApplicant(req *request.LogoutApplicant, token string) (*http.Cookie, *response.Error)
+	// 応募者チェック
+	CheckApplicant(req *request.CheckApplicant) *response.Error
 }
 
 type LoginService struct {
@@ -633,6 +635,20 @@ func (l *LoginService) LoginApplicant(req *request.LoginApplicant) (*response.Lo
 		}
 	}
 
+	// 応募者チェック
+	if err := l.CheckApplicant(&request.CheckApplicant{
+		Applicant: ddl.Applicant{
+			AbstractTransactionModel: ddl.AbstractTransactionModel{
+				HashKey: applicant.HashKey,
+			},
+		},
+	}); err != nil {
+		return nil, &response.Error{
+			Status: err.Status,
+			Code:   err.Code,
+		}
+	}
+
 	// Redisに保存
 	ctx := context.Background()
 	if err := l.redis.Set(
@@ -821,4 +837,47 @@ func (l *LoginService) LogoutApplicant(req *request.LogoutApplicant, token strin
 	}
 
 	return &cookie, nil
+}
+
+// 応募者チェック
+func (l *LoginService) CheckApplicant(req *request.CheckApplicant) *response.Error {
+	// バリデーション
+	if err := l.v.CheckApplicant(req); err != nil {
+		log.Printf("%v", err)
+		return &response.Error{
+			Status: http.StatusBadRequest,
+		}
+	}
+
+	// 応募者取得
+	applicant, applicantErr := l.applicant.Get(&ddl.Applicant{
+		AbstractTransactionModel: ddl.AbstractTransactionModel{
+			HashKey: req.HashKey,
+		},
+	})
+	if applicantErr != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// 書類選考フラグチェック ＆ 過程チェック
+	if applicant.DocumentPassFlg == static.DOCUMENT_FAIL ||
+		applicant.ProcessingID == static.INTERVIEW_PROCESSING_PASS ||
+		applicant.ProcessingID == static.INTERVIEW_PROCESSING_FAIL {
+		return &response.Error{
+			Status: http.StatusUnauthorized,
+			Code:   static.CODE_CHECK_APPLICANT_TEST_FINISHED,
+		}
+	}
+
+	// 面接予定日チェック
+	if applicant.ScheduleID > 0 && time.Now().After(applicant.Start.Add(-24*time.Hour)) {
+		return &response.Error{
+			Status: http.StatusUnauthorized,
+			Code:   static.CODE_CHECK_APPLICANT_CANNOT_UPDATE_SCHEDULE,
+		}
+	}
+
+	return nil
 }
