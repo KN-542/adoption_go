@@ -47,6 +47,8 @@ type IApplicantValidator interface {
 	CreateApplicantTypeAssociation(a *request.CreateApplicantTypeAssociation) error
 	// ステータス更新
 	UpdateSelectStatus(a *request.UpdateSelectStatus) error
+	// 結果入力
+	InputResult(a *request.InputResult) error
 }
 
 type ApplicantValidator struct{}
@@ -374,6 +376,21 @@ func (v *ApplicantValidator) UpdateSelectStatus(a *request.UpdateSelectStatus) e
 			validation.Length(1, 0),
 			validation.Each(validation.Required),
 			UniqueValidator{},
+		),
+	)
+}
+
+// 結果入力
+func (v *ApplicantValidator) InputResult(a *request.InputResult) error {
+	return validation.ValidateStruct(
+		a,
+		validation.Field(
+			&a.HashKey,
+			validation.Required,
+		),
+		validation.Field(
+			&a.ProcessHash,
+			validation.Required,
 		),
 	)
 }

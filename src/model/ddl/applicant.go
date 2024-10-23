@@ -26,10 +26,14 @@ type Applicant struct {
 	NumOfInterview uint `json:"num_of_interview"`
 	// 書類通過フラグ
 	DocumentPassFlg uint `json:"document_pass_flg"`
+	// 面接過程ID
+	ProcessingID uint `json:"processing_id"`
 	// チームID
 	TeamID uint64 `json:"team_id" gorm:"index"`
 	// サイト(外部キー)
 	Sites Site `gorm:"foreignKey:site_id;references:id"`
+	// 面接過程(外部キー)
+	Processing Processing `gorm:"foreignKey:processing_id;references:id"`
 	// ステータス(外部キー)
 	ApplicantStatus SelectStatus `gorm:"foreignKey:status;references:id"`
 	// チーム(外部キー)

@@ -94,6 +94,7 @@ func NewRouter(
 	e.POST("/applicant/types", applicant.ListApplicantTypeByTeam)
 	e.POST("/applicant/update_type", applicant.CreateApplicantTypeAssociation)
 	e.POST("/applicant/update_status", applicant.UpdateSelectStatus)
+	e.POST("/applicant/result", applicant.InputResult)
 
 	// ロール
 	e.POST("/role/search_company", role.SearchByCompanyID)

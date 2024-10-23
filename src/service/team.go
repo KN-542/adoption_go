@@ -610,8 +610,8 @@ func (u *TeamService) UpdateBasic(req *request.UpdateBasicTeam) *response.Error 
 
 	// ID取得
 	ctx := context.Background()
-	t, teamErr := u.redis.Get(ctx, req.UserHashKey, static.REDIS_USER_TEAM_ID)
-	if teamErr != nil {
+	t, teamRedisErr := u.redis.Get(ctx, req.UserHashKey, static.REDIS_USER_TEAM_ID)
+	if teamRedisErr != nil {
 		return &response.Error{
 			Status: http.StatusInternalServerError,
 		}

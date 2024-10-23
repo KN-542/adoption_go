@@ -241,6 +241,10 @@ type Processing struct {
 	DescJa string `json:"desc_ja" gorm:"text"`
 	// 説明_英語
 	DescEn string `json:"desc_en" gorm:"text"`
+	// 面接続行フラグ
+	IsContinue uint `json:"is_continue"`
+	// ボタンコード
+	Code uint `json:"code"`
 }
 
 func (m LoginType) TableName() string {

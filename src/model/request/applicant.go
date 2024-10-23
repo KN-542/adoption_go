@@ -225,3 +225,13 @@ type UpdateSelectStatus struct {
 	// 応募者
 	Applicants []string `json:"applicants"`
 }
+
+// 結果入力
+type InputResult struct {
+	Abstract
+	ddl.Applicant
+	// 過程ハッシュ
+	ProcessHash string `json:"process_hash"`
+	// 書類選考フラグ
+	DocumentPassFlg uint `json:"document_pass_flg"`
+}

@@ -597,6 +597,7 @@ func main() {
 			"commit_id":         "コミットID",
 			"num_of_interview":  "面接回数",
 			"document_pass_flg": "書類通過フラグ",
+			"processing_id":     "面接過程ID",
 			"company_id":        "企業ID",
 			"team_id":           "チームID",
 			"created_at":        "登録日時",
@@ -1177,6 +1178,8 @@ func CreateData(db *gorm.DB) {
 			Processing: "面接予定",
 			DescJa:     "日程確定時",
 			DescEn:     "The schedule is finalized",
+			IsContinue: static.INTERVIEW_CONTINUE,
+			Code:       0,
 		},
 		{
 			AbstractMasterModel: ddl.AbstractMasterModel{
@@ -1185,6 +1188,8 @@ func CreateData(db *gorm.DB) {
 			Processing: "通過",
 			DescJa:     "面接通過時",
 			DescEn:     "Time to pass face-to-face contact",
+			IsContinue: static.INTERVIEW_STOP,
+			Code:       1,
 		},
 		{
 			AbstractMasterModel: ddl.AbstractMasterModel{
@@ -1193,6 +1198,8 @@ func CreateData(db *gorm.DB) {
 			Processing: "不採用",
 			DescJa:     "面接不通過時",
 			DescEn:     "The face connection fails",
+			IsContinue: static.INTERVIEW_STOP,
+			Code:       2,
 		},
 	}
 	for _, row := range interviewResult {
@@ -1723,6 +1730,14 @@ func CreateData(db *gorm.DB) {
 			NameEn:   "ManagementApplicantAssignStatus",
 			RoleType: uint(static.LOGIN_TYPE_MANAGEMENT),
 		},
+		{
+			AbstractMasterModel: ddl.AbstractMasterModel{
+				ID: uint(static.ROLE_MANAGEMENT_APPLICANT_SETTING_RESULT),
+			},
+			NameJa:   "管理者応募者結果入力",
+			NameEn:   "ManagementApplicantInputResult",
+			RoleType: uint(static.LOGIN_TYPE_MANAGEMENT),
+		},
 		// management_原稿関連
 		{
 			AbstractMasterModel: ddl.AbstractMasterModel{
@@ -2245,6 +2260,10 @@ func CreateData(db *gorm.DB) {
 		{
 			SidebarID: uint(static.SIDEBAR_MANAGEMENT_APPLICANT),
 			RoleID:    uint(static.ROLE_MANAGEMENT_APPLICANT_SETTING_STATUS),
+		},
+		{
+			SidebarID: uint(static.SIDEBAR_MANAGEMENT_APPLICANT),
+			RoleID:    uint(static.ROLE_MANAGEMENT_APPLICANT_SETTING_RESULT),
 		},
 		// management_原稿関連
 		{

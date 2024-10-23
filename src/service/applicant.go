@@ -55,6 +55,8 @@ type IApplicantService interface {
 	CreateApplicantTypeAssociation(req *request.CreateApplicantTypeAssociation) *response.Error
 	// ステータス更新
 	UpdateSelectStatus(req *request.UpdateSelectStatus) *response.Error
+	// 結果入力
+	InputResult(req *request.InputResult) *response.Error
 }
 
 type ApplicantService struct {
@@ -446,6 +448,7 @@ func (s *ApplicantService) Download(req *request.ApplicantDownload) (*response.A
 				CommitID:       *commitID,
 				TeamID:         teamID,
 				NumOfInterview: 1,
+				ProcessingID:   static.INTERVIEW_PROCESSING_NOW,
 			}
 			applicants = append(applicants, applicant)
 			applicant2 := &dto.ApplicantManuscriptAssociation{
@@ -985,7 +988,7 @@ func (s *ApplicantService) InsertDesiredAt(req *request.InsertDesiredAt) *respon
 	tEvents, tEventsErr := s.t.GetEventEachInterviewAssociation(&ddl.TeamEventEachInterview{
 		TeamID:         applicant.TeamID,
 		NumOfInterview: applicant.NumOfInterview,
-		ProcessID:      static.INTERVIEW_PROCESSING_PASS,
+		ProcessID:      static.INTERVIEW_PROCESSING_NOW,
 	})
 	if tEventsErr != nil {
 		return &response.Error{
@@ -2523,6 +2526,214 @@ func (s *ApplicantService) UpdateSelectStatus(req *request.UpdateSelectStatus) *
 		}
 		return &response.Error{
 			Status: http.StatusInternalServerError,
+		}
+	}
+
+	if err := s.d.TxCommit(tx); err != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	return nil
+}
+
+// 結果入力
+func (s *ApplicantService) InputResult(req *request.InputResult) *response.Error {
+	// バリデーション
+	if err := s.v.InputResult(req); err != nil {
+		log.Printf("%v", err)
+		return &response.Error{
+			Status: http.StatusBadRequest,
+		}
+	}
+
+	// チーム取得
+	ctx := context.Background()
+	teamRedis, teamRedisErr := s.redis.Get(ctx, req.UserHashKey, static.REDIS_USER_TEAM_ID)
+	if teamRedisErr != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+	teamID, teamIDErr := strconv.ParseUint(*teamRedis, 10, 64)
+	if teamIDErr != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+	team, teamErr := s.t.GetByPrimary(&ddl.Team{
+		AbstractTransactionModel: ddl.AbstractTransactionModel{
+			ID: teamID,
+		},
+	})
+	if teamErr != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// 過程マスタ取得
+	processing, processingErr := s.m.SelectProcessingByHash(&ddl.Processing{
+		AbstractMasterModel: ddl.AbstractMasterModel{
+			HashKey: req.ProcessHash,
+		},
+	})
+	if processingErr != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// 応募者取得
+	applicant, applicantErr := s.r.Get(&ddl.Applicant{
+		AbstractTransactionModel: ddl.AbstractTransactionModel{
+			HashKey: req.HashKey,
+		},
+	})
+	if applicantErr != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// 応募者種別取得
+	applicantType, applicantTypeErr := s.r.SelectTypeAssociation(&ddl.ApplicantTypeAssociation{
+		ApplicantID: applicant.ID,
+	})
+	if applicantTypeErr != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// 面接回数更新
+	var numOfInterview uint
+	if (applicantType.RuleID == static.DOCUMENT_RULE_REQUIRED_CONFIRM &&
+		applicant.DocumentPassFlg == static.DOCUMENT_PROCESS) ||
+		processing.ID == static.INTERVIEW_PROCESSING_FAIL ||
+		team.NumOfInterview == applicant.NumOfInterview {
+		// 書類選考、選考不通過、または最終選考の場合
+		numOfInterview = applicant.NumOfInterview
+	} else {
+		// 選考通過
+		numOfInterview = applicant.NumOfInterview + 1
+	}
+
+	// 書類選考フラグ更新
+	var documentPassFlg uint = static.DOCUMENT_PASS
+	if applicantType.RuleID == static.DOCUMENT_RULE_REQUIRED_CONFIRM && applicant.DocumentPassFlg == static.DOCUMENT_PROCESS {
+		// 書類選考の場合
+		documentPassFlg = req.DocumentPassFlg
+	}
+
+	// ステータス更新
+	var eventID uint = 0
+	var status uint64 = 0
+	if applicantType.RuleID == static.DOCUMENT_RULE_REQUIRED_CONFIRM && applicant.DocumentPassFlg == static.DOCUMENT_PROCESS {
+		// 書類選考の場合
+		if documentPassFlg == static.DOCUMENT_PASS {
+			eventID = static.STATUS_EVENT_SUBMIT_DOCUMENTS_PASS
+		} else {
+			eventID = static.STATUS_EVENT_SUBMIT_DOCUMENTS_NOT_PASS
+		}
+	} else if applicant.NumOfInterview == 1 {
+		// 一次面接の場合
+		if processing.ID == static.INTERVIEW_PROCESSING_NOW || processing.ID == static.INTERVIEW_PROCESSING_PASS {
+			eventID = static.STATUS_EVENT_INTERVIEW_PASS
+		} else {
+			eventID = static.STATUS_EVENT_INTERVIEW_FAIL
+		}
+	}
+
+	event, eventErr := s.t.SelectEventAssociationByPrimaries(&ddl.TeamEvent{
+		TeamID:  teamID,
+		EventID: eventID,
+	})
+	if eventErr != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+	status = event.StatusID
+
+	// 二次面接以降
+	if eventID == 0 {
+		var processID uint = 0
+		if processing.ID == static.INTERVIEW_PROCESSING_NOW {
+			processID = static.INTERVIEW_PROCESSING_PASS
+		} else {
+			processID = processing.ID
+		}
+		event2, event2Err := s.t.GetEventEachInterviewAssociationByPrimaries(&ddl.TeamEventEachInterview{
+			TeamID:         teamID,
+			NumOfInterview: applicant.NumOfInterview,
+			ProcessID:      processID,
+		})
+		if event2Err != nil {
+			return &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+		status = event2.StatusID
+	}
+
+	tx, txErr := s.d.TxStart()
+	if txErr != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// 過程更新
+	if err := s.r.Update(tx, &ddl.Applicant{
+		AbstractTransactionModel: ddl.AbstractTransactionModel{
+			HashKey:   req.HashKey,
+			UpdatedAt: time.Now(),
+		},
+		ProcessingID:    processing.ID,
+		NumOfInterview:  numOfInterview,
+		DocumentPassFlg: documentPassFlg,
+		Status:          status,
+	}); err != nil {
+		if err := s.d.TxRollback(tx); err != nil {
+			return &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// 書類選考通過以外の場合
+	if (applicantType.RuleID != static.DOCUMENT_RULE_REQUIRED_CONFIRM || applicant.DocumentPassFlg != static.DOCUMENT_PROCESS) || documentPassFlg == static.DOCUMENT_FAIL {
+		// 面接官削除
+		if err := s.r.DeleteUserAssociation(tx, &ddl.ApplicantUserAssociation{
+			ApplicantID: applicant.ID,
+		}); err != nil {
+			if err := s.d.TxRollback(tx); err != nil {
+				return &response.Error{
+					Status: http.StatusInternalServerError,
+				}
+			}
+			return &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+
+		// 予定削除
+		if err := s.r.DeleteApplicantScheduleAssociation(tx, &ddl.ApplicantScheduleAssociation{
+			ApplicantID: applicant.ID,
+		}); err != nil {
+			if err := s.d.TxRollback(tx); err != nil {
+				return &response.Error{
+					Status: http.StatusInternalServerError,
+				}
+			}
+			return &response.Error{
+				Status: http.StatusInternalServerError,
+			}
 		}
 	}
 

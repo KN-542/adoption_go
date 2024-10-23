@@ -53,8 +53,12 @@ type IApplicantRepository interface {
 	InsertApplicantScheduleAssociation(tx *gorm.DB, m *ddl.ApplicantScheduleAssociation) error
 	// 応募者面接予定紐づけ更新
 	UpdateApplicantScheduleAssociation(tx *gorm.DB, m *ddl.ApplicantScheduleAssociation) error
+	// 応募者面接予定紐づけ削除
+	DeleteApplicantScheduleAssociation(tx *gorm.DB, m *ddl.ApplicantScheduleAssociation) error
 	// 種別紐づけ登録
 	InsertsTypeAssociation(tx *gorm.DB, m []*ddl.ApplicantTypeAssociation) error
+	// 種別紐づけ取得
+	SelectTypeAssociation(m *ddl.ApplicantTypeAssociation) (*entity.ApplicantType, error)
 	// 種別紐づけ削除
 	DeleteTypeAssociation(tx *gorm.DB, m []uint64) error
 	// 履歴書登録
@@ -123,9 +127,11 @@ func (a *ApplicantRepository) Update(tx *gorm.DB, m *ddl.Applicant) error {
 		AbstractTransactionModel: ddl.AbstractTransactionModel{
 			UpdatedAt: time.Now(),
 		},
-		Status:         m.Status,
-		TeamID:         m.TeamID,
-		NumOfInterview: m.NumOfInterview,
+		Status:          m.Status,
+		TeamID:          m.TeamID,
+		NumOfInterview:  m.NumOfInterview,
+		DocumentPassFlg: m.DocumentPassFlg,
+		ProcessingID:    m.ProcessingID,
 	}).Error; err != nil {
 		log.Printf("%v", err)
 		return err
@@ -162,6 +168,7 @@ func (a *ApplicantRepository) Search(m *dto.SearchApplicant) ([]*entity.SearchAp
 				t_applicant.status = t_select_status.id
 		`).
 		Joins("INNER JOIN m_site ON t_applicant.site_id = m_site.id").
+		Joins("INNER JOIN m_interview_processing ON t_applicant.processing_id = m_interview_processing.id").
 		Joins(`
 			LEFT JOIN
 				t_applicant_schedule_association
@@ -312,6 +319,7 @@ func (a *ApplicantRepository) Search(m *dto.SearchApplicant) ([]*entity.SearchAp
 		t_applicant.created_at,
 		t_select_status.status_name,
 		m_site.site_name,
+		m_interview_processing.hash_key as process_hash,
 		t_schedule.hash_key as schedule_hash_key,
 		t_schedule.start,
 		t_applicant_resume_association.extension as resume_extension,
@@ -670,6 +678,17 @@ func (a *ApplicantRepository) UpdateApplicantScheduleAssociation(tx *gorm.DB, m 
 	return nil
 }
 
+// 応募者面接予定紐づけ削除
+func (a *ApplicantRepository) DeleteApplicantScheduleAssociation(tx *gorm.DB, m *ddl.ApplicantScheduleAssociation) error {
+	if err := tx.Where(&ddl.ApplicantScheduleAssociation{
+		ApplicantID: m.ApplicantID,
+	}).Delete(&ddl.ApplicantScheduleAssociation{}).Error; err != nil {
+		log.Printf("%v", err)
+		return err
+	}
+	return nil
+}
+
 // 種別紐づけ登録
 func (a *ApplicantRepository) InsertsTypeAssociation(tx *gorm.DB, m []*ddl.ApplicantTypeAssociation) error {
 	if err := tx.Create(m).Error; err != nil {
@@ -677,6 +696,24 @@ func (a *ApplicantRepository) InsertsTypeAssociation(tx *gorm.DB, m []*ddl.Appli
 		return err
 	}
 	return nil
+}
+
+// 種別紐づけ取得
+func (a *ApplicantRepository) SelectTypeAssociation(m *ddl.ApplicantTypeAssociation) (*entity.ApplicantType, error) {
+	var l entity.ApplicantType
+	if err := a.db.Model(&ddl.ApplicantType{}).
+		Joins(`
+			LEFT JOIN
+				t_applicant_type_association
+			ON
+				t_applicant_type_association.type_id = t_applicant_type.id
+		`).
+		Where("t_applicant_type_association.applicant_id = ?", m.ApplicantID).First(&l).Error; err != nil {
+		log.Printf("%v", err)
+		return nil, err
+	}
+
+	return &l, nil
 }
 
 // 種別紐づけ削除

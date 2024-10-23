@@ -52,12 +52,16 @@ type ITeamRepository interface {
 	InsertsEventAssociation(tx *gorm.DB, m []*ddl.TeamEvent) error
 	// イベント取得
 	SelectEventAssociation(m *ddl.TeamEvent) ([]entity.TeamEvent, error)
+	// イベント取得_複合PK
+	SelectEventAssociationByPrimaries(m *ddl.TeamEvent) (*entity.TeamEvent, error)
 	// イベント削除
 	DeleteEventAssociation(tx *gorm.DB, m *ddl.TeamEvent) error
 	// 面接毎イベント一括登録
 	InsertsEventEachInterviewAssociation(tx *gorm.DB, m []*ddl.TeamEventEachInterview) error
 	// ～次面接イベント取得
 	GetEventEachInterviewAssociation(m *ddl.TeamEventEachInterview) ([]entity.TeamEventEachInterview, error)
+	// ～次面接イベント取得_複合PK
+	GetEventEachInterviewAssociationByPrimaries(m *ddl.TeamEventEachInterview) (*entity.TeamEventEachInterview, error)
 	// 面接毎イベント削除
 	DeleteEventEachInterviewAssociation(tx *gorm.DB, m *ddl.TeamEventEachInterview) error
 	// 面接毎イベント削除_面接回数
@@ -458,6 +462,22 @@ func (u *TeamRepository) SelectEventAssociation(m *ddl.TeamEvent) ([]entity.Team
 	return res, nil
 }
 
+// イベント取得_複合PK
+func (u *TeamRepository) SelectEventAssociationByPrimaries(m *ddl.TeamEvent) (*entity.TeamEvent, error) {
+	var res entity.TeamEvent
+	if err := u.db.Where(
+		&ddl.TeamEvent{
+			TeamID:  m.TeamID,
+			EventID: m.EventID,
+		},
+	).First(&res).Error; err != nil {
+		log.Printf("%v", err)
+		return nil, err
+	}
+
+	return &res, nil
+}
+
 // イベント削除
 func (u *TeamRepository) DeleteEventAssociation(tx *gorm.DB, m *ddl.TeamEvent) error {
 	if err := tx.Model(&ddl.TeamEvent{}).Where(&ddl.TeamEvent{
@@ -487,6 +507,17 @@ func (u *TeamRepository) GetEventEachInterviewAssociation(m *ddl.TeamEventEachIn
 	}
 
 	return res, nil
+}
+
+// ～次面接イベント取得_複合PK
+func (u *TeamRepository) GetEventEachInterviewAssociationByPrimaries(m *ddl.TeamEventEachInterview) (*entity.TeamEventEachInterview, error) {
+	var res entity.TeamEventEachInterview
+	if err := u.db.Table("t_team_event_each_interview").Where(m).Find(&res).Error; err != nil {
+		log.Printf("%v", err)
+		return nil, err
+	}
+
+	return &res, nil
 }
 
 // 面接毎イベント削除

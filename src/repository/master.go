@@ -110,6 +110,8 @@ type IMasterRepository interface {
 	InsertProcessing(tx *gorm.DB, m *ddl.Processing) error
 	// list
 	ListProcessing() ([]entity.Processing, error)
+	// select by hash
+	SelectProcessingByHash(m *ddl.Processing) (*entity.Processing, error)
 }
 
 type MasterRepository struct {
@@ -503,4 +505,18 @@ func (r *MasterRepository) ListProcessing() ([]entity.Processing, error) {
 		return nil, err
 	}
 	return res, nil
+}
+
+// select by hash
+func (r *MasterRepository) SelectProcessingByHash(m *ddl.Processing) (*entity.Processing, error) {
+	var res entity.Processing
+	if err := r.db.Table("m_interview_processing").Where(&ddl.Processing{
+		AbstractMasterModel: ddl.AbstractMasterModel{
+			HashKey: m.HashKey,
+		},
+	}).First(&res).Error; err != nil {
+		log.Printf("%v", err)
+		return nil, err
+	}
+	return &res, nil
 }

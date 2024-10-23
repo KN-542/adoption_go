@@ -47,6 +47,8 @@ type SearchApplicant struct {
 	StatusName string `json:"status_name"`
 	// サイト名
 	SiteName string `json:"site_name"`
+	// 過程ハッシュ
+	ProcessHash string `json:"process_hash"`
 	// 予定用ハッシュキー
 	ScheduleHashKey string `json:"schedule_hash_key"`
 	// 開始時刻
