@@ -35,6 +35,8 @@ type IUserService interface {
 	DocumentRuleMaster() (*response.DocumentRule, *response.Error)
 	// 職種マスタ取得
 	OccupationMaster() (*response.Occupation, *response.Error)
+	// 削除
+	Delete(req *request.DeleteUser) *response.Error
 }
 
 type UserService struct {
@@ -759,4 +761,148 @@ func (u *UserService) OccupationMaster() (*response.Occupation, *response.Error)
 	return &response.Occupation{
 		List: res,
 	}, nil
+}
+
+// 削除
+func (u *UserService) Delete(req *request.DeleteUser) *response.Error {
+
+	// 削除対象のユーザーとログインユーザーが同一の場合、400 Bad Request
+	for _, hashKey := range req.HashKeys {
+		if hashKey == req.UserHashKey {
+			return &response.Error{
+				Status: http.StatusBadRequest,
+				Code:   static.CODE_USER_CANNOT_DELETE_SELF,
+			}
+		}
+	}
+
+	// ハッシュキーからID取得
+	ids, idsErr := u.user.GetIDs(req.HashKeys)
+	if idsErr != nil {
+		log.Printf("%v", idsErr)
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// ユーザーと紐づいている応募者数を取得
+	applicantUserCount, applicantUserCountErr := u.user.CountApplicantUserAssociation(ids)
+	// 問い合わせに失敗した場合は500エラー
+	if applicantUserCountErr != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+	// 紐づいている応募者がいる場合は削除不可（400エラー）
+	if applicantUserCount > 0 {
+		return &response.Error{
+			Status: http.StatusBadRequest,
+			Code:   static.CODE_USER_CANNOT_DELETE_APPLICANT,
+		}
+	}
+
+	// ユーザーと紐づいているスケジュール数を取得
+	scheduleCount, scheduleCountErr := u.user.CountScheduleAssociation(ids)
+	if scheduleCountErr != nil {
+		log.Printf("%v", scheduleCountErr)
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+	if scheduleCount > 0 {
+		return &response.Error{
+			Status: http.StatusBadRequest,
+			Code:   static.CODE_USER_CANNOT_DELETE_SCHEDULE,
+		}
+	}
+
+	// トランザクションの開始
+	tx, txErr := u.db.TxStart()
+	if txErr != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// 通知削除
+	if err := u.user.DeleteNotice(tx, ids); err != nil {
+		if err := u.db.TxRollback(tx); err != nil {
+			return &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// 面接毎参加可能者削除
+	if err := u.user.DeleteTeamAssignPossible(tx, ids); err != nil {
+		if err := u.db.TxRollback(tx); err != nil {
+			return &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// 面接割り振り優先順位削除
+	if err := u.user.DeleteTeamAssignPriority(tx, ids); err != nil {
+		if err := u.db.TxRollback(tx); err != nil {
+			return &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// チーム紐づけ削除
+	if err := u.user.DeleteTeamAssociation(tx, ids); err != nil {
+		if err := u.db.TxRollback(tx); err != nil {
+			return &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// リフレッシュトークン紐づけ削除
+	if err := u.user.DeleteUserRefreshTokenAssociation(tx, ids); err != nil {
+		if err := u.db.TxRollback(tx); err != nil {
+			return &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// ユーザー削除
+	if err := u.user.Delete(tx, req.HashKeys); err != nil {
+		if err := u.db.TxRollback(tx); err != nil {
+			return &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// トランザクションのコミット
+	if err := u.db.TxCommit(tx); err != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	return nil
+
 }

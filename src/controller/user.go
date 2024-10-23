@@ -32,6 +32,8 @@ type IUserController interface {
 	DocumentRuleMaster(e echo.Context) error
 	// 職種マスタ取得
 	OccupationMaster(e echo.Context) error
+	// 削除
+	Delete(e echo.Context) error
 }
 
 type UserController struct {
@@ -358,4 +360,66 @@ func (c *UserController) OccupationMaster(e echo.Context) error {
 		return e.JSON(err.Status, response.ErrorConvert(*err))
 	}
 	return e.JSON(http.StatusOK, res)
+}
+
+// 削除
+func (c *UserController) Delete(e echo.Context) error {
+	req := request.DeleteUser{}
+	if err := e.Bind(&req); err != nil {
+		log.Printf("%v", err)
+		return e.JSON(http.StatusBadRequest, fmt.Errorf(static.MESSAGE_BAD_REQUEST))
+	}
+
+	// JWT検証
+	if err := JWTDecodeCommon(
+		c,
+		e,
+		req.UserHashKey,
+		JWT_TOKEN,
+		JWT_SECRET,
+		true,
+	); err != nil {
+		return err
+	}
+
+	// ログイン種別取得
+	loginType, loginTypeErr := c.login.GetLoginType(&request.GetLoginType{
+		User: ddl.User{
+			AbstractTransactionModel: ddl.AbstractTransactionModel{
+				HashKey: req.UserHashKey,
+			},
+		},
+	})
+	if loginTypeErr != nil {
+		return e.JSON(loginTypeErr.Status, response.ErrorConvert(*loginTypeErr))
+	}
+
+	id := static.ROLE_ADMIN_USER_DELETE
+	if loginType.LoginType == static.LOGIN_TYPE_MANAGEMENT {
+		id = static.ROLE_MANAGEMENT_USER_DELETE
+	}
+
+	// ロールチェック
+	exist, roleErr := c.role.Check(&request.CheckRole{
+		Abstract: request.Abstract{
+			UserHashKey: req.UserHashKey,
+		},
+		ID: id,
+	})
+	if roleErr != nil {
+		return e.JSON(roleErr.Status, response.ErrorConvert(*roleErr))
+	}
+	if !exist {
+		err := &response.Error{
+			Status: http.StatusForbidden,
+		}
+		return e.JSON(err.Status, response.ErrorConvert(*err))
+	}
+
+	// 削除
+	if err := c.s.Delete(&req); err != nil {
+		return e.JSON(err.Status, response.ErrorConvert(*err))
+	}
+
+	return e.JSON(http.StatusOK, "OK")
 }

@@ -18,6 +18,16 @@ type IManuscriptRepository interface {
 	InsertSiteAssociation(tx *gorm.DB, m []*ddl.ManuscriptSiteAssociation) error
 	// 応募者紐づけ登録
 	InsertsApplicantAssociation(tx *gorm.DB, m []*ddl.ManuscriptApplicantAssociation) error
+	// ハッシュキーから原稿ID取得
+	GetManuscriptIDsByHashKeys(hashKeys []string) ([]uint64, error)
+	// 応募者に紐づいている原稿IDがあるかをチェック
+	CheckManuscriptAssociationByApplicant(manuscriptIDs []uint64) (int64, error)
+	// 削除
+	Delete(tx *gorm.DB, m []string) error
+	// 原稿サイト紐づけ削除
+	DeleteSiteAssociation(tx *gorm.DB, m []uint64) error
+	// 原稿チーム紐づけ削除
+	DeleteTeeamAssociation(tx *gorm.DB, m []uint64) error
 	// 応募者紐づけ削除
 	DeleteApplicantAssociation(tx *gorm.DB, m []uint64) error
 	// 取得
@@ -292,4 +302,65 @@ func (s *ManuscriptRepository) CheckDuplicateContent(m *ddl.Manuscript) (*int64,
 	}
 
 	return &count, nil
+}
+
+// ハッシュキーから原稿ID取得
+func (s *ManuscriptRepository) GetManuscriptIDsByHashKeys(hashKeys []string) ([]uint64, error) {
+	var manuscriptIDs []uint64
+	// ハッシュキーに対応する原稿IDを取得
+	if err := s.db.Model(&ddl.Manuscript{}).
+		Select("id").
+		Where("hash_key IN ?", hashKeys).
+		Find(&manuscriptIDs).Error; err != nil {
+		log.Printf("%v", err)
+		return nil, err
+	}
+	return manuscriptIDs, nil
+}
+
+// 応募者に紐づいている原稿IDがあるかをチェック
+func (r *ManuscriptRepository) CheckManuscriptAssociationByApplicant(manuscriptIDs []uint64) (int64, error) {
+	var count int64
+	// 応募者に紐づいている原稿IDがあるかをチェック
+	err := r.db.Model(&ddl.ManuscriptApplicantAssociation{}).
+		Where("manuscript_id IN ?", manuscriptIDs).
+		Count(&count).Error
+	if err != nil {
+		log.Printf("%v", err)
+		return 0, err
+	}
+	return count, nil
+}
+
+// 原稿サイト紐づけ削除
+func (u *ManuscriptRepository) DeleteSiteAssociation(tx *gorm.DB, m []uint64) error {
+	if err := tx.Model(&ddl.ManuscriptSiteAssociation{}).
+		Where("t_manuscript_site_association.manuscript_id IN ?", m).
+		Delete(&ddl.ManuscriptSiteAssociation{}).Error; err != nil {
+		log.Printf("%v", err)
+		return err
+	}
+	return nil
+}
+
+// 原稿チーム紐づけ削除
+func (u *ManuscriptRepository) DeleteTeeamAssociation(tx *gorm.DB, m []uint64) error {
+	if err := tx.Model(&ddl.ManuscriptTeamAssociation{}).
+		Where("t_manuscript_team_association.manuscript_id IN ?", m).
+		Delete(&ddl.ManuscriptTeamAssociation{}).Error; err != nil {
+		log.Printf("%v", err)
+		return err
+	}
+	return nil
+}
+
+// 原稿削除
+func (u *ManuscriptRepository) Delete(tx *gorm.DB, m []string) error {
+	if err := tx.Model(&ddl.Manuscript{}).
+		Where("t_manuscript.hash_key IN ?", m).
+		Delete(&ddl.Manuscript{}).Error; err != nil {
+		log.Printf("%v", err)
+		return err
+	}
+	return nil
 }

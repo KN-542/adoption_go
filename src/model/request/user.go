@@ -25,3 +25,9 @@ type SearchUserByCompany struct {
 type GetUser struct {
 	ddl.User
 }
+
+// 削除
+type DeleteUser struct {
+	Abstract
+	HashKeys []string `json:"hash_keys"`
+}

@@ -24,6 +24,8 @@ type IManuscriptService interface {
 	CreateApplicantAssociation(req *request.CreateApplicantAssociation) *response.Error
 	// 検索_同一チーム
 	SearchManuscriptByTeam(req *request.SearchManuscriptByTeam) (*response.SearchManuscriptByTeam, *response.Error)
+	// 削除
+	Delete(req *request.DeleteManuscriptRequest) *response.Error
 }
 
 type ManuscriptService struct {
@@ -315,6 +317,85 @@ func (s *ManuscriptService) CreateApplicantAssociation(req *request.CreateApplic
 		}
 	}
 
+	if err := s.db.TxCommit(tx); err != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	return nil
+}
+
+// 削除処理
+func (s *ManuscriptService) Delete(req *request.DeleteManuscriptRequest) *response.Error {
+	// 原稿ID取得
+	manuscriptIDs, manuscriptErr := s.manuscript.GetManuscriptIDsByHashKeys(req.ManuscriptHashKeys)
+	if manuscriptErr != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// 応募者に紐づいている原稿IDがあるかチェック
+	count, countErr := s.manuscript.CheckManuscriptAssociationByApplicant(manuscriptIDs)
+	if countErr != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+	//  応募者に紐づいている原稿IDがあれば、削除不可(400 エラーを返す)
+	if count > 0 {
+		return &response.Error{
+			Status: http.StatusBadRequest,
+			Code:   static.CODE_MANUSCRIPT_CANNOT_DELETE_APPLICANT,
+		}
+	}
+
+	// トランザクションの開始
+	tx, txErr := s.db.TxStart()
+	if txErr != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// チーム紐づけの削除
+	if err := s.manuscript.DeleteTeeamAssociation(tx, manuscriptIDs); err != nil {
+		if err := s.db.TxRollback(tx); err != nil {
+			return &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// サイト紐づけの削除
+	if err := s.manuscript.DeleteSiteAssociation(tx, manuscriptIDs); err != nil {
+		if err := s.db.TxRollback(tx); err != nil {
+			return &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// 原稿の削除
+	if err := s.manuscript.Delete(tx, req.ManuscriptHashKeys); err != nil {
+		if err := s.db.TxRollback(tx); err != nil {
+			return &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// トランザクションのコミット
 	if err := s.db.TxCommit(tx); err != nil {
 		return &response.Error{
 			Status: http.StatusInternalServerError,
