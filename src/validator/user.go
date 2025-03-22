@@ -16,6 +16,10 @@ type IUserValidator interface {
 	Search(u *request.SearchUser) error
 	// 取得
 	Get(u *request.GetUser) error
+	// 更新
+	Update(u *request.UpdateUser) error
+	// 更新_管理者
+	UpdateManagement(u *request.UpdateUser) error
 }
 
 type UserValidator struct{}
@@ -71,5 +75,36 @@ func (v *UserValidator) Search(u *request.SearchUser) error {
 func (v *UserValidator) Get(u *request.GetUser) error {
 	return validation.ValidateStruct(
 		u,
+	)
+}
+
+// 更新
+func (v *UserValidator) Update(u *request.UpdateUser) error {
+	return validation.ValidateStruct(
+		u,
+		validation.Field(
+			&u.Name,
+			validation.Required,
+			validation.Length(1, 30),
+		),
+		validation.Field(
+			&u.Email,
+			validation.Required,
+			validation.Length(1, 50),
+			is.Email,
+		),
+	)
+}
+
+// 更新_管理者
+func (v *UserValidator) UpdateManagement(u *request.UpdateUser) error {
+	return validation.ValidateStruct(
+		u,
+		validation.Field(
+			&u.Teams,
+			validation.Length(1, 0),
+			validation.Each(validation.Required),
+			UniqueValidator{},
+		),
 	)
 }

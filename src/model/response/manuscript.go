@@ -13,3 +13,8 @@ type SearchManuscript struct {
 type SearchManuscriptByTeam struct {
 	List []entity.Manuscript `json:"list"`
 }
+
+// 取得
+type GetManuscript struct {
+	entity.Manuscript
+}

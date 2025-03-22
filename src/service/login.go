@@ -220,7 +220,6 @@ func (l *LoginService) CodeGenerate(req *request.CodeGenerate) *response.Error {
 		}
 	}
 
-	// 認証コード生成
 	code := fmt.Sprintf("%06d", rand.Intn(int(math.Pow(10, 6))))
 
 	// Redisに保存

@@ -26,6 +26,10 @@ type IManuscriptService interface {
 	SearchManuscriptByTeam(req *request.SearchManuscriptByTeam) (*response.SearchManuscriptByTeam, *response.Error)
 	// 削除
 	Delete(req *request.DeleteManuscriptRequest) *response.Error
+	// 取得
+	Get(req *request.GetManuscript) (*response.GetManuscript, *response.Error)
+	// 更新
+	Update(req *request.UpdateManuscript) *response.Error
 }
 
 type ManuscriptService struct {
@@ -62,16 +66,16 @@ func (s *ManuscriptService) Search(req *request.SearchManuscript) (*response.Sea
 		}
 	}
 
-	// チームID取得
+	// 企業ID取得
 	ctx := context.Background()
-	team, teamErr := s.redis.Get(ctx, req.UserHashKey, static.REDIS_USER_TEAM_ID)
-	if teamErr != nil {
+	company, companyErr := s.redis.Get(ctx, req.UserHashKey, static.REDIS_USER_COMPANY_ID)
+	if companyErr != nil {
 		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
-	teamID, teamIDErr := strconv.ParseUint(*team, 10, 64)
-	if teamIDErr != nil {
+	companyID, companyIDErr := strconv.ParseUint(*company, 10, 64)
+	if companyIDErr != nil {
 		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
 		}
@@ -80,7 +84,7 @@ func (s *ManuscriptService) Search(req *request.SearchManuscript) (*response.Sea
 	// 検索
 	dto := dto.SearchManuscript{
 		SearchManuscript: *req,
-		TeamID:           teamID,
+		CompanyID:        companyID,
 	}
 	manuscripts, count, manuscriptsErr := s.manuscript.Search(&dto)
 	if manuscriptsErr != nil {
@@ -360,7 +364,7 @@ func (s *ManuscriptService) Delete(req *request.DeleteManuscriptRequest) *respon
 	}
 
 	// チーム紐づけの削除
-	if err := s.manuscript.DeleteTeeamAssociation(tx, manuscriptIDs); err != nil {
+	if err := s.manuscript.DeleteTeamAssociation(tx, manuscriptIDs); err != nil {
 		if err := s.db.TxRollback(tx); err != nil {
 			return &response.Error{
 				Status: http.StatusInternalServerError,
@@ -435,4 +439,216 @@ func (s *ManuscriptService) SearchManuscriptByTeam(req *request.SearchManuscript
 	return &response.SearchManuscriptByTeam{
 		List: res,
 	}, nil
+}
+
+// 取得
+func (s *ManuscriptService) Get(req *request.GetManuscript) (*response.GetManuscript, *response.Error) {
+	// バリデーション
+	if err := s.validate.Get(req); err != nil {
+		log.Printf("%v", err)
+		return nil, &response.Error{
+			Status: http.StatusBadRequest,
+		}
+	}
+	// 原稿取得
+	manuscript, manuscriptErr := s.manuscript.Get(&ddl.Manuscript{
+		AbstractTransactionModel: ddl.AbstractTransactionModel{
+			HashKey: req.HashKey,
+		},
+	})
+	if manuscriptErr != nil {
+		return nil, &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	//　ID隠蔽処理
+	for _, site := range manuscript.Sites {
+		site.ID = 0
+	}
+	for _, team := range manuscript.Teams {
+		team.ID = 0
+	}
+
+	return &response.GetManuscript{
+		Manuscript: entity.Manuscript{
+			Manuscript: ddl.Manuscript{
+				AbstractTransactionModel: ddl.AbstractTransactionModel{
+					HashKey: manuscript.HashKey,
+				},
+				Content: manuscript.Content,
+			},
+			Teams: manuscript.Teams,
+			Sites: manuscript.Sites,
+		},
+	}, nil
+}
+
+// 更新
+func (s *ManuscriptService) Update(req *request.UpdateManuscript) *response.Error {
+	// バリデーション
+	if err := s.validate.Update(req); err != nil {
+		log.Printf("%v", err)
+		return &response.Error{
+			Status: http.StatusBadRequest,
+		}
+	}
+
+	// 原稿取得
+	manuscript, manuscriptErr := s.manuscript.Get(&ddl.Manuscript{
+		AbstractTransactionModel: ddl.AbstractTransactionModel{
+			HashKey: req.HashKey,
+		},
+	})
+	if manuscriptErr != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// 内容が更新されている場合、他のものと重複していないかチェック
+	if req.Content != manuscript.Content {
+		// 企業ID取得
+		ctx := context.Background()
+		company, companyErr := s.redis.Get(ctx, req.UserHashKey, static.REDIS_USER_COMPANY_ID)
+		if companyErr != nil {
+			return &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+		companyID, companyIDErr := strconv.ParseUint(*company, 10, 64)
+		if companyIDErr != nil {
+			return &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+
+		// 内容重複チェック
+		count, countErr := s.manuscript.CheckDuplicateContent(&ddl.Manuscript{
+			AbstractTransactionModel: ddl.AbstractTransactionModel{
+				CompanyID: companyID,
+			},
+			Content: req.Content,
+		})
+		if countErr != nil {
+			return &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+		if *count > 0 {
+			return &response.Error{
+				Status: http.StatusBadRequest,
+				Code:   static.CODE_MANUSCRIPT_DUPLICATE_CONTENT,
+			}
+		}
+	}
+
+	// チームの紐付けが新たにリクエストされているか
+	isUpdateTeams := len(req.Teams) > 0
+	// チームの紐付けが新たにリクエストされている場合、チームID取得
+	var teamIDs []uint64 = nil
+	if isUpdateTeams {
+		var err error
+		teamIDs, err = s.team.GetIDs(req.Teams)
+		if err != nil {
+			return &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+	}
+
+	// サイトの紐付けが新たにリクエストされているか
+	isUpdateSites := len(req.Sites) > 0
+	// サイトの紐付けが新たにリクエストされている場合、サイトID取得
+	var siteIDs []uint = nil
+	if isUpdateSites {
+		var err error
+		siteIDs, err = s.master.SelectSiteIDs(req.Sites)
+		if err != nil {
+			return &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+	}
+
+	// トランザクションの開始
+	tx, txErr := s.db.TxStart()
+	if txErr != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// 更新処理
+	manuscriptUpdateErr := s.manuscript.Update(tx, &ddl.Manuscript{
+		AbstractTransactionModel: ddl.AbstractTransactionModel{
+			HashKey: req.HashKey,
+		},
+		Content: req.Content,
+	})
+	if manuscriptUpdateErr != nil {
+		if err := s.db.TxRollback(tx); err != nil {
+			return &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// チームの紐付けが新たにリクエストされている場合、チーム紐付けの新規割当て
+	if isUpdateTeams {
+		//　チーム紐付け情報作成
+		var teamAssociations []*ddl.ManuscriptTeamAssociation
+		for _, teamID := range teamIDs {
+			teamAssociations = append(teamAssociations, &ddl.ManuscriptTeamAssociation{
+				ManuscriptID: manuscript.ID,
+				TeamID:       teamID,
+			})
+		}
+		// DB更新
+		if err := s.manuscript.InsertTeamAssociation(tx, teamAssociations); err != nil {
+			if err := s.db.TxRollback(tx); err != nil {
+				return &response.Error{
+					Status: http.StatusInternalServerError,
+				}
+			}
+			return &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+	}
+
+	// サイトの紐付けが新たにリクエストされている場合、サイト紐付けの新規割当て
+	if isUpdateSites {
+		// サイト紐付け情報作成
+		var siteAssociations []*ddl.ManuscriptSiteAssociation
+		for _, siteID := range siteIDs {
+			siteAssociations = append(siteAssociations, &ddl.ManuscriptSiteAssociation{
+				ManuscriptID: manuscript.ID,
+				SiteID:       siteID,
+			})
+		}
+		// DB更新
+		if err := s.manuscript.InsertSiteAssociation(tx, siteAssociations); err != nil {
+			if err := s.db.TxRollback(tx); err != nil {
+				return &response.Error{
+					Status: http.StatusInternalServerError,
+				}
+			}
+			return &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+	}
+
+	// トランザクションのコミット
+	if err := s.db.TxCommit(tx); err != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	return nil
 }

@@ -24,10 +24,20 @@ type SearchUserByCompany struct {
 // 取得
 type GetUser struct {
 	ddl.User
+	UserHashKey string `json:"user_hash_key"`
 }
 
 // 削除
 type DeleteUser struct {
 	Abstract
 	HashKeys []string `json:"hash_keys"`
+}
+
+// 更新
+type UpdateUser struct {
+	ddl.User
+	// 所属チーム
+	Teams []string `json:"teams"`
+	//　ユーザーハッシュキー
+	UserHashKey string `json:"user_hash_key"`
 }

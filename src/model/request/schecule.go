@@ -21,6 +21,9 @@ type UpdateSchedule struct {
 // 予定検索
 type SearchSchedule struct {
 	Abstract
+	ddl.Schedule
+	// ユーザーリスト
+	Users []string `json:"users"`
 }
 
 // 予定削除

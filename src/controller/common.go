@@ -61,7 +61,7 @@ func (c *CommonController) Sidebar(e echo.Context) error {
 		JWT_SECRET,
 		true,
 	); err != nil {
-		return err
+		return e.JSON(err.Status, response.ErrorConvert(*err))
 	}
 
 	res, sErr := c.common.Sidebar(&req)
@@ -89,7 +89,7 @@ func (c *CommonController) Roles(e echo.Context) error {
 		JWT_SECRET,
 		true,
 	); err != nil {
-		return err
+		return e.JSON(err.Status, response.ErrorConvert(*err))
 	}
 
 	res, sErr := c.common.Roles(&req)
@@ -117,7 +117,7 @@ func (c *CommonController) ChangeTeam(e echo.Context) error {
 		JWT_SECRET,
 		true,
 	); err != nil {
-		return err
+		return e.JSON(err.Status, response.ErrorConvert(*err))
 	}
 
 	if err := c.common.ChangeTeam(&req); err != nil {

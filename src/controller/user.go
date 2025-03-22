@@ -34,6 +34,10 @@ type IUserController interface {
 	OccupationMaster(e echo.Context) error
 	// 削除
 	Delete(e echo.Context) error
+	// 取得
+	Get(e echo.Context) error
+	// ユーザー更新
+	Update(e echo.Context) error
 }
 
 type UserController struct {
@@ -73,7 +77,7 @@ func (c *UserController) Create(e echo.Context) error {
 		JWT_SECRET,
 		true,
 	); err != nil {
-		return err
+		return e.JSON(err.Status, response.ErrorConvert(*err))
 	}
 
 	// ログイン種別取得
@@ -135,7 +139,7 @@ func (c *UserController) Search(e echo.Context) error {
 		JWT_SECRET,
 		true,
 	); err != nil {
-		return err
+		return e.JSON(err.Status, response.ErrorConvert(*err))
 	}
 
 	// ログイン種別取得
@@ -196,7 +200,7 @@ func (c *UserController) SearchByCompany(e echo.Context) error {
 		JWT_SECRET,
 		true,
 	); err != nil {
-		return err
+		return e.JSON(err.Status, response.ErrorConvert(*err))
 	}
 
 	// ログイン種別取得
@@ -257,7 +261,7 @@ func (c *UserController) UpdateStatus(e echo.Context) error {
 		JWT_SECRET,
 		true,
 	); err != nil {
-		return err
+		return e.JSON(err.Status, response.ErrorConvert(*err))
 	}
 
 	// ロールチェック
@@ -318,7 +322,7 @@ func (c *UserController) UpdateAssignMethod(e echo.Context) error {
 		JWT_SECRET,
 		true,
 	); err != nil {
-		return err
+		return e.JSON(err.Status, response.ErrorConvert(*err))
 	}
 
 	// ロールチェック
@@ -379,7 +383,7 @@ func (c *UserController) Delete(e echo.Context) error {
 		JWT_SECRET,
 		true,
 	); err != nil {
-		return err
+		return e.JSON(err.Status, response.ErrorConvert(*err))
 	}
 
 	// ログイン種別取得
@@ -418,6 +422,97 @@ func (c *UserController) Delete(e echo.Context) error {
 
 	// 削除
 	if err := c.s.Delete(&req); err != nil {
+		return e.JSON(err.Status, response.ErrorConvert(*err))
+	}
+
+	return e.JSON(http.StatusOK, "OK")
+}
+
+// 取得
+func (c *UserController) Get(e echo.Context) error {
+	req := request.GetUser{}
+	if err := e.Bind(&req); err != nil {
+		log.Printf("%v", err)
+		return e.JSON(http.StatusBadRequest, fmt.Errorf(static.MESSAGE_BAD_REQUEST))
+	}
+
+	// JWT検証
+	if err := JWTDecodeCommon(
+		c,
+		e,
+		req.UserHashKey,
+		JWT_TOKEN,
+		JWT_SECRET,
+		true,
+	); err != nil {
+		return e.JSON(err.Status, response.ErrorConvert(*err))
+	}
+
+	// ロールチェック
+	exist, roleErr := c.role.Check(&request.CheckRole{
+		Abstract: request.Abstract{
+			UserHashKey: req.UserHashKey,
+		},
+		ID: static.ROLE_MANAGEMENT_USER_READ,
+	})
+	if roleErr != nil {
+		return e.JSON(roleErr.Status, response.ErrorConvert(*roleErr))
+	}
+	if !exist {
+		err := &response.Error{
+			Status: http.StatusNoContent,
+		}
+		return e.JSON(err.Status, response.ErrorConvert(*err))
+	}
+
+	// ユーザー取得
+	user, getUserErr := c.s.Get(&req)
+	if getUserErr != nil {
+		return e.JSON(getUserErr.Status, response.ErrorConvert(*getUserErr))
+	}
+
+	return e.JSON(http.StatusOK, user)
+}
+
+// ユーザー更新
+func (c *UserController) Update(e echo.Context) error {
+	req := request.UpdateUser{}
+	if err := e.Bind(&req); err != nil {
+		log.Printf("%v", err)
+		return e.JSON(http.StatusBadRequest, fmt.Errorf(static.MESSAGE_BAD_REQUEST))
+	}
+
+	// JWT検証
+	if err := JWTDecodeCommon(
+		c,
+		e,
+		req.UserHashKey,
+		JWT_TOKEN,
+		JWT_SECRET,
+		true,
+	); err != nil {
+		return e.JSON(err.Status, response.ErrorConvert(*err))
+	}
+
+	// ロールチェック
+	exist, roleErr := c.role.Check(&request.CheckRole{
+		Abstract: request.Abstract{
+			UserHashKey: req.UserHashKey,
+		},
+		ID: static.ROLE_MANAGEMENT_TEAM_EDIT,
+	})
+	if roleErr != nil {
+		return e.JSON(roleErr.Status, response.ErrorConvert(*roleErr))
+	}
+	if !exist {
+		err := &response.Error{
+			Status: http.StatusForbidden,
+		}
+		return e.JSON(err.Status, response.ErrorConvert(*err))
+	}
+
+	// 更新
+	if err := c.s.Update(&req); err != nil {
 		return e.JSON(err.Status, response.ErrorConvert(*err))
 	}
 

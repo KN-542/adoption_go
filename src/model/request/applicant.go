@@ -105,6 +105,8 @@ type GetApplicant struct {
 type GetOauthURL struct {
 	Abstract
 	ddl.Applicant
+	// Hrefフラグ
+	IsHref bool `json:"is_href"`
 }
 
 // GoogleMeetUrl発行
@@ -114,6 +116,8 @@ type GetGoogleMeetUrl struct {
 	RefreshToken string `json:"refresh_token"`
 	// 認証コード
 	Code string `json:"code"`
+	// Hrefフラグ
+	IsHref bool `json:"is_href"`
 }
 
 // 面接希望日登録

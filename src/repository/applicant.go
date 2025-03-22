@@ -25,6 +25,8 @@ type IApplicantRepository interface {
 	Search(m *dto.SearchApplicant) ([]*entity.SearchApplicant, int64, error)
 	// 取得
 	Get(m *ddl.Applicant) (*entity.Applicant, error)
+	// 不採用者取得
+	GetRejections() ([]entity.Applicant, error)
 	// 種別登録
 	InsertType(tx *gorm.DB, m *ddl.ApplicantType) error
 	// 種別一覧
@@ -81,6 +83,8 @@ type IApplicantRepository interface {
 	DeleteUserAssociation(tx *gorm.DB, m *ddl.ApplicantUserAssociation) error
 	// 応募者ID取得
 	GetIDs(m []string) ([]uint64, error)
+	// 該当のチームIDと紐付いている応募者数取得
+	CountByTeamID(m []uint64) (int64, error)
 }
 
 type ApplicantRepository struct {
@@ -438,6 +442,40 @@ func (a *ApplicantRepository) Get(m *ddl.Applicant) (*entity.Applicant, error) {
 	}
 
 	return &res, nil
+}
+
+// 不採用者取得
+func (a *ApplicantRepository) GetRejections() ([]entity.Applicant, error) {
+	var res []entity.Applicant
+	if err := a.db.Model(&ddl.Applicant{}).
+		Select(`
+			t_applicant.*,
+			t_applicant_resume_association.extension as resume_extension,
+			t_applicant_curriculum_vitae_association.extension as curriculum_vitae_extension
+		`).
+		Joins("INNER JOIN m_interview_processing ON t_applicant.processing_id = m_interview_processing.id").
+		Joins(`
+			LEFT JOIN
+				t_applicant_resume_association
+			ON
+				t_applicant_resume_association.applicant_id = t_applicant.id
+		`).
+		Joins(`
+			LEFT JOIN
+				t_applicant_curriculum_vitae_association
+			ON
+				t_applicant_curriculum_vitae_association.applicant_id = t_applicant.id
+		`).
+		Where("t_applicant.document_pass_flg = ?", static.DOCUMENT_FAIL).
+		Where(`
+			t_applicant.document_pass_flg = ? OR m_interview_processing.id = ?
+		`, static.DOCUMENT_FAIL, static.INTERVIEW_PROCESSING_FAIL).
+		Find(&res).Error; err != nil {
+		log.Printf("%v", err)
+		return nil, err
+	}
+
+	return res, nil
 }
 
 // 種別登録
@@ -850,4 +888,16 @@ func (u *ApplicantRepository) GetIDs(m []string) ([]uint64, error) {
 	}
 
 	return IDs, nil
+}
+
+// 該当のチームIDと紐付いている応募者数取得
+func (u *ApplicantRepository) CountByTeamID(m []uint64) (int64, error) {
+	var count int64
+	if err := u.db.Model(&ddl.Applicant{}).
+		Where("team_id IN ?", m).
+		Count(&count).Error; err != nil {
+		log.Printf("%v", err)
+		return 0, err
+	}
+	return count, nil
 }

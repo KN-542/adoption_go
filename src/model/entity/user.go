@@ -12,6 +12,8 @@ type Login struct {
 // User
 type User struct {
 	ddl.User
+	// 所属チーム
+	Teams []*ddl.Team `json:"teams" gorm:"many2many:t_team_association;foreignKey:id;joinForeignKey:user_id;References:id;joinReferences:team_id"`
 }
 
 // Search

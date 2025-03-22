@@ -88,8 +88,10 @@ func (v *TeamValidator) Delete(u *request.DeleteTeam) error {
 	return validation.ValidateStruct(
 		u,
 		validation.Field(
-			&u.HashKey,
+			&u.HashKeys,
 			validation.Required,
+			validation.Length(1, 0),
+			validation.Each(validation.Required),
 		),
 	)
 }

@@ -43,7 +43,7 @@ func (v *ScheduleValidator) Create(u *request.CreateSchedule) error {
 		validation.Field(
 			&u.Title,
 			validation.Required,
-			validation.Length(1, 30),
+			validation.Length(1, 90),
 		),
 	)
 }
@@ -63,7 +63,7 @@ func (v *ScheduleValidator) Update(u *request.UpdateSchedule) error {
 		validation.Field(
 			&u.Title,
 			validation.Required,
-			validation.Length(1, 30),
+			validation.Length(1, 90),
 		),
 	)
 }

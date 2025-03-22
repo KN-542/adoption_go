@@ -18,13 +18,13 @@ type IGoogleRepository interface {
 	// refresh_token取得
 	GetRefreshToken() (*string, error)
 	// 認証クライアント作成
-	GetOauthClient() (*oauth2.Config, error)
+	GetOauthClient(isHref bool) (*oauth2.Config, error)
 	// 認証URL作成
-	GetOauthURL() (*string, error)
+	GetOauthURL(isHref bool) (*string, error)
 	// access_token取得
-	GetAccessToken(refreshToken *string, code *string) (*oauth2.Token, error)
+	GetAccessToken(refreshToken *string, code *string, isHref bool) (*oauth2.Token, error)
 	// Google Meet Url 取得
-	GetGoogleMeetUrl(token *oauth2.Token, title string, start, end time.Time) (*string, error)
+	GetGoogleMeetUrl(token *oauth2.Token, title string, start, end time.Time, isHref bool) (*string, error)
 }
 
 type GoogleRepository struct {
@@ -49,11 +49,15 @@ func (g *GoogleRepository) GetRefreshToken() (*string, error) {
 }
 
 // 認証クライアント作成
-func (g *GoogleRepository) GetOauthClient() (*oauth2.Config, error) {
+func (g *GoogleRepository) GetOauthClient(isHref bool) (*oauth2.Config, error) {
+	var str = ""
+	if !isHref {
+		str = "2"
+	}
 	config := oauth2.Config{
 		ClientID:     os.Getenv("AUTH_CLIENT_ID"),
 		ClientSecret: os.Getenv("AUTH_CLIENT_SECRET"),
-		RedirectURL:  os.Getenv("AUTH_REDIRECT_URI"),
+		RedirectURL:  os.Getenv("AUTH_REDIRECT_URI_PATH") + str,
 		Scopes:       []string{os.Getenv("AUTH_SCOPE_URI")},
 		Endpoint:     google.Endpoint,
 	}
@@ -62,8 +66,8 @@ func (g *GoogleRepository) GetOauthClient() (*oauth2.Config, error) {
 }
 
 // 認証URL作成
-func (g *GoogleRepository) GetOauthURL() (*string, error) {
-	config, err := g.GetOauthClient()
+func (g *GoogleRepository) GetOauthURL(isHref bool) (*string, error) {
+	config, err := g.GetOauthClient(isHref)
 	if err != nil {
 		log.Printf("%v", err)
 		return nil, err
@@ -74,8 +78,8 @@ func (g *GoogleRepository) GetOauthURL() (*string, error) {
 }
 
 // access_token取得
-func (g *GoogleRepository) GetAccessToken(refreshToken *string, code *string) (*oauth2.Token, error) {
-	config, err := g.GetOauthClient()
+func (g *GoogleRepository) GetAccessToken(refreshToken *string, code *string, isHref bool) (*oauth2.Token, error) {
+	config, err := g.GetOauthClient(isHref)
 	if err != nil {
 		log.Printf("%v", err)
 		return nil, err
@@ -111,10 +115,10 @@ func (g *GoogleRepository) GetAccessToken(refreshToken *string, code *string) (*
 }
 
 // Google Meet Url 取得
-func (g *GoogleRepository) GetGoogleMeetUrl(token *oauth2.Token, title string, start, end time.Time) (*string, error) {
+func (g *GoogleRepository) GetGoogleMeetUrl(token *oauth2.Token, title string, start, end time.Time, isHref bool) (*string, error) {
 	ctx := context.Background()
 
-	config, configErr := g.GetOauthClient()
+	config, configErr := g.GetOauthClient(isHref)
 	if configErr != nil {
 		log.Printf("%v", configErr)
 		return nil, configErr

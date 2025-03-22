@@ -2,6 +2,7 @@ package service
 
 import (
 	"api/src/model/ddl"
+	"api/src/model/dto"
 	"api/src/model/entity"
 	"api/src/model/request"
 	"api/src/model/response"
@@ -26,6 +27,8 @@ type IScheduleService interface {
 	Search(req *request.SearchSchedule) (*response.SearchSchedule, *response.Error)
 	// 予定削除
 	Delete(req *request.DeleteSchedule) *response.Error
+	// 予定更新バッチ
+	UpdateBatch() *response.Error
 }
 
 type ScheduleService struct {
@@ -285,120 +288,37 @@ func (u *ScheduleService) Update(req *request.UpdateSchedule) *response.Error {
 	return nil
 }
 
-// 予定検索 (バッチでも実行したい)
+// 予定検索
 func (u *ScheduleService) Search(req *request.SearchSchedule) (*response.SearchSchedule, *response.Error) {
-	// チームID取得
+	if len(req.Users) == 0 {
+		return &response.SearchSchedule{
+			List: []entity.Schedule{},
+		}, nil
+	}
+
+	// 企業ID取得
 	ctx := context.Background()
-	teamRedis, teamRedisErr := u.redis.Get(ctx, req.UserHashKey, static.REDIS_USER_TEAM_ID)
-	if teamRedisErr != nil {
+	companyRedis, companyRedisErr := u.redis.Get(ctx, req.UserHashKey, static.REDIS_USER_COMPANY_ID)
+	if companyRedisErr != nil {
 		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
-	teamID, teamIDErr := strconv.ParseUint(*teamRedis, 10, 64)
-	if teamIDErr != nil {
-		return nil, &response.Error{
-			Status: http.StatusInternalServerError,
-		}
-	}
-
-	schedulesBefore, sErr := u.schedule.Search(&ddl.Schedule{
-		TeamID: teamID,
-	})
-	if sErr != nil {
+	companyID, companyIDErr := strconv.ParseUint(*companyRedis, 10, 64)
+	if companyIDErr != nil {
 		return nil, &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
 
-	var deleteList []uint64
-	var editList []*ddl.Schedule
-
-	tx, txErr := u.db.TxStart()
-	if txErr != nil {
-		return nil, &response.Error{
-			Status: http.StatusInternalServerError,
-		}
-	}
-
-	// 日付が過去の場合、更新or削除
-	if len(schedulesBefore) > 0 {
-		for _, schedule := range schedulesBefore {
-			if schedule.Start.Before(time.Now()) {
-				deleteList = append(deleteList, schedule.ID)
-
-				// なし以外の場合
-				if schedule.FreqID != uint(static.FREQ_NONE) {
-					s := schedule.Start
-					e := schedule.End
-					if schedule.FreqID == uint(static.FREQ_DAILY) {
-						s = s.AddDate(0, 0, 1)
-						e = e.AddDate(0, 0, 1)
-					}
-					if schedule.FreqID == uint(static.FREQ_WEEKLY) {
-						s = s.AddDate(0, 0, 7)
-						e = e.AddDate(0, 0, 7)
-					}
-					if schedule.FreqID == uint(static.FREQ_MONTHLY) {
-						s = s.AddDate(0, 1, 0)
-						e = e.AddDate(0, 1, 0)
-					}
-					if schedule.FreqID == uint(static.FREQ_YEARLY) {
-						s = s.AddDate(1, 0, 0)
-						e = e.AddDate(1, 0, 0)
-					}
-
-					editList = append(editList, &ddl.Schedule{
-						AbstractTransactionModel: ddl.AbstractTransactionModel{
-							HashKey:   schedule.HashKey,
-							CompanyID: schedule.CompanyID,
-							CreatedAt: schedule.CreatedAt,
-							UpdatedAt: time.Now(),
-						},
-						Start:        s,
-						End:          e,
-						Title:        schedule.Title,
-						FreqID:       schedule.FreqID,
-						InterviewFlg: schedule.InterviewFlg,
-						TeamID:       schedule.TeamID,
-					})
-				}
-			}
-		}
-	}
-
-	if err := u.schedule.Deletes(tx, deleteList); err != nil {
-		if err := u.db.TxRollback(tx); err != nil {
-			return nil, &response.Error{
-				Status: http.StatusInternalServerError,
-			}
-		}
-		return nil, &response.Error{
-			Status: http.StatusInternalServerError,
-		}
-	}
-
-	if len(editList) > 0 {
-		if err := u.schedule.Inserts(tx, editList); err != nil {
-			if err := u.db.TxRollback(tx); err != nil {
-				return nil, &response.Error{
-					Status: http.StatusInternalServerError,
-				}
-			}
-			return nil, &response.Error{
-				Status: http.StatusInternalServerError,
-			}
-		}
-	}
-
-	if err := u.db.TxCommit(tx); err != nil {
-		return nil, &response.Error{
-			Status: http.StatusInternalServerError,
-		}
-	}
-
-	schedulesAfter, err := u.schedule.Search(&ddl.Schedule{
-		TeamID: teamID,
+	schedules, err := u.schedule.Search(&dto.SearchSchedule{
+		Schedule: ddl.Schedule{
+			AbstractTransactionModel: ddl.AbstractTransactionModel{
+				CompanyID: companyID,
+			},
+			InterviewFlg: req.InterviewFlg,
+		},
+		Users: req.Users,
 	})
 	if err != nil {
 		return nil, &response.Error{
@@ -407,7 +327,7 @@ func (u *ScheduleService) Search(req *request.SearchSchedule) (*response.SearchS
 	}
 
 	var res []entity.Schedule
-	for _, row := range schedulesAfter {
+	for _, row := range schedules {
 		row.ID = 0
 		for _, row2 := range row.Users {
 			row2.ID = 0
@@ -470,6 +390,69 @@ func (u *ScheduleService) Delete(req *request.DeleteSchedule) *response.Error {
 			HashKey: schedule.HashKey,
 		},
 	}); err != nil {
+		if err := u.db.TxRollback(tx); err != nil {
+			return &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	if err := u.db.TxCommit(tx); err != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	return nil
+}
+
+// 予定更新バッチ
+func (u *ScheduleService) UpdateBatch() *response.Error {
+	tx, err := u.db.TxStart()
+	if err != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	// 予定更新_Day
+	if err := u.schedule.UpdateDays(tx); err != nil {
+		if err := u.db.TxRollback(tx); err != nil {
+			return &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+	// 予定更新_WEEK
+	if err := u.schedule.UpdateWeeks(tx); err != nil {
+		if err := u.db.TxRollback(tx); err != nil {
+			return &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+	// 予定更新_MONTH
+	if err := u.schedule.UpdateMonths(tx); err != nil {
+		if err := u.db.TxRollback(tx); err != nil {
+			return &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+	// 予定更新_YEAR
+	if err := u.schedule.UpdateYears(tx); err != nil {
 		if err := u.db.TxRollback(tx); err != nil {
 			return &response.Error{
 				Status: http.StatusInternalServerError,

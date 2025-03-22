@@ -28,3 +28,9 @@ const (
 	DOCUMENT_PASS    uint = 1
 	DOCUMENT_FAIL    uint = 2
 )
+
+// ファイル名プレ
+const (
+	FILE_NAME_PRE_RESUME           string = "resume"
+	FILE_NAME_PRE_CURRICULUM_VITAE string = "curriculum_vitae"
+)

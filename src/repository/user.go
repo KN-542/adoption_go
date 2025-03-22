@@ -4,6 +4,7 @@ import (
 	"api/src/model/ddl"
 	"api/src/model/dto"
 	"api/src/model/entity"
+	"api/src/model/static"
 	"fmt"
 	"log"
 	"time"
@@ -148,7 +149,11 @@ func (u *UserRepository) Get(m *ddl.User) (*entity.User, error) {
 				HashKey: m.HashKey,
 			},
 		},
-	).First(&res).Error; err != nil {
+	).Preload("Teams", func(db *gorm.DB) *gorm.DB {
+		return db.Table("t_team").Select("id, hash_key, name")
+	}).Preload("Role", func(db *gorm.DB) *gorm.DB {
+		return db.Table("t_role").Select("id, hash_key, name")
+	}).Find(&res).Error; err != nil {
 		log.Printf("%v", err)
 		return nil, err
 	}
@@ -308,6 +313,16 @@ func (u *UserRepository) GetUsersSortedByScheduleCount(m *ddl.Schedule) ([]entit
 	query := u.db.Table("t_user").
 		Joins("LEFT JOIN t_team_association ON t_team_association.user_id = t_user.id").
 		Joins("LEFT JOIN t_schedule_association ON t_schedule_association.user_id = t_user.id").
+		Joins(`
+			LEFT JOIN
+				t_applicant_user_association
+			ON
+				t_applicant_user_association.user_id = t_user.id
+			AND
+				t_applicant_user_association.display_flg = ?
+			`,
+			static.INTERVIEWER_DISPLAY,
+		).
 		Where("t_team_association.team_id = ?", m.TeamID).
 		Group("t_user.id").
 		Order("COUNT(DISTINCT t_schedule_association.schedule_id) ASC")

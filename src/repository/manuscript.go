@@ -12,6 +12,8 @@ import (
 type IManuscriptRepository interface {
 	// 登録
 	Insert(tx *gorm.DB, m *ddl.Manuscript) (*entity.Manuscript, error)
+	// 更新
+	Update(tx *gorm.DB, m *ddl.Manuscript) error
 	// チーム紐づけ登録
 	InsertTeamAssociation(tx *gorm.DB, m []*ddl.ManuscriptTeamAssociation) error
 	// サイト紐づけ登録
@@ -27,7 +29,7 @@ type IManuscriptRepository interface {
 	// 原稿サイト紐づけ削除
 	DeleteSiteAssociation(tx *gorm.DB, m []uint64) error
 	// 原稿チーム紐づけ削除
-	DeleteTeeamAssociation(tx *gorm.DB, m []uint64) error
+	DeleteTeamAssociation(tx *gorm.DB, m []uint64) error
 	// 応募者紐づけ削除
 	DeleteApplicantAssociation(tx *gorm.DB, m []uint64) error
 	// 取得
@@ -42,6 +44,8 @@ type IManuscriptRepository interface {
 	GetAssociationByTeamID(m *ddl.ManuscriptTeamAssociation) ([]entity.ManuscriptTeamAssociation, error)
 	// 内容重複チェック
 	CheckDuplicateContent(m *ddl.Manuscript) (*int64, error)
+	// 該当のチームIDと紐付いている原稿数を取得
+	CountByTeamID(m []uint64) (int64, error)
 }
 
 type ManuscriptRepository struct {
@@ -61,6 +65,28 @@ func (u *ManuscriptRepository) Insert(tx *gorm.DB, m *ddl.Manuscript) (*entity.M
 	return &entity.Manuscript{
 		Manuscript: *m,
 	}, nil
+}
+
+// 更新
+func (u *ManuscriptRepository) Update(tx *gorm.DB, m *ddl.Manuscript) error {
+	// 更新内容
+	manuscript := ddl.Manuscript{
+		AbstractTransactionModel: ddl.AbstractTransactionModel{
+			UpdatedAt: m.UpdatedAt,
+		},
+		Content: m.Content,
+	}
+	// 更新
+	if err := tx.Model(&ddl.Manuscript{}).Where(
+		&ddl.Manuscript{
+			AbstractTransactionModel: ddl.AbstractTransactionModel{
+				HashKey: m.HashKey,
+			},
+		}).Updates(manuscript).Error; err != nil {
+		log.Printf("%v", err)
+		return err
+	}
+	return nil
 }
 
 // チーム紐づけ登録
@@ -109,6 +135,10 @@ func (s *ManuscriptRepository) Get(m *ddl.Manuscript) (*entity.Manuscript, error
 		AbstractTransactionModel: ddl.AbstractTransactionModel{
 			HashKey: m.HashKey,
 		},
+	}).Preload("Sites", func(db *gorm.DB) *gorm.DB {
+		return db.Select("id, hash_key, site_name")
+	}).Preload("Teams", func(db *gorm.DB) *gorm.DB {
+		return db.Select("id, hash_key, name")
 	}).First(&res).Error; err != nil {
 		log.Printf("%v", err)
 		return nil, err
@@ -123,13 +153,7 @@ func (s *ManuscriptRepository) Search(m *dto.SearchManuscript) ([]*entity.Search
 	var count int64
 
 	query := s.db.Table("t_manuscript").
-		Joins(`
-			LEFT JOIN
-				t_manuscript_team_association
-			ON
-				t_manuscript_team_association.manuscript_id = t_manuscript.id
-		`).
-		Where("t_manuscript_team_association.team_id = ?", m.TeamID)
+		Where("t_manuscript.company_id = ?", m.CompanyID)
 
 	if len(m.Sites) > 0 {
 		query = query.Joins(`
@@ -344,7 +368,7 @@ func (u *ManuscriptRepository) DeleteSiteAssociation(tx *gorm.DB, m []uint64) er
 }
 
 // 原稿チーム紐づけ削除
-func (u *ManuscriptRepository) DeleteTeeamAssociation(tx *gorm.DB, m []uint64) error {
+func (u *ManuscriptRepository) DeleteTeamAssociation(tx *gorm.DB, m []uint64) error {
 	if err := tx.Model(&ddl.ManuscriptTeamAssociation{}).
 		Where("t_manuscript_team_association.manuscript_id IN ?", m).
 		Delete(&ddl.ManuscriptTeamAssociation{}).Error; err != nil {
@@ -363,4 +387,17 @@ func (u *ManuscriptRepository) Delete(tx *gorm.DB, m []string) error {
 		return err
 	}
 	return nil
+}
+
+// 該当のチームIDと紐付いている原稿数を取得
+func (u *ManuscriptRepository) CountByTeamID(m []uint64) (int64, error) {
+	var count int64
+	if err := u.db.
+		Table("t_manuscript_team_association").
+		Where("team_id IN ?", m).
+		Count(&count).Error; err != nil {
+		log.Printf("%v", err)
+		return 0, err
+	}
+	return count, nil
 }

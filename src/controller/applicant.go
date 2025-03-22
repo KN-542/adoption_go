@@ -52,6 +52,8 @@ type IApplicantController interface {
 	UpdateSelectStatus(e echo.Context) error
 	// 結果入力
 	InputResult(e echo.Context) error
+	// S3ファイル削除
+	DeleteS3Files(e echo.Context) error
 }
 
 type ApplicantController struct {
@@ -91,7 +93,7 @@ func (c *ApplicantController) Search(e echo.Context) error {
 		JWT_SECRET,
 		true,
 	); err != nil {
-		return err
+		return e.JSON(err.Status, response.ErrorConvert(*err))
 	}
 
 	// ロールチェック
@@ -146,7 +148,7 @@ func (c *ApplicantController) GetStatusList(e echo.Context) error {
 		JWT_SECRET,
 		true,
 	); err != nil {
-		return err
+		return e.JSON(err.Status, response.ErrorConvert(*err))
 	}
 
 	// ロールチェック
@@ -191,7 +193,7 @@ func (c *ApplicantController) Download(e echo.Context) error {
 		JWT_SECRET,
 		true,
 	); err != nil {
-		return err
+		return e.JSON(err.Status, response.ErrorConvert(*err))
 	}
 
 	// ロールチェック
@@ -229,7 +231,7 @@ func (c *ApplicantController) ReserveTable(e echo.Context) error {
 
 	// JWT検証
 	if err := JWTDecodeCommon(c, e, req.HashKey, JWT_TOKEN2, JWT_SECRET2, false); err != nil {
-		return err
+		return e.JSON(err.Status, response.ErrorConvert(*err))
 	}
 
 	res, err := c.s.ReserveTable(&req)
@@ -257,7 +259,7 @@ func (c *ApplicantController) GetOauthURL(e echo.Context) error {
 		JWT_SECRET,
 		true,
 	); err != nil {
-		return err
+		return e.JSON(err.Status, response.ErrorConvert(*err))
 	}
 
 	// ロールチェック
@@ -302,7 +304,7 @@ func (c *ApplicantController) Get(e echo.Context) error {
 		JWT_SECRET,
 		true,
 	); err != nil {
-		return err
+		return e.JSON(err.Status, response.ErrorConvert(*err))
 	}
 
 	// ロールチェック
@@ -336,7 +338,7 @@ func (c *ApplicantController) DocumentsUpload(e echo.Context) error {
 
 	// JWT検証
 	if err := JWTDecodeCommon(c, e, hashKey, JWT_TOKEN2, JWT_SECRET2, false); err != nil {
-		return err
+		return e.JSON(err.Status, response.ErrorConvert(*err))
 	}
 
 	resumeExtension := e.FormValue("resume_extension")
@@ -401,7 +403,7 @@ func (c *ApplicantController) DocumentDownload(e echo.Context) error {
 		JWT_SECRET,
 		true,
 	); err != nil {
-		return err
+		return e.JSON(err.Status, response.ErrorConvert(*err))
 	}
 
 	// ロールチェック
@@ -440,8 +442,8 @@ func (c *ApplicantController) InsertDesiredAt(e echo.Context) error {
 	}
 
 	// JWT検証
-	if err := JWTDecodeCommon(c, e, req.HashKey, JWT_TOKEN2, JWT_SECRET2, false); err != nil {
-		return err
+	if err := JWTDecodeCommon(c, e, req.ApplicantHashKey, JWT_TOKEN2, JWT_SECRET2, false); err != nil {
+		return e.JSON(err.Status, response.ErrorConvert(*err))
 	}
 
 	if err := c.s.InsertDesiredAt(&req); err != nil {
@@ -468,7 +470,7 @@ func (c *ApplicantController) GetGoogleMeetUrl(e echo.Context) error {
 		JWT_SECRET,
 		true,
 	); err != nil {
-		return err
+		return e.JSON(err.Status, response.ErrorConvert(*err))
 	}
 
 	// ロールチェック
@@ -512,7 +514,7 @@ func (c *ApplicantController) AssignUser(e echo.Context) error {
 		JWT_SECRET,
 		true,
 	); err != nil {
-		return err
+		return e.JSON(err.Status, response.ErrorConvert(*err))
 	}
 
 	// ロールチェック
@@ -555,7 +557,7 @@ func (c *ApplicantController) CheckAssignableUser(e echo.Context) error {
 		JWT_SECRET,
 		true,
 	); err != nil {
-		return err
+		return e.JSON(err.Status, response.ErrorConvert(*err))
 	}
 
 	// ロールチェック
@@ -599,7 +601,7 @@ func (c *ApplicantController) CreateApplicantType(e echo.Context) error {
 		JWT_SECRET,
 		true,
 	); err != nil {
-		return err
+		return e.JSON(err.Status, response.ErrorConvert(*err))
 	}
 
 	// ロールチェック
@@ -642,7 +644,7 @@ func (c *ApplicantController) ListApplicantType(e echo.Context) error {
 		JWT_SECRET,
 		true,
 	); err != nil {
-		return err
+		return e.JSON(err.Status, response.ErrorConvert(*err))
 	}
 
 	// ロールチェック
@@ -686,7 +688,7 @@ func (c *ApplicantController) ListApplicantTypeByTeam(e echo.Context) error {
 		JWT_SECRET,
 		true,
 	); err != nil {
-		return err
+		return e.JSON(err.Status, response.ErrorConvert(*err))
 	}
 
 	// ロールチェック
@@ -730,7 +732,7 @@ func (c *ApplicantController) CreateApplicantTypeAssociation(e echo.Context) err
 		JWT_SECRET,
 		true,
 	); err != nil {
-		return err
+		return e.JSON(err.Status, response.ErrorConvert(*err))
 	}
 
 	// ロールチェック
@@ -773,7 +775,7 @@ func (c *ApplicantController) UpdateSelectStatus(e echo.Context) error {
 		JWT_SECRET,
 		true,
 	); err != nil {
-		return err
+		return e.JSON(err.Status, response.ErrorConvert(*err))
 	}
 
 	// ロールチェック
@@ -816,7 +818,7 @@ func (c *ApplicantController) InputResult(e echo.Context) error {
 		JWT_SECRET,
 		true,
 	); err != nil {
-		return err
+		return e.JSON(err.Status, response.ErrorConvert(*err))
 	}
 
 	// ロールチェック
@@ -837,6 +839,14 @@ func (c *ApplicantController) InputResult(e echo.Context) error {
 	}
 
 	if err := c.s.InputResult(&req); err != nil {
+		return e.JSON(err.Status, response.ErrorConvert(*err))
+	}
+	return e.JSON(http.StatusOK, "OK")
+}
+
+// S3ファイル削除
+func (c *ApplicantController) DeleteS3Files(e echo.Context) error {
+	if err := c.s.DeleteS3Files(); err != nil {
 		return e.JSON(err.Status, response.ErrorConvert(*err))
 	}
 	return e.JSON(http.StatusOK, "OK")

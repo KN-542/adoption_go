@@ -769,13 +769,9 @@ func (u *TeamService) Delete(req *request.DeleteTeam) *response.Error {
 		}
 	}
 
-	// 取得
-	team, teamErr := u.team.Get(&ddl.Team{
-		AbstractTransactionModel: ddl.AbstractTransactionModel{
-			HashKey: req.HashKey,
-		},
-	})
-	if teamErr != nil {
+	// IDの取得
+	IDs, IDsErr := u.team.GetIDs(req.HashKeys)
+	if IDsErr != nil {
 		return &response.Error{
 			Status: http.StatusInternalServerError,
 		}
@@ -795,56 +791,50 @@ func (u *TeamService) Delete(req *request.DeleteTeam) *response.Error {
 			Status: http.StatusInternalServerError,
 		}
 	}
-	if team.ID == teamID {
-		return &response.Error{
-			Status: http.StatusConflict,
-			Code:   static.CODE_TEAM_USER_CANNOT_DELETE_TEAM,
+	for _, id := range IDs {
+		if teamID == id {
+			return &response.Error{
+				Status: http.StatusConflict,
+				Code:   static.CODE_TEAM_USER_CANNOT_DELETE_TEAM,
+			}
 		}
 	}
 
 	// 削除可能判定
 	// t_applicant
-	apps, appsErr := u.applicant.GetByTeamID(&ddl.Applicant{
-		TeamID: team.ID,
-	})
+	apps, appsErr := u.applicant.CountByTeamID(IDs)
 	if appsErr != nil {
 		return &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
-	if len(apps) > 0 {
+	if apps > 0 {
 		return &response.Error{
 			Status: http.StatusConflict,
 			Code:   static.CODE_TEAM_USER_CANNOT_DELETE_APPLICANT,
 		}
 	}
 	// t_schedule
-	schedules, schedulesErr := u.schedule.GetByTeamID(&ddl.Schedule{
-		TeamID: team.ID,
-	})
+	schedules, schedulesErr := u.schedule.CountByTeamID(IDs)
 	if schedulesErr != nil {
 		return &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
-	if len(schedules) > 0 {
+	if schedules > 0 {
 		return &response.Error{
 			Status: http.StatusConflict,
 			Code:   static.CODE_TEAM_USER_CANNOT_DELETE_SCHEDULE,
 		}
 	}
 	// t_manuscript_team_association
-	manuscripts, manuscriptsErr := u.manuscript.GetAssociationByTeamID(
-		&ddl.ManuscriptTeamAssociation{
-			TeamID: team.ID,
-		},
-	)
+	manuscripts, manuscriptsErr := u.manuscript.CountByTeamID(IDs)
 	if manuscriptsErr != nil {
 		return &response.Error{
 			Status: http.StatusInternalServerError,
 		}
 	}
-	if len(manuscripts) > 0 {
+	if manuscripts > 0 {
 		return &response.Error{
 			Status: http.StatusConflict,
 			Code:   static.CODE_TEAM_USER_CANNOT_DELETE_MANUSCRIPT,
@@ -860,9 +850,7 @@ func (u *TeamService) Delete(req *request.DeleteTeam) *response.Error {
 
 	// 関連する紐づけ削除
 	// t_team_association
-	if err := u.team.DeleteTeamAssociation(tx, &ddl.TeamAssociation{
-		TeamID: team.ID,
-	}); err != nil {
+	if err := u.team.DeleteTeamAssociation(tx, IDs); err != nil {
 		if err := u.db.TxRollback(tx); err != nil {
 			return &response.Error{
 				Status: http.StatusInternalServerError,
@@ -872,10 +860,8 @@ func (u *TeamService) Delete(req *request.DeleteTeam) *response.Error {
 			Status: http.StatusInternalServerError,
 		}
 	}
-	//  t_team_per_interview
-	if err := u.team.DeletePerInterview(tx, &ddl.TeamPerInterview{
-		TeamID: team.ID,
-	}); err != nil {
+	//  t_team_per_interview 面接毎設定削除
+	if err := u.team.DeletePerInterview(tx, IDs); err != nil {
 		if err := u.db.TxRollback(tx); err != nil {
 			return &response.Error{
 				Status: http.StatusInternalServerError,
@@ -886,9 +872,7 @@ func (u *TeamService) Delete(req *request.DeleteTeam) *response.Error {
 		}
 	}
 	//  t_team_assign_possible
-	if err := u.team.DeleteAssignPossible(tx, &ddl.TeamAssignPossible{
-		TeamID: team.ID,
-	}); err != nil {
+	if err := u.team.DeleteAssignPossible(tx, IDs); err != nil {
 		if err := u.db.TxRollback(tx); err != nil {
 			return &response.Error{
 				Status: http.StatusInternalServerError,
@@ -899,9 +883,7 @@ func (u *TeamService) Delete(req *request.DeleteTeam) *response.Error {
 		}
 	}
 	//  t_team_assign_priority
-	if err := u.team.DeleteAssignPriority(tx, &ddl.TeamAssignPriority{
-		TeamID: team.ID,
-	}); err != nil {
+	if err := u.team.DeleteAssignPriority(tx, IDs); err != nil {
 		if err := u.db.TxRollback(tx); err != nil {
 			return &response.Error{
 				Status: http.StatusInternalServerError,
@@ -912,22 +894,7 @@ func (u *TeamService) Delete(req *request.DeleteTeam) *response.Error {
 		}
 	}
 	// t_select_status
-	if err := u.team.DeleteSelectStatus(tx, &ddl.SelectStatus{
-		TeamID: team.ID,
-	}); err != nil {
-		if err := u.db.TxRollback(tx); err != nil {
-			return &response.Error{
-				Status: http.StatusInternalServerError,
-			}
-		}
-		return &response.Error{
-			Status: http.StatusInternalServerError,
-		}
-	}
-	// t_select_status
-	if err := u.team.DeleteSelectStatus(tx, &ddl.SelectStatus{
-		TeamID: team.ID,
-	}); err != nil {
+	if err := u.team.DeleteSelectStatus(tx, IDs); err != nil {
 		if err := u.db.TxRollback(tx); err != nil {
 			return &response.Error{
 				Status: http.StatusInternalServerError,
@@ -938,9 +905,7 @@ func (u *TeamService) Delete(req *request.DeleteTeam) *response.Error {
 		}
 	}
 	// t_team_auto_assign_rule_association
-	if err := u.team.DeleteAutoAssignRule(tx, &ddl.TeamAutoAssignRule{
-		TeamID: team.ID,
-	}); err != nil {
+	if err := u.team.DeleteAutoAssignRule(tx, IDs); err != nil {
 		if err := u.db.TxRollback(tx); err != nil {
 			return &response.Error{
 				Status: http.StatusInternalServerError,
@@ -951,9 +916,7 @@ func (u *TeamService) Delete(req *request.DeleteTeam) *response.Error {
 		}
 	}
 	// t_team_event_each_interview
-	if err := u.team.DeleteEventEachInterviewAssociation(tx, &ddl.TeamEventEachInterview{
-		TeamID: team.ID,
-	}); err != nil {
+	if err := u.team.DeleteEventEachInterviewAssociation(tx, IDs); err != nil {
 		if err := u.db.TxRollback(tx); err != nil {
 			return &response.Error{
 				Status: http.StatusInternalServerError,
@@ -963,10 +926,9 @@ func (u *TeamService) Delete(req *request.DeleteTeam) *response.Error {
 			Status: http.StatusInternalServerError,
 		}
 	}
+
 	// t_team_event
-	if err := u.team.DeleteEventAssociation(tx, &ddl.TeamEvent{
-		TeamID: team.ID,
-	}); err != nil {
+	if err := u.team.DeleteEventAssociation(tx, IDs); err != nil {
 		if err := u.db.TxRollback(tx); err != nil {
 			return &response.Error{
 				Status: http.StatusInternalServerError,
@@ -978,11 +940,7 @@ func (u *TeamService) Delete(req *request.DeleteTeam) *response.Error {
 	}
 
 	// 削除
-	if err := u.team.Delete(tx, &ddl.Team{
-		AbstractTransactionModel: ddl.AbstractTransactionModel{
-			HashKey: req.HashKey,
-		},
-	}); err != nil {
+	if err := u.team.Delete(tx, req.HashKeys); err != nil {
 		if err := u.db.TxRollback(tx); err != nil {
 			return &response.Error{
 				Status: http.StatusInternalServerError,

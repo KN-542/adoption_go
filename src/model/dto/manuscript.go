@@ -5,8 +5,8 @@ import "api/src/model/request"
 // 検索
 type SearchManuscript struct {
 	request.SearchManuscript
-	// チームID
-	TeamID uint64 `json:"team_id"`
+	// 企業ID
+	CompanyID uint64 `json:"company_id"`
 }
 
 // 検索_チーム＆サイト

@@ -23,7 +23,7 @@ type ITeamRepository interface {
 	// 更新
 	Update(tx *gorm.DB, m *ddl.Team) (*entity.Team, error)
 	// 削除
-	Delete(tx *gorm.DB, m *ddl.Team) error
+	Delete(tx *gorm.DB, m []string) error
 	// 検索_同一企業
 	SearchByCompany(m *dto.SearchTeamByCompany) ([]entity.SearchTeam, error)
 	// チーム紐づけ登録
@@ -37,7 +37,7 @@ type ITeamRepository interface {
 	// ユーザー紐づけ一覧取得
 	ListUserAssociation(m *ddl.TeamAssociation) ([]entity.TeamAssociation, error)
 	// チーム紐づけ削除
-	DeleteTeamAssociation(tx *gorm.DB, m *ddl.TeamAssociation) error
+	DeleteTeamAssociation(tx *gorm.DB, m []uint64) error
 	// チーム毎ステータスイベント取得
 	StatusEventsByTeam(m *ddl.Team) ([]entity.StatusEventsByTeam, error)
 	// チーム面接毎イベント取得
@@ -47,15 +47,15 @@ type ITeamRepository interface {
 	// 選考状況一括登録
 	InsertsSelectStatus(tx *gorm.DB, m []*ddl.SelectStatus) (*entity.ApplicantStatusList, error)
 	// 選考状況削除
-	DeleteSelectStatus(tx *gorm.DB, m *ddl.SelectStatus) error
+	DeleteSelectStatus(tx *gorm.DB, m []uint64) error
 	// イベント一括登録
 	InsertsEventAssociation(tx *gorm.DB, m []*ddl.TeamEvent) error
 	// イベント取得
 	SelectEventAssociation(m *ddl.TeamEvent) ([]entity.TeamEvent, error)
 	// イベント取得_複合PK
-	SelectEventAssociationByPrimaries(m *ddl.TeamEvent) (*entity.TeamEvent, error)
+	SelectEventAssociationByPrimaries(m *ddl.TeamEvent) ([]entity.TeamEvent, error)
 	// イベント削除
-	DeleteEventAssociation(tx *gorm.DB, m *ddl.TeamEvent) error
+	DeleteEventAssociation(tx *gorm.DB, m []uint64) error
 	// 面接毎イベント一括登録
 	InsertsEventEachInterviewAssociation(tx *gorm.DB, m []*ddl.TeamEventEachInterview) error
 	// ～次面接イベント取得
@@ -63,7 +63,7 @@ type ITeamRepository interface {
 	// ～次面接イベント取得_複合PK
 	GetEventEachInterviewAssociationByPrimaries(m *ddl.TeamEventEachInterview) (*entity.TeamEventEachInterview, error)
 	// 面接毎イベント削除
-	DeleteEventEachInterviewAssociation(tx *gorm.DB, m *ddl.TeamEventEachInterview) error
+	DeleteEventEachInterviewAssociation(tx *gorm.DB, m []uint64) error
 	// 面接毎イベント削除_面接回数
 	DeleteEventEachInterviewAssociationByNum(tx *gorm.DB, m *ddl.TeamEventEachInterview) error
 	// 面接自動割り当てルールイベント登録
@@ -73,7 +73,7 @@ type ITeamRepository interface {
 	// 面接自動割り当てルールイベント取得_Find
 	GetAutoAssignRuleFind(m *ddl.TeamAutoAssignRule) ([]entity.TeamAutoAssignRule, error)
 	// 面接自動割り当てルールイベント削除
-	DeleteAutoAssignRule(tx *gorm.DB, m *ddl.TeamAutoAssignRule) error
+	DeleteAutoAssignRule(tx *gorm.DB, m []uint64) error
 	// 面接割り振り優先順位一括登録
 	InsertsAssignPriority(tx *gorm.DB, m []*ddl.TeamAssignPriority) error
 	// 面接割り振り優先順位取得
@@ -83,7 +83,7 @@ type ITeamRepository interface {
 	// 面接割り振り優先順位取得_複数チーム
 	GetAssignPriorityTeams(m []uint64) ([]*entity.TeamAssignPriority, error)
 	// 面接割り振り優先順位削除
-	DeleteAssignPriority(tx *gorm.DB, m *ddl.TeamAssignPriority) error
+	DeleteAssignPriority(tx *gorm.DB, m []uint64) error
 	// 面接毎参加可能者一括登録
 	InsertsAssignPossible(tx *gorm.DB, m []*ddl.TeamAssignPossible) error
 	// 面接毎参加可能者取得
@@ -93,7 +93,7 @@ type ITeamRepository interface {
 	// 面接毎参加可能者予定取得
 	GetAssignPossibleSchedule(m *ddl.TeamAssignPossible) ([]entity.AssignPossibleSchedule, error)
 	// 面接毎参加可能者削除
-	DeleteAssignPossible(tx *gorm.DB, m *ddl.TeamAssignPossible) error
+	DeleteAssignPossible(tx *gorm.DB, m []uint64) error
 	// 面接毎参加可能者削除_面接回数
 	DeleteAssignPossibleByNum(tx *gorm.DB, m *ddl.TeamAssignPossible) error
 	// 面接毎設定一括登録
@@ -103,7 +103,7 @@ type ITeamRepository interface {
 	// 面接毎設定取得 by 面接回数
 	GetPerInterviewByNumOfInterview(m *ddl.TeamPerInterview) (*entity.TeamPerInterview, error)
 	// 面接毎設定削除
-	DeletePerInterview(tx *gorm.DB, m *ddl.TeamPerInterview) error
+	DeletePerInterview(tx *gorm.DB, m []uint64) error
 	// 面接毎設定削除_面接回数
 	DeletePerInterviewByNum(tx *gorm.DB, m *ddl.TeamPerInterview) error
 	// チームID取得
@@ -237,12 +237,8 @@ func (u *TeamRepository) Update(tx *gorm.DB, m *ddl.Team) (*entity.Team, error) 
 }
 
 // 削除
-func (u *TeamRepository) Delete(tx *gorm.DB, m *ddl.Team) error {
-	if err := tx.Where(&ddl.Team{
-		AbstractTransactionModel: ddl.AbstractTransactionModel{
-			HashKey: m.HashKey,
-		},
-	}).Delete(&ddl.Team{}).Error; err != nil {
+func (u *TeamRepository) Delete(tx *gorm.DB, m []string) error {
+	if err := tx.Where("hash_key IN ?", m).Delete(&ddl.Team{}).Error; err != nil {
 		log.Printf("%v", err)
 		return err
 	}
@@ -333,8 +329,10 @@ func (u *TeamRepository) ListUserAssociation(m *ddl.TeamAssociation) ([]entity.T
 }
 
 // チーム紐づけ削除
-func (u *TeamRepository) DeleteTeamAssociation(tx *gorm.DB, m *ddl.TeamAssociation) error {
-	if err := tx.Where(m).Delete(&ddl.TeamAssociation{}).Error; err != nil {
+func (u *TeamRepository) DeleteTeamAssociation(tx *gorm.DB, m []uint64) error {
+	if err := tx.
+		Where("team_id IN ?", m).
+		Delete(&ddl.TeamAssociation{}).Error; err != nil {
 		log.Printf("%v", err)
 		return err
 	}
@@ -419,10 +417,11 @@ func (u *TeamRepository) InsertsSelectStatus(tx *gorm.DB, m []*ddl.SelectStatus)
 }
 
 // 選考状況削除
-func (u *TeamRepository) DeleteSelectStatus(tx *gorm.DB, m *ddl.SelectStatus) error {
-	if err := tx.Model(&ddl.SelectStatus{}).Where(&ddl.SelectStatus{
-		TeamID: m.TeamID,
-	}).Delete(&ddl.User{}).Error; err != nil {
+func (u *TeamRepository) DeleteSelectStatus(tx *gorm.DB, m []uint64) error {
+	if err := tx.
+		Model(&ddl.SelectStatus{}).
+		Where("team_id IN ?", m).
+		Delete(&ddl.User{}).Error; err != nil {
 		log.Printf("%v", err)
 		return err
 	}
@@ -463,26 +462,24 @@ func (u *TeamRepository) SelectEventAssociation(m *ddl.TeamEvent) ([]entity.Team
 }
 
 // イベント取得_複合PK
-func (u *TeamRepository) SelectEventAssociationByPrimaries(m *ddl.TeamEvent) (*entity.TeamEvent, error) {
-	var res entity.TeamEvent
+func (u *TeamRepository) SelectEventAssociationByPrimaries(m *ddl.TeamEvent) ([]entity.TeamEvent, error) {
+	var res []entity.TeamEvent
 	if err := u.db.Where(
 		&ddl.TeamEvent{
 			TeamID:  m.TeamID,
 			EventID: m.EventID,
 		},
-	).First(&res).Error; err != nil {
+	).Find(&res).Error; err != nil {
 		log.Printf("%v", err)
 		return nil, err
 	}
 
-	return &res, nil
+	return res, nil
 }
 
 // イベント削除
-func (u *TeamRepository) DeleteEventAssociation(tx *gorm.DB, m *ddl.TeamEvent) error {
-	if err := tx.Model(&ddl.TeamEvent{}).Where(&ddl.TeamEvent{
-		TeamID: m.TeamID,
-	}).Delete(&ddl.TeamEvent{}).Error; err != nil {
+func (u *TeamRepository) DeleteEventAssociation(tx *gorm.DB, m []uint64) error {
+	if err := tx.Model(&ddl.TeamEvent{}).Where("team_id", m).Delete(&ddl.TeamEvent{}).Error; err != nil {
 		log.Printf("%v", err)
 		return err
 	}
@@ -521,10 +518,9 @@ func (u *TeamRepository) GetEventEachInterviewAssociationByPrimaries(m *ddl.Team
 }
 
 // 面接毎イベント削除
-func (u *TeamRepository) DeleteEventEachInterviewAssociation(tx *gorm.DB, m *ddl.TeamEventEachInterview) error {
-	if err := tx.Model(&ddl.TeamEventEachInterview{}).Where(&ddl.TeamEventEachInterview{
-		TeamID: m.TeamID,
-	}).Delete(&ddl.TeamEventEachInterview{}).Error; err != nil {
+func (u *TeamRepository) DeleteEventEachInterviewAssociation(tx *gorm.DB, m []uint64) error {
+	if err := tx.Model(&ddl.TeamEventEachInterview{}).
+		Where("team_id IN ?", m).Delete(&ddl.TeamEventEachInterview{}).Error; err != nil {
 		log.Printf("%v", err)
 		return err
 	}
@@ -607,10 +603,11 @@ func (u *TeamRepository) GetAutoAssignRuleFind(m *ddl.TeamAutoAssignRule) ([]ent
 }
 
 // 面接自動割り当てルールイベント削除
-func (u *TeamRepository) DeleteAutoAssignRule(tx *gorm.DB, m *ddl.TeamAutoAssignRule) error {
-	if err := tx.Where(&ddl.TeamAutoAssignRule{
-		TeamID: m.TeamID,
-	}).Delete(&ddl.TeamAutoAssignRule{}).Error; err != nil {
+func (u *TeamRepository) DeleteAutoAssignRule(tx *gorm.DB, m []uint64) error {
+	if err := tx.
+		Where("team_id IN ?", m).
+		Delete(&ddl.TeamAutoAssignRule{}).
+		Error; err != nil {
 		log.Printf("%v", err)
 		return err
 	}
@@ -688,10 +685,11 @@ func (u *TeamRepository) GetAssignPriorityTeams(m []uint64) ([]*entity.TeamAssig
 }
 
 // 面接割り振り優先順位削除
-func (u *TeamRepository) DeleteAssignPriority(tx *gorm.DB, m *ddl.TeamAssignPriority) error {
-	if err := tx.Where(&ddl.TeamAssignPriority{
-		TeamID: m.TeamID,
-	}).Delete(&ddl.TeamAssignPriority{}).Error; err != nil {
+func (u *TeamRepository) DeleteAssignPriority(tx *gorm.DB, m []uint64) error {
+	if err := tx.
+		Where("team_id", m).
+		Delete(&ddl.TeamAssignPriority{}).
+		Error; err != nil {
 		log.Printf("%v", err)
 		return err
 	}
@@ -771,10 +769,11 @@ func (u *TeamRepository) GetAssignPossibleSchedule(m *ddl.TeamAssignPossible) ([
 }
 
 // 面接毎参加可能者削除
-func (u *TeamRepository) DeleteAssignPossible(tx *gorm.DB, m *ddl.TeamAssignPossible) error {
-	if err := tx.Where(&ddl.TeamAssignPossible{
-		TeamID: m.TeamID,
-	}).Delete(&ddl.TeamAssignPossible{}).Error; err != nil {
+func (u *TeamRepository) DeleteAssignPossible(tx *gorm.DB, m []uint64) error {
+	if err := tx.
+		Where("team_id", m).
+		Delete(&ddl.TeamAssignPossible{}).
+		Error; err != nil {
 		log.Printf("%v", err)
 		return err
 	}
@@ -835,10 +834,11 @@ func (u *TeamRepository) GetPerInterviewByNumOfInterview(m *ddl.TeamPerInterview
 }
 
 // 面接毎設定削除
-func (u *TeamRepository) DeletePerInterview(tx *gorm.DB, m *ddl.TeamPerInterview) error {
-	if err := tx.Where(&ddl.TeamPerInterview{
-		TeamID: m.TeamID,
-	}).Delete(&ddl.TeamPerInterview{}).Error; err != nil {
+func (u *TeamRepository) DeletePerInterview(tx *gorm.DB, m []uint64) error {
+	if err := tx.
+		Where("team_id IN ?", m).
+		Delete(&ddl.TeamPerInterview{}).
+		Error; err != nil {
 		log.Printf("%v", err)
 		return err
 	}

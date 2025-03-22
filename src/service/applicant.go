@@ -10,6 +10,7 @@ import (
 	"api/src/repository"
 	"api/src/validator"
 	"context"
+	"fmt"
 	"log"
 	"math/rand"
 	"mime/multipart"
@@ -57,6 +58,8 @@ type IApplicantService interface {
 	UpdateSelectStatus(req *request.UpdateSelectStatus) *response.Error
 	// 結果入力
 	InputResult(req *request.InputResult) *response.Error
+	// S3ファイル削除
+	DeleteS3Files() *response.Error
 }
 
 type ApplicantService struct {
@@ -808,7 +811,7 @@ func (s *ApplicantService) S3Download(req *request.FileDownload) ([]byte, *strin
 	}
 
 	// S3からダウンロード
-	if applicant.ResumeExtension != "" && req.NamePre == "resume" {
+	if applicant.ResumeExtension != "" && req.NamePre == static.FILE_NAME_PRE_RESUME {
 		fileName := req.NamePre + "_" + applicant.Name + "_" + applicant.Email + "." + applicant.ResumeExtension
 		file, err := s.a.S3Download(fileName)
 		if err != nil {
@@ -819,7 +822,7 @@ func (s *ApplicantService) S3Download(req *request.FileDownload) ([]byte, *strin
 		}
 		return file, &fileName, nil
 	}
-	if applicant.CurriculumVitaeExtension != "" && req.NamePre == "curriculum_vitae" {
+	if applicant.CurriculumVitaeExtension != "" && req.NamePre == static.FILE_NAME_PRE_CURRICULUM_VITAE {
 		fileName := req.NamePre + "_" + applicant.Name + "_" + applicant.Email + "." + applicant.CurriculumVitaeExtension
 		file, err := s.a.S3Download(fileName)
 		if err != nil {
@@ -892,7 +895,7 @@ func (s *ApplicantService) GetOauthURL(req *request.GetOauthURL) (*response.GetO
 		}
 
 		if refreshToken == "" {
-			res, resErr := s.g.GetOauthURL()
+			res, resErr := s.g.GetOauthURL(req.IsHref)
 			if resErr != nil {
 				return nil, &response.Error{
 					Status: http.StatusInternalServerError,
@@ -1519,7 +1522,7 @@ func (s *ApplicantService) GetGoogleMeetUrl(req *request.GetGoogleMeetUrl) (*res
 	}
 
 	// トークン取得
-	token, tokenErr := s.g.GetAccessToken(&req.RefreshToken, &req.Code)
+	token, tokenErr := s.g.GetAccessToken(&req.RefreshToken, &req.Code, req.IsHref)
 	if tokenErr != nil {
 		log.Printf("%v", tokenErr)
 		return nil, &response.Error{
@@ -1528,11 +1531,20 @@ func (s *ApplicantService) GetGoogleMeetUrl(req *request.GetGoogleMeetUrl) (*res
 	}
 
 	// Google Meet Url 発行
+	// TZをAsia/Tokyoに
+	jst, jstErr := time.LoadLocation("Asia/Tokyo")
+	if jstErr != nil {
+		log.Printf("%v", jstErr)
+		return nil, &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
 	googleMeetUrl, googleMeetUrlErr := s.g.GetGoogleMeetUrl(
 		token,
-		user.Name,
-		schedule.Start,
-		schedule.End,
+		applicant.Name,
+		schedule.Start.In(jst),
+		schedule.End.In(jst),
+		req.IsHref,
 	)
 	if googleMeetUrlErr != nil {
 		log.Printf("%v", googleMeetUrlErr)
@@ -1740,9 +1752,7 @@ func (s *ApplicantService) UpdateStatus(req *request.UpdateStatus) *response.Err
 	}
 
 	// イベントを一度全削除
-	if err := s.t.DeleteEventAssociation(tx, &ddl.TeamEvent{
-		TeamID: teamID,
-	}); err != nil {
+	if err := s.t.DeleteEventAssociation(tx, []uint64{teamID}); err != nil {
 		if err := s.d.TxRollback(tx); err != nil {
 			return &response.Error{
 				Status: http.StatusInternalServerError,
@@ -1776,9 +1786,7 @@ func (s *ApplicantService) UpdateStatus(req *request.UpdateStatus) *response.Err
 	}
 
 	// 面接毎イベントを一度全削除
-	if err := s.t.DeleteEventEachInterviewAssociation(tx, &ddl.TeamEventEachInterview{
-		TeamID: teamID,
-	}); err != nil {
+	if err := s.t.DeleteEventEachInterviewAssociation(tx, []uint64{teamID}); err != nil {
 		if err := s.d.TxRollback(tx); err != nil {
 			return &response.Error{
 				Status: http.StatusInternalServerError,
@@ -2646,16 +2654,30 @@ func (s *ApplicantService) InputResult(req *request.InputResult) *response.Error
 		}
 	}
 
-	event, eventErr := s.t.SelectEventAssociationByPrimaries(&ddl.TeamEvent{
-		TeamID:  teamID,
-		EventID: eventID,
-	})
-	if eventErr != nil {
-		return &response.Error{
-			Status: http.StatusInternalServerError,
+	var events []entity.TeamEvent
+
+	if applicant.NumOfInterview == 1 {
+		events0, eventsErr := s.t.SelectEventAssociationByPrimaries(&ddl.TeamEvent{
+			TeamID:  teamID,
+			EventID: eventID,
+		})
+		if eventsErr != nil {
+			return &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+
+		events = append(events, events0...)
+		if len(events) > 1 {
+			fmt.Printf("primary key error")
+			return &response.Error{
+				Status: http.StatusInternalServerError,
+			}
+		}
+		if len(events) == 1 {
+			status = events[0].StatusID
 		}
 	}
-	status = event.StatusID
 
 	// 二次面接以降
 	if eventID == 0 {
@@ -2686,23 +2708,45 @@ func (s *ApplicantService) InputResult(req *request.InputResult) *response.Error
 	}
 
 	// 過程更新
-	if err := s.r.Update(tx, &ddl.Applicant{
-		AbstractTransactionModel: ddl.AbstractTransactionModel{
-			HashKey:   req.HashKey,
-			UpdatedAt: time.Now(),
-		},
-		ProcessingID:    processing.ID,
-		NumOfInterview:  numOfInterview,
-		DocumentPassFlg: documentPassFlg,
-		Status:          status,
-	}); err != nil {
-		if err := s.d.TxRollback(tx); err != nil {
+	if len(events) == 1 {
+		if err := s.r.Update(tx, &ddl.Applicant{
+			AbstractTransactionModel: ddl.AbstractTransactionModel{
+				HashKey:   req.HashKey,
+				UpdatedAt: time.Now(),
+			},
+			ProcessingID:    processing.ID,
+			NumOfInterview:  numOfInterview,
+			DocumentPassFlg: documentPassFlg,
+			Status:          status,
+		}); err != nil {
+			if err := s.d.TxRollback(tx); err != nil {
+				return &response.Error{
+					Status: http.StatusInternalServerError,
+				}
+			}
 			return &response.Error{
 				Status: http.StatusInternalServerError,
 			}
 		}
-		return &response.Error{
-			Status: http.StatusInternalServerError,
+	} else {
+		if err := s.r.Update(tx, &ddl.Applicant{
+			AbstractTransactionModel: ddl.AbstractTransactionModel{
+				HashKey:   req.HashKey,
+				UpdatedAt: time.Now(),
+			},
+			ProcessingID:    processing.ID,
+			NumOfInterview:  numOfInterview,
+			DocumentPassFlg: documentPassFlg,
+			Status:          status,
+		}); err != nil {
+			if err := s.d.TxRollback(tx); err != nil {
+				return &response.Error{
+					Status: http.StatusInternalServerError,
+				}
+			}
+			return &response.Error{
+				Status: http.StatusInternalServerError,
+			}
 		}
 	}
 
@@ -2740,6 +2784,34 @@ func (s *ApplicantService) InputResult(req *request.InputResult) *response.Error
 	if err := s.d.TxCommit(tx); err != nil {
 		return &response.Error{
 			Status: http.StatusInternalServerError,
+		}
+	}
+
+	return nil
+}
+
+// S3ファイル削除
+func (s *ApplicantService) DeleteS3Files() *response.Error {
+	// ファイル削除対象応募者取得
+	applicants, applicantsErr := s.r.GetRejections()
+	if applicantsErr != nil {
+		return &response.Error{
+			Status: http.StatusInternalServerError,
+		}
+	}
+
+	var keys []string
+	for _, applicant := range applicants {
+		keys = append(keys, static.FILE_NAME_PRE_RESUME+"_"+applicant.Name+"_"+applicant.Email+"."+applicant.ResumeExtension)
+		keys = append(keys, static.FILE_NAME_PRE_CURRICULUM_VITAE+"_"+applicant.Name+"_"+applicant.Email+"."+applicant.CurriculumVitaeExtension)
+	}
+
+	// S3から削除
+	if len(keys) > 0 {
+		if err := s.a.S3DeleteFiles(keys); err != nil {
+			return &response.Error{
+				Status: http.StatusInternalServerError,
+			}
 		}
 	}
 

@@ -22,6 +22,19 @@ type CreateManuscript struct {
 	Sites []string `json:"sites"`
 }
 
+// 更新
+type UpdateManuscript struct {
+	Abstract
+	// ハッシュキー
+	HashKey string `json:"hash_key"`
+	// 内容
+	Content string `json:"content"`
+	// 使用可能チーム
+	Teams []string `json:"teams"`
+	// 使用可能サイト
+	Sites []string `json:"sites"`
+}
+
 // 応募者紐づけ登録
 type CreateApplicantAssociation struct {
 	Abstract
@@ -40,4 +53,11 @@ type SearchManuscriptByTeam struct {
 type DeleteManuscriptRequest struct {
 	Abstract
 	ManuscriptHashKeys []string `json:"manuscript_hash_keys"`
+}
+
+// 取得
+type GetManuscript struct {
+	Abstract
+	// ハッシュキー
+	HashKey string `json:"hash_key"`
 }

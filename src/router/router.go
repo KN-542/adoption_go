@@ -58,6 +58,8 @@ func NewRouter(
 	e.POST("/user/search", user.Search)
 	e.POST("/user/create", user.Create)
 	e.POST("/user/delete", user.Delete)
+	e.POST("/user/get", user.Get)
+	e.POST("/user/update", user.Update)
 
 	// チーム
 	e.POST("/team/create", team.Create)
@@ -73,6 +75,7 @@ func NewRouter(
 	e.POST("/schedule/update", schedule.Update)
 	e.POST("/schedule/search", schedule.Search)
 	e.POST("/schedule/delete", schedule.Delete)
+	e.POST("/schedule/update_batch", schedule.UpdateBatch)
 
 	// 企業
 	e.POST("/company/create", company.Create)
@@ -96,6 +99,7 @@ func NewRouter(
 	e.POST("/applicant/update_type", applicant.CreateApplicantTypeAssociation)
 	e.POST("/applicant/update_status", applicant.UpdateSelectStatus)
 	e.POST("/applicant/result", applicant.InputResult)
+	e.POST("/applicant/delete_s3", applicant.DeleteS3Files)
 
 	// ロール
 	e.POST("/role/search_company", role.SearchByCompanyID)
@@ -106,6 +110,8 @@ func NewRouter(
 	e.POST("/manuscript/create", manuscript.Create)
 	e.POST("/manuscript/assign_applicant", manuscript.CreateApplicantAssociation)
 	e.POST("/manuscript/delete", manuscript.Delete)
+	e.POST("/manuscript/get", manuscript.Get)
+	e.POST("/manuscript/update", manuscript.Update)
 
 	// 設定
 	e.POST("/setting/get_team", team.GetOwn)

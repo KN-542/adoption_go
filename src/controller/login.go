@@ -123,7 +123,7 @@ func (c *LoginController) JWTDecode(e echo.Context) error {
 
 	// JWT検証
 	if err := JWTDecodeCommon(c, e, req.HashKey, JWT_TOKEN, JWT_SECRET, true); err != nil {
-		return err
+		return e.JSON(err.Status, response.ErrorConvert(*err))
 	}
 
 	return e.JSON(http.StatusOK, "OK")
@@ -247,7 +247,7 @@ func (c *LoginController) JWTDecodeApplicant(e echo.Context) error {
 
 	// JWT検証
 	if err := JWTDecodeCommon(c, e, req.HashKey, JWT_TOKEN2, JWT_SECRET2, false); err != nil {
-		return err
+		return e.JSON(err.Status, response.ErrorConvert(*err))
 	}
 
 	return e.JSON(http.StatusOK, "OK")

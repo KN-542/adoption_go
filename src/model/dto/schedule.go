@@ -8,3 +8,10 @@ type GetScheduleByUser struct {
 	// 除外予定ハッシュリスト
 	RemoveScheduleHashKeys []string `json:"remove_schedule_hash_keys"`
 }
+
+// 予定検索
+type SearchSchedule struct {
+	ddl.Schedule
+	// ユーザー
+	Users []string
+}

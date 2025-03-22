@@ -27,7 +27,7 @@ type UpdateBasicTeam struct {
 // チーム削除
 type DeleteTeam struct {
 	Abstract
-	ddl.Team
+	HashKeys []string `json:"hash_keys"`
 }
 
 // チーム取得

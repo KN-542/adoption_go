@@ -54,7 +54,7 @@ func (c *CompanyController) Create(e echo.Context) error {
 		JWT_SECRET,
 		true,
 	); err != nil {
-		return err
+		return e.JSON(err.Status, response.ErrorConvert(*err))
 	}
 
 	// ロールチェック
@@ -101,7 +101,7 @@ func (c *CompanyController) Search(e echo.Context) error {
 		JWT_SECRET,
 		true,
 	); err != nil {
-		return err
+		return e.JSON(err.Status, response.ErrorConvert(*err))
 	}
 
 	// ロールチェック

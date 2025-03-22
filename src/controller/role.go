@@ -50,7 +50,7 @@ func (c *RoleController) SearchByCompanyID(e echo.Context) error {
 		JWT_SECRET,
 		true,
 	); err != nil {
-		return err
+		return e.JSON(err.Status, response.ErrorConvert(*err))
 	}
 
 	// ロールチェック

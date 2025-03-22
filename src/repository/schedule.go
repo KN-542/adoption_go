@@ -4,6 +4,7 @@ import (
 	"api/src/model/ddl"
 	"api/src/model/dto"
 	"api/src/model/entity"
+	"api/src/model/static"
 	"log"
 	"time"
 
@@ -16,7 +17,7 @@ type IScheduleRepository interface {
 	// 予定一括登録
 	Inserts(tx *gorm.DB, m []*ddl.Schedule) error
 	// 予定検索
-	Search(m *ddl.Schedule) ([]*entity.Schedule, error)
+	Search(m *dto.SearchSchedule) ([]*entity.Schedule, error)
 	// 予定取得
 	Get(m *ddl.Schedule) (*entity.Schedule, error)
 	// 予定取得_PK
@@ -27,6 +28,14 @@ type IScheduleRepository interface {
 	Update(tx *gorm.DB, m *ddl.Schedule) error
 	// 予定更新_PK
 	UpdateByPrimary(tx *gorm.DB, m *ddl.Schedule) error
+	// 予定更新_Day
+	UpdateDays(tx *gorm.DB) error
+	// 予定更新_WEEK
+	UpdateWeeks(tx *gorm.DB) error
+	// 予定更新_MONTH
+	UpdateMonths(tx *gorm.DB) error
+	// 予定更新_YEAR
+	UpdateYears(tx *gorm.DB) error
 	// 予定削除
 	Delete(tx *gorm.DB, m *ddl.Schedule) error
 	// 予定一括削除
@@ -43,6 +52,8 @@ type IScheduleRepository interface {
 	GetScheduleByUser(m *dto.GetScheduleByUser) ([]entity.Schedule2, error)
 	// 予定紐づけ削除
 	DeleteScheduleAssociation(tx *gorm.DB, m *ddl.ScheduleAssociation) error
+	// 該当のチームIDと紐付いているスケジュール数を取得
+	CountByTeamID(m []uint64) (int64, error)
 }
 
 type ScheduleRepository struct {
@@ -74,12 +85,30 @@ func (u *ScheduleRepository) Inserts(tx *gorm.DB, m []*ddl.Schedule) error {
 }
 
 // 予定検索
-func (u *ScheduleRepository) Search(m *ddl.Schedule) ([]*entity.Schedule, error) {
-	var res []*entity.Schedule
+func (u *ScheduleRepository) Search(m *dto.SearchSchedule) ([]*entity.Schedule, error) {
+	var schedules []*entity.Schedule
 
 	query := u.db.Table("t_schedule").
-		Select(`
-		t_schedule.id,
+		Joins("LEFT JOIN m_schedule_freq_status ON t_schedule.freq_id = m_schedule_freq_status.id").
+		Where("t_schedule.company_id = ?", m.CompanyID)
+
+	if m.InterviewFlg == uint(static.USER_INTERVIEW) {
+		query = query.Where("t_schedule.interview_flg = ?", uint(static.USER_INTERVIEW))
+	}
+
+	if len(m.Users) > 0 {
+		query = query.Joins(`
+			INNER JOIN
+				t_schedule_association
+			ON
+				t_schedule_association.schedule_id = t_schedule.id
+		`).
+			Joins("INNER JOIN t_user ON t_schedule_association.user_id = t_user.id").
+			Where("t_user.hash_key IN ?", m.Users)
+	}
+
+	if err := query.Select(`
+		DISTINCT t_schedule.id,
 		t_schedule.hash_key,
 		t_schedule.title,
 		t_schedule.freq_id,
@@ -87,17 +116,60 @@ func (u *ScheduleRepository) Search(m *ddl.Schedule) ([]*entity.Schedule, error)
 		t_schedule.start,
 		t_schedule.end,
 		m_schedule_freq_status.freq_name
-	`).
-		Joins("LEFT JOIN m_schedule_freq_status ON t_schedule.freq_id = m_schedule_freq_status.id").
-		Where("t_schedule.team_id = ?", m.TeamID)
-
-	if err := query.Preload("Users", func(db *gorm.DB) *gorm.DB {
-		return db.Table("t_user").Select("id, hash_key, name, email")
-	}).Find(&res).Error; err != nil {
+	`).Find(&schedules).Error; err != nil {
 		log.Printf("%v", err)
 		return nil, err
 	}
-	return res, nil
+
+	var scheduleIDs []uint64
+	for _, schedule := range schedules {
+		scheduleIDs = append(scheduleIDs, schedule.ID)
+	}
+
+	var userAssociations []struct {
+		ScheduleID uint64
+		UserID     uint64
+		Name       string
+		Email      string
+		HashKey    string
+	}
+
+	if len(scheduleIDs) > 0 {
+		if err := u.db.Table("t_schedule_association").
+			Select(`
+				t_schedule_association.schedule_id,
+				t_user.id as user_id,
+				t_user.name,
+				t_user.email,
+				t_user.hash_key
+			`).
+			Joins("INNER JOIN t_user ON t_schedule_association.user_id = t_user.id").
+			Where("t_schedule_association.schedule_id IN ?", scheduleIDs).
+			Find(&userAssociations).Error; err != nil {
+			log.Printf("%v", err)
+			return nil, err
+		}
+	}
+
+	userMap := make(map[uint64][]*entity.User)
+	for _, assoc := range userAssociations {
+		userMap[assoc.ScheduleID] = append(userMap[assoc.ScheduleID], &entity.User{
+			User: ddl.User{
+				AbstractTransactionModel: ddl.AbstractTransactionModel{
+					ID:      assoc.UserID,
+					HashKey: assoc.HashKey,
+				},
+				Name:  assoc.Name,
+				Email: assoc.Email,
+			},
+		})
+	}
+
+	for _, schedule := range schedules {
+		schedule.Users = userMap[schedule.ID]
+	}
+
+	return schedules, nil
 }
 
 // 予定取得_PK
@@ -191,6 +263,118 @@ func (u *ScheduleRepository) UpdateByPrimary(tx *gorm.DB, m *ddl.Schedule) error
 		FreqID:       m.FreqID,
 		Start:        m.Start,
 		End:          m.End,
+	}).Error; err != nil {
+		log.Printf("%v", err)
+		return err
+	}
+
+	return nil
+}
+
+// 予定更新_Day
+func (u *ScheduleRepository) UpdateDays(tx *gorm.DB) error {
+	if err := tx.Model(&ddl.Schedule{}).Where(
+		&ddl.Schedule{
+			FreqID: static.FREQ_DAILY,
+		},
+	).Updates(map[string]interface{}{
+		"updated_at": time.Now(),
+		"start": gorm.Expr(`
+			CASE 
+				WHEN "start"::date >= ?::date THEN "start" 
+				ELSE (?::date + "start"::time)::timestamp 
+			END`,
+			time.Now(), time.Now()),
+		"end": gorm.Expr(`
+			CASE 
+				WHEN "end"::date >= ?::date THEN "end" 
+				ELSE (?::date + "end"::time)::timestamp 
+			END`,
+			time.Now(), time.Now()),
+	}).Error; err != nil {
+		log.Printf("%v", err)
+		return err
+	}
+
+	return nil
+}
+
+// 予定更新_WEEK
+func (u *ScheduleRepository) UpdateWeeks(tx *gorm.DB) error {
+	if err := tx.Model(&ddl.Schedule{}).Where(
+		&ddl.Schedule{
+			FreqID: static.FREQ_WEEKLY,
+		},
+	).Updates(map[string]interface{}{
+		"updated_at": time.Now(),
+		"start": gorm.Expr(`
+			CASE 
+				WHEN "start"::date >= ?::date THEN "start" 
+				ELSE ("start" + INTERVAL '1 week')::timestamp 
+			END`,
+			time.Now()),
+		"end": gorm.Expr(`
+			CASE 
+				WHEN "end"::date >= ?::date THEN "end" 
+				ELSE ("end" + INTERVAL '1 week')::timestamp 
+			END`,
+			time.Now()),
+	}).Error; err != nil {
+		log.Printf("%v", err)
+		return err
+	}
+
+	return nil
+}
+
+// 予定更新_MONTH
+func (u *ScheduleRepository) UpdateMonths(tx *gorm.DB) error {
+	if err := tx.Model(&ddl.Schedule{}).Where(
+		&ddl.Schedule{
+			FreqID: static.FREQ_MONTHLY,
+		},
+	).Updates(map[string]interface{}{
+		"updated_at": time.Now(),
+		"start": gorm.Expr(`
+			CASE 
+				WHEN "start"::date >= ?::date THEN "start" 
+				ELSE ("start" + INTERVAL '1 month')::timestamp 
+			END`,
+			time.Now()),
+		"end": gorm.Expr(`
+			CASE 
+				WHEN "end"::date >= ?::date THEN "end" 
+				ELSE ("end" + INTERVAL '1 month')::timestamp 
+			END`,
+			time.Now()),
+	}).Error; err != nil {
+		log.Printf("%v", err)
+		return err
+	}
+
+	return nil
+}
+
+// 予定更新_YEAR
+func (u *ScheduleRepository) UpdateYears(tx *gorm.DB) error {
+	if err := tx.Model(&ddl.Schedule{}).Where(
+		&ddl.Schedule{
+			FreqID: static.FREQ_YEARLY,
+		},
+	).Updates(map[string]interface{}{
+		"updated_at": time.Now(),
+		"start": gorm.Expr(`
+			CASE 
+				WHEN "start"::date >= ?::date THEN "start" 
+				ELSE ("start" + INTERVAL '1 year')::timestamp 
+			END`,
+			time.Now()),
+		"end": gorm.Expr(`
+			CASE 
+				WHEN "end"::date >= ?::date THEN "end" 
+				ELSE ("end" + INTERVAL '1 year')::timestamp 
+			END`,
+			time.Now()),
 	}).Error; err != nil {
 		log.Printf("%v", err)
 		return err
@@ -304,4 +488,17 @@ func (u *ScheduleRepository) DeleteScheduleAssociation(tx *gorm.DB, m *ddl.Sched
 		return err
 	}
 	return nil
+}
+
+// 該当のチームIDと紐付いているスケジュール数を取得
+func (u *ScheduleRepository) CountByTeamID(m []uint64) (int64, error) {
+	var res int64
+	if err := u.db.
+		Table("t_schedule").
+		Where("team_id IN ?", m).
+		Count(&res).Error; err != nil {
+		log.Printf("%v", err)
+		return 0, err
+	}
+	return res, nil
 }

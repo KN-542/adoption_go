@@ -72,7 +72,7 @@ func (c *TeamController) Search(e echo.Context) error {
 		JWT_SECRET,
 		true,
 	); err != nil {
-		return err
+		return e.JSON(err.Status, response.ErrorConvert(*err))
 	}
 
 	// ロールチェック
@@ -116,7 +116,7 @@ func (c *TeamController) Create(e echo.Context) error {
 		JWT_SECRET,
 		true,
 	); err != nil {
-		return err
+		return e.JSON(err.Status, response.ErrorConvert(*err))
 	}
 
 	// ロールチェック
@@ -159,7 +159,7 @@ func (c *TeamController) Update(e echo.Context) error {
 		JWT_SECRET,
 		true,
 	); err != nil {
-		return err
+		return e.JSON(err.Status, response.ErrorConvert(*err))
 	}
 
 	// ロールチェック
@@ -202,7 +202,7 @@ func (c *TeamController) UpdateBasic(e echo.Context) error {
 		JWT_SECRET,
 		true,
 	); err != nil {
-		return err
+		return e.JSON(err.Status, response.ErrorConvert(*err))
 	}
 
 	// ロールチェック
@@ -245,7 +245,7 @@ func (c *TeamController) Delete(e echo.Context) error {
 		JWT_SECRET,
 		true,
 	); err != nil {
-		return err
+		return e.JSON(err.Status, response.ErrorConvert(*err))
 	}
 
 	// ロールチェック
@@ -288,7 +288,7 @@ func (c *TeamController) Get(e echo.Context) error {
 		JWT_SECRET,
 		true,
 	); err != nil {
-		return err
+		return e.JSON(err.Status, response.ErrorConvert(*err))
 	}
 
 	// ロールチェック
@@ -332,7 +332,7 @@ func (c *TeamController) GetOwn(e echo.Context) error {
 		JWT_SECRET,
 		true,
 	); err != nil {
-		return err
+		return e.JSON(err.Status, response.ErrorConvert(*err))
 	}
 
 	// ロールチェック
@@ -376,7 +376,7 @@ func (c *TeamController) SearchByCompany(e echo.Context) error {
 		JWT_SECRET,
 		true,
 	); err != nil {
-		return err
+		return e.JSON(err.Status, response.ErrorConvert(*err))
 	}
 
 	// ロールチェック
@@ -420,7 +420,7 @@ func (c *TeamController) StatusEvents(e echo.Context) error {
 		JWT_SECRET,
 		true,
 	); err != nil {
-		return err
+		return e.JSON(err.Status, response.ErrorConvert(*err))
 	}
 
 	// ロールチェック

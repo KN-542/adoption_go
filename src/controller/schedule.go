@@ -23,6 +23,8 @@ type IScheduleController interface {
 	Search(e echo.Context) error
 	// 削除
 	Delete(e echo.Context) error
+	// 予定更新バッチ
+	UpdateBatch(e echo.Context) error
 }
 
 type ScheduleController struct {
@@ -71,7 +73,7 @@ func (c *ScheduleController) Insert(e echo.Context) error {
 		JWT_SECRET,
 		true,
 	); err != nil {
-		return err
+		return e.JSON(err.Status, response.ErrorConvert(*err))
 	}
 
 	// ロールチェック
@@ -114,7 +116,7 @@ func (c *ScheduleController) Update(e echo.Context) error {
 		JWT_SECRET,
 		true,
 	); err != nil {
-		return err
+		return e.JSON(err.Status, response.ErrorConvert(*err))
 	}
 
 	// ロールチェック
@@ -157,7 +159,7 @@ func (c *ScheduleController) Search(e echo.Context) error {
 		JWT_SECRET,
 		true,
 	); err != nil {
-		return err
+		return e.JSON(err.Status, response.ErrorConvert(*err))
 	}
 
 	// ロールチェック
@@ -201,7 +203,7 @@ func (c *ScheduleController) Delete(e echo.Context) error {
 		JWT_SECRET,
 		true,
 	); err != nil {
-		return err
+		return e.JSON(err.Status, response.ErrorConvert(*err))
 	}
 
 	// ロールチェック
@@ -222,6 +224,14 @@ func (c *ScheduleController) Delete(e echo.Context) error {
 	}
 
 	if err := c.s.Delete(&req); err != nil {
+		return e.JSON(err.Status, response.ErrorConvert(*err))
+	}
+	return e.JSON(http.StatusOK, "OK")
+}
+
+// 予定更新バッチ
+func (c *ScheduleController) UpdateBatch(e echo.Context) error {
+	if err := c.s.UpdateBatch(); err != nil {
 		return e.JSON(err.Status, response.ErrorConvert(*err))
 	}
 	return e.JSON(http.StatusOK, "OK")

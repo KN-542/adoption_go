@@ -29,7 +29,7 @@ func getServiceFromController[T any](c *T) (service.ILoginService, error) {
 }
 
 // JWT検証_共通化
-func JWTDecodeCommon[T any](c *T, e echo.Context, hash_key string, token string, secret string, isUser bool) error {
+func JWTDecodeCommon[T any](c *T, e echo.Context, hash_key string, token string, secret string, isUser bool) *response.Error {
 	// Go単体で動作確認したい場合はGO_ENVをlocalに
 	if os.Getenv("GO_ENV") == "local" {
 		return nil
@@ -38,17 +38,22 @@ func JWTDecodeCommon[T any](c *T, e echo.Context, hash_key string, token string,
 	s, err := getServiceFromController(c)
 	if err != nil {
 		log.Printf("%v", err)
-		return e.JSON(http.StatusUnauthorized, err)
+		return &response.Error{
+			Status: http.StatusUnauthorized,
+		}
 	}
 
 	cookie, err2 := e.Cookie(token)
 	if err2 != nil {
+		log.Printf(static.MESSAGE_UNEXPECTED_COOKIE)
 		log.Printf("%v", err2)
-		return e.JSON(http.StatusUnauthorized, fmt.Errorf(static.MESSAGE_UNEXPECTED_COOKIE))
+		return &response.Error{
+			Status: http.StatusUnauthorized,
+		}
 	}
 	if err := s.JWTDecode(cookie, secret); err != nil {
 		log.Printf("%v", err)
-		return e.JSON(err.Status, response.ErrorConvert(*err))
+		return err
 	}
 
 	if isUser {
@@ -60,7 +65,7 @@ func JWTDecodeCommon[T any](c *T, e echo.Context, hash_key string, token string,
 				},
 			},
 		}); err != nil {
-			return e.JSON(err.Status, response.ErrorConvert(*err))
+			return err
 		}
 	} else {
 		// 応募者チェック
@@ -71,14 +76,14 @@ func JWTDecodeCommon[T any](c *T, e echo.Context, hash_key string, token string,
 				},
 			},
 		}); err != nil {
-			return e.JSON(err.Status, response.ErrorConvert(*err))
+			return err
 		}
 	}
 
 	// JWT＆Cookie 更新
 	cookie, err3 := s.JWT(&hash_key, token, secret)
 	if err3 != nil {
-		return e.JSON(err3.Status, response.ErrorConvert(*err3))
+		return err3
 	}
 	e.SetCookie(cookie)
 

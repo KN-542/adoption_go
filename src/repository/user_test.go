@@ -3,6 +3,7 @@ package repository
 import (
 	"api/src/infra"
 	"api/src/model/ddl"
+	"api/src/model/dto"
 	"api/src/model/entity"
 	"reflect"
 	"testing"
@@ -547,7 +548,7 @@ func TestUserRepository_SearchSchedule(t *testing.T) {
 		db *gorm.DB
 	}
 	type args struct {
-		m *ddl.Schedule
+		m *dto.SearchSchedule
 	}
 	tests := []struct {
 		name    string
